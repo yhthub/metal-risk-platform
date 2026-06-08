@@ -36,9 +36,7 @@
             <div class="dv-left">
               <span class="dv-label">当前评估对象挂载特征文件：</span>
               <div class="file-chips">
-                <el-tag size="large" effect="plain" round class="custom-tag"><el-icon><Document /></el-icon> SZ-102_Profile.csv</el-tag>
-                <el-tag size="large" effect="plain" round class="custom-tag"><el-icon><Document /></el-icon> LIS_Biomarkers.lst</el-tag>
-                <el-tag size="large" effect="plain" round class="custom-tag"><el-icon><Document /></el-icon> Smelting_Exposure.csv</el-tag>
+                <el-tag size="large" effect="plain" round class="custom-tag"><el-icon><Document /></el-icon> 第一熔炼车间_全体环境与生物监测表.csv</el-tag>
               </div>
             </div>
             <div class="dv-right">
@@ -54,9 +52,35 @@
               <el-icon class="p-arrow"><ArrowRight /></el-icon>
               <el-tag type="success" effect="dark" round size="small"><el-icon><CircleCheck /></el-icon> 多维可视化分析已完成</el-tag>
               <el-icon class="p-arrow"><ArrowRight /></el-icon>
-              <el-tag type="danger" effect="dark" round size="small"><el-icon><Warning /></el-icon> 风险预警模型核验 (三级危险)</el-tag>
+              <el-tag type="warning" effect="dark" round size="small"><el-icon><Warning /></el-icon> 已识别 10 名高危易感个体</el-tag>
             </div>
-            <el-button link type="primary" class="detail-btn">查看特征明细</el-button>
+            <el-button link type="primary" class="detail-btn" @click="goToWorkspace">查看特征明细</el-button>
+          </div>
+        </div>
+
+        <!-- 预警人群分级选择 -->
+        <div class="warning-level-section">
+          <div class="wls-header">
+            <h3><el-icon><UserFilled /></el-icon> 预警人群分级与干预策略匹配</h3>
+            <p class="wls-desc">系统已根据因果风险评估将预警对象分为两级，不同级别对应不同预防策略：</p>
+          </div>
+          <div class="wls-cards">
+            <div class="wls-card" :class="{ active: selectedLevel === 'level2' }" @click="selectedLevel = 'level2'">
+              <div class="wls-badge danger">二级预防</div>
+              <div class="wls-info">
+                <h4>高危易感人群 <span class="wls-count">4 人</span></h4>
+                <p>因果风险增幅 > 45%，需早期筛查、进一步诊断与临床干预</p>
+                <div class="wls-workers">SZ-284 · SZ-105 · SZ-032 · SZ-142</div>
+              </div>
+            </div>
+            <div class="wls-card" :class="{ active: selectedLevel === 'level1' }" @click="selectedLevel = 'level1'">
+              <div class="wls-badge warn">一级预防</div>
+              <div class="wls-info">
+                <h4>中危预警人群 <span class="wls-count">6 人</span></h4>
+                <p>因果风险增幅 18%~45%，以健康教育、环境改善、营养干预为主</p>
+                <div class="wls-workers">SZ-089 · SZ-311 · SZ-402 · SZ-175 · SZ-219 · SZ-056</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -64,7 +88,7 @@
           <div class="action-content">
             <div class="a-text">
               <h3>智能干预策略矩阵生成</h3>
-              <p>系统将基于 XGBoost 与因果图谱的测算结果，为您生成 12 套涵盖四大维度的深度干预预案，并提供直观的干预成效对比。</p>
+              <p>系统将基于风险评估结果，为{{ selectedLevel === 'level2' ? '高危易感人群（二级预防：早期筛查 + 临床干预）' : '中危预警人群（一级预防：健康教育 + 环境改善）' }}生成针对性干预预案。</p>
             </div>
             <el-button type="primary" size="large" class="btn-generate" @click="startGeneration" :loading="isGenerating">
               ✨ {{ isGenerating ? 'AI 多维策略推演中...' : '一键推演干预矩阵与成效' }}
@@ -85,10 +109,10 @@
           
           <div class="thinking-body" v-show="isThinkingExpanded">
             <ul class="think-steps">
-              <li class="t-step active">锁定靶点：识别靶器官【中枢神经系统】与致病因子【Pb, As】...</li>
-              <li class="t-step" :class="{'active': genProgress >= 1}">查询文献库：匹配《国家职业病防治指南》及络合剂使用规范...</li>
-              <li class="t-step" :class="{'active': genProgress >= 2}">制定干预矩阵：生成 12 套独立阻断方案，并分配实施权重...</li>
-              <li class="t-step" :class="{'active': genProgress >= 3}">构建成效测算：并行调用 24 个 ECharts 实例，量化每套方案的预期收益...</li>
+              <li class="t-step active">锁定靶点：识别靶器官【中枢神经系统、肾脏】与致病因子【Pb, As, Cd】...</li>
+              <li class="t-step" :class="{'active': genProgress >= 1}">匹配预防级别：{{ selectedLevel === 'level2' ? '高危人群 → 二级预防策略（早期筛查 + 临床干预）' : '中危人群 → 一级预防策略（健康教育 + 环境阻断）' }}...</li>
+              <li class="t-step" :class="{'active': genProgress >= 2}">查询文献库：匹配《国家职业病防治指南》及《职业健康监护技术规范》...</li>
+              <li class="t-step" :class="{'active': genProgress >= 3}">制定干预矩阵：生成针对性阻断方案，并分配实施权重...</li>
               <li class="t-step" :class="{'active': genProgress >= 4}">渲染就绪：多维阻断策略及预测对比图表已生成。</li>
             </ul>
           </div>
@@ -99,69 +123,150 @@
           <div class="alert-conclusion-banner">
             <div class="a-icon"><el-icon><Check /></el-icon></div>
             <div class="a-content">
-              <h4>干预策略池生成完毕：<span class="level-safe">【共提供 12 套可选阻断方案】</span></h4>
-              <p>以下方案已通过 <strong>AHP 层析分析法</strong> 评估了临床可行性与工程成本。您可以查阅每个预案的详细执行机制，<strong>鼠标悬停可查看深度解析</strong>，并通过内嵌的对比图直观评估预期成效。</p>
+              <h4>干预策略池生成完毕：<span class="level-safe">【{{ selectedLevel === 'level2' ? '二级预防：高危人群早期筛查与临床干预' : '一级预防：中危人群健康教育与环境阻断' }}】</span></h4>
+              <p>{{ selectedLevel === 'level2'
+                ? '以下方案面向因果风险增幅 > 45% 的 4 名高危个体，重点在于进一步检查确认、早期临床干预和高频随访，防止疾病进展。'
+                : '以下方案面向全体 10 名预警对象，重点在于健康教育、暴露源阻断和营养支持，防止疾病发生。' }}</p>
             </div>
           </div>
 
-          <div class="dimension-tabs">
-            <div 
-              v-for="cat in interventionMatrix" 
-              :key="'tab-' + cat.id"
-              class="tab-item"
-              :class="{ active: activeTab === cat.id }"
-              @click="switchTab(cat.id)"
-            >
-              {{ cat.category }}
+          <!-- 二级预防：高危人群个人化干预流程 -->
+          <div v-if="selectedLevel === 'level2'">
+            <div class="person-tabs">
+              <div
+                v-for="person in highRiskPersons"
+                :key="person.id"
+                class="person-tab"
+                :class="{ active: activePerson === person.id }"
+                @click="activePerson = person.id"
+              >
+                <span class="pt-id">{{ person.id }}</span>
+                <span class="pt-score" :class="person.levelClass">{{ person.score }}%</span>
+              </div>
             </div>
-          </div>
 
-          <div class="dimension-section" v-for="cat in interventionMatrix" :key="cat.id" v-show="activeTab === cat.id">
-            <el-row :gutter="24" class="stretch-row">
-              <el-col :span="8" v-for="(plan, index) in cat.plans" :key="plan.id" class="stretch-col">
-                <el-popover placement="right" :width="320" trigger="hover" popper-class="custom-popover">
-                  <template #reference>
-                    <el-card class="plan-card" shadow="hover">
-                      <div class="plan-header">
-                        <span class="plan-badge">方案 0{{ index + 1 }}</span>
-                        <h4 class="plan-title">{{ plan.title }}</h4>
-                      </div>
-                      
-                      <div class="plan-body">
-                        <div class="plan-desc"><strong>执行指令：</strong>{{ plan.desc }}</div>
-                        <div class="plan-mech"><strong>干预机制：</strong>{{ plan.mechanism }}</div>
-                      </div>
-                      
-                      <div class="mini-charts-grid">
-                        <div class="m-chart-item">
-                          <div class="m-c-title">重金属暴露衰减评估 (μg)</div>
-                          <div :id="'exp-chart-' + plan.id" class="m-c-canvas"></div>
-                        </div>
-                        <div class="m-chart-item">
-                          <div class="m-c-title">靶器官疾病概率降幅 (%)</div>
-                          <div :id="'risk-chart-' + plan.id" class="m-c-canvas"></div>
-                        </div>
-                      </div>
-                      
-                      <div class="plan-footer">
-                        <el-button type="primary" plain class="w-full" @click="goToDetail(plan)">
-                          查看详情
-                        </el-button>
-                      </div>
-                    </el-card>
-                  </template>
-                  
-                  <div class="popover-detail">
-                    <h4 class="pd-title"><el-icon><ZoomIn /></el-icon> 方案深度解析</h4>
-                    <p class="pd-text">{{ plan.extraDetails }}</p>
-                    <div class="pd-tags">
-                      <el-tag size="small" type="warning" effect="light">周期: {{ plan.period }}</el-tag>
-                      <el-tag size="small" type="info" effect="light">成本预估: {{ plan.cost }}</el-tag>
+            <div v-for="person in highRiskPersons" :key="person.id" v-show="activePerson === person.id" class="person-workflow">
+              <div class="pw-profile">
+                <div class="pw-info">
+                  <h3>{{ person.id }} · {{ person.name }}</h3>
+                  <div class="pw-meta">
+                    <el-tag size="small" effect="plain" round>{{ person.dept }}</el-tag>
+                    <el-tag size="small" effect="plain" round>工龄 {{ person.years }} 年</el-tag>
+                    <el-tag size="small" :type="person.levelClass === 'danger' ? 'danger' : 'warning'" effect="dark" round>风险因子: {{ person.factors }}</el-tag>
+                    <el-tag size="small" type="danger" effect="dark" round>因果风险增幅 {{ person.score }}%</el-tag>
+                  </div>
+                </div>
+              </div>
+
+              <div class="workflow-steps">
+                <div class="wf-step" v-for="(step, idx) in person.workflow" :key="idx">
+                  <div class="wf-step-header">
+                    <div class="wf-step-num" :class="step.type">{{ idx + 1 }}</div>
+                    <div class="wf-step-title">
+                      <h4>{{ step.title }}</h4>
+                      <span class="wf-step-tag">{{ step.tag }}</span>
                     </div>
                   </div>
-                </el-popover>
-              </el-col>
-            </el-row>
+                  <div class="wf-step-body">
+                    <p class="wf-desc">{{ step.desc }}</p>
+                    <div class="wf-detail" v-if="step.detail">
+                      <strong>具体操作：</strong>{{ step.detail }}
+                    </div>
+                    <div class="wf-indicator" v-if="step.indicator">
+                      <strong>关键指标：</strong>{{ step.indicator }}
+                    </div>
+                    <div class="wf-timeline">
+                      <el-tag size="small" type="info" effect="light">⏱ {{ step.period }}</el-tag>
+                      <el-tag size="small" effect="light" v-if="step.cost">费用: {{ step.cost }}</el-tag>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pw-outcome">
+                <h4><el-icon><Check /></el-icon> 预期干预成效</h4>
+                <div class="outcome-grid">
+                  <div class="outcome-item" v-for="o in person.outcomes" :key="o.label">
+                    <span class="o-label">{{ o.label }}</span>
+                    <div class="o-bar-wrap">
+                      <div class="o-bar-before" :style="{ width: o.before + '%' }"><span>{{ o.before }}%</span></div>
+                      <div class="o-arrow">→</div>
+                      <div class="o-bar-after" :style="{ width: o.after + '%' }"><span>{{ o.after }}%</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- 一级预防：中危人群个人化干预流程 -->
+          <div v-if="selectedLevel === 'level1'">
+            <div class="person-tabs level1-tabs">
+              <div
+                v-for="person in mediumRiskPersons"
+                :key="person.id"
+                class="person-tab level1-tab"
+                :class="{ active: activeMediumPerson === person.id }"
+                @click="activeMediumPerson = person.id"
+              >
+                <span class="pt-id">{{ person.id }}</span>
+                <span class="pt-score level1-score">{{ person.score }}%</span>
+              </div>
+            </div>
+
+            <div v-for="person in mediumRiskPersons" :key="person.id" v-show="activeMediumPerson === person.id" class="person-workflow">
+              <div class="pw-profile level1-profile">
+                <div class="pw-info">
+                  <h3>{{ person.id }} · {{ person.name }}</h3>
+                  <div class="pw-meta">
+                    <el-tag size="small" effect="plain" round>{{ person.dept }}</el-tag>
+                    <el-tag size="small" effect="plain" round>工龄 {{ person.years }} 年</el-tag>
+                    <el-tag size="small" type="warning" effect="dark" round>风险因子: {{ person.factors }}</el-tag>
+                    <el-tag size="small" type="warning" effect="dark" round>因果风险增幅 {{ person.score }}%</el-tag>
+                  </div>
+                </div>
+              </div>
+
+              <div class="workflow-steps">
+                <div class="wf-step" v-for="(step, idx) in person.workflow" :key="idx">
+                  <div class="wf-step-header">
+                    <div class="wf-step-num" :class="step.type">{{ idx + 1 }}</div>
+                    <div class="wf-step-title">
+                      <h4>{{ step.title }}</h4>
+                      <span class="wf-step-tag">{{ step.tag }}</span>
+                    </div>
+                  </div>
+                  <div class="wf-step-body">
+                    <p class="wf-desc">{{ step.desc }}</p>
+                    <div class="wf-detail" v-if="step.detail">
+                      <strong>具体操作：</strong>{{ step.detail }}
+                    </div>
+                    <div class="wf-indicator" v-if="step.indicator">
+                      <strong>关键指标：</strong>{{ step.indicator }}
+                    </div>
+                    <div class="wf-timeline">
+                      <el-tag size="small" type="info" effect="light">⏱ {{ step.period }}</el-tag>
+                      <el-tag size="small" effect="light" v-if="step.cost">费用: {{ step.cost }}</el-tag>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pw-outcome level1-outcome">
+                <h4><el-icon><Check /></el-icon> 预期干预成效</h4>
+                <div class="outcome-grid">
+                  <div class="outcome-item" v-for="o in person.outcomes" :key="o.label">
+                    <span class="o-label">{{ o.label }}</span>
+                    <div class="o-bar-wrap">
+                      <div class="o-bar-before level1-before" :style="{ width: o.before + '%' }"><span>{{ o.before }}%</span></div>
+                      <div class="o-arrow">→</div>
+                      <div class="o-bar-after level1-after" :style="{ width: o.after + '%' }"><span>{{ o.after }}%</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <h2 class="section-title mt-10"><el-icon><Connection /></el-icon> 核心致病机制靶向阻断验证网络</h2>
@@ -193,8 +298,8 @@
           </el-card>
 
           <div class="bottom-action-bar">
-            <el-button type="success" size="large" plain :icon="Download" class="mr-3" @click="goToPdfReport">
-              导出 PDF 干预方案与评估长卷
+            <el-button type="success" size="large" plain class="mr-3" @click="goToPdfReport">
+              导出当前选中人员干预报告
             </el-button>
             <el-button type="warning" size="large" plain :icon="Position" class="mr-3">
               预案推送至 EHS 车间系统
@@ -211,10 +316,9 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Coin, DataLine, TrendCharts, Share, DocumentChecked, ArrowLeft, ArrowDown, ArrowRight, User, Clock, CircleCheck, Warning, Document, Plus, Upload, FolderOpened, Link, UserFilled, OfficeBuilding, FirstAidKit, Apple, DataBoard, Check, Connection, Download, Position, ZoomIn } from '@element-plus/icons-vue'
-import * as echarts from 'echarts'
+import { ArrowLeft, ArrowDown, ArrowRight, User, Clock, CircleCheck, Warning, Document, UserFilled, Check, Connection, Position, FirstAidKit } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const isGenerating = ref(false)
@@ -222,83 +326,202 @@ const isGenerated = ref(false)
 const isThinkingExpanded = ref(false)
 const genProgress = ref(0)
 
-const activeTab = ref('')
+const selectedLevel = ref('level2')
+const activePerson = ref('SZ-284')
+const activeMediumPerson = ref('SZ-089')
+
+const highRiskPersons = ref([
+  {
+    id: 'SZ-284', name: '张建国', dept: '第一熔炼车间', years: 18, factors: 'Pb, As', score: 68.5, levelClass: 'danger',
+    workflow: [
+      { title: '立即调离高危岗位', tag: '紧急阻断', type: 'danger', desc: '从熔炼一线调至无尘辅助区，彻底脱离 Pb/As 暴露源，防止剂量继续累积。', detail: '当日办理调岗手续，安排至仓库管理或质检辅助岗位。调岗后 1 周内禁止进入熔炼车间区域。', indicator: '调岗后 2 周复查血铅，目标下降 > 15%', period: '立即执行', cost: '中' },
+      { title: '职业健康深度体检', tag: '精准诊断', type: 'primary', desc: '全面排查体内重金属蓄积水平与靶器官损伤程度，为后续治疗提供依据。', detail: '全血 Pb、尿 As 定量检测；肝功（ALT/AST）、肾功（肌酐/尿素氮）；尿 β2-微球蛋白、NAG 酶（早期肾小管损伤标志物）；神经传导速度测试；血常规+网织红细胞计数。', indicator: '血 Pb > 400 μg/L 或尿 As > 100 μg/L 时启动驱铅治疗', period: '3-5 个工作日', cost: '低' },
+      { title: 'EDTA-CaNa2 驱铅试验治疗', tag: '临床干预', type: 'warning', desc: '对血铅超标者实施依地酸钙钠试验性驱铅，同步评估体内可动员铅储备量。', detail: 'EDTA-CaNa2 1g + 5% GS 250ml 静脉滴注，每日 1 次，连续 3 天为一疗程。停药 4 天后复查血铅与 24h 尿铅排泄量。根据排铅量决定是否追加 1-2 个疗程。', indicator: '24h 尿铅 > 500 μg 为阳性，提示体内铅储备显著', period: '每疗程 7 天，共 1-3 疗程', cost: '中' },
+      { title: 'GSH 抗氧化保护治疗', tag: '靶器官保护', type: 'warning', desc: '给予还原型谷胱甘肽保护肝肾靶器官，中和重金属诱发的氧化损伤。', detail: 'GSH 1.8g + NS 250ml 静脉滴注，每日 1 次，连续 7-14 天。同时口服维生素 E 400IU/日协同抗氧化。', indicator: '治疗后 ALT/AST 恢复正常，尿 β2-微球蛋白下降', period: '7-14 天', cost: '中' },
+      { title: '双周生化溯源复查', tag: '疗效追踪', type: 'primary', desc: '每 2 周复查全血 Pb、尿 As，跟踪驱铅效果并防范骨骼蓄积铅反流入血。', detail: '停药后第 2 周首次复查，此后每 2 周一次直至连续 3 次正常。重点关注血铅是否出现"反弹升高"现象。', indicator: '连续 3 次血 Pb < 200 μg/L 视为治疗达标', period: '治疗后 2-8 周', cost: '低' },
+      { title: '长效神经行为深度随访', tag: '远期防控', type: 'safe', desc: '建立 12 个月专项档案，每季度评估神经功能与认知状态。', detail: '每季度进行：神经传导速度测试、MMSE 认知量表测评、纯音听力检测。建立个人纵向趋势图，发现异常立即升级处理。', indicator: '神经传导速度下降 > 10% 或 MMSE 评分下降 > 3 分需神经内科会诊', period: '12 个月', cost: '中' }
+    ],
+    outcomes: [
+      { label: '血 Pb 浓度', before: 98, after: 35 },
+      { label: '尿 As 浓度', before: 82, after: 40 },
+      { label: '神经病变风险', before: 65, after: 25 },
+      { label: '肾损伤风险', before: 52, after: 20 }
+    ]
+  },
+  {
+    id: 'SZ-105', name: '刘伟', dept: '第一熔炼车间', years: 15, factors: 'Pb, Cd', score: 62.1, levelClass: 'danger',
+    workflow: [
+      { title: 'P100 全面罩 + 局部负压排风', tag: '紧急防护', type: 'danger', desc: '不调岗但强制升级防护等级，大幅降低 Pb/Cd 吸入量。', detail: '配发 P100 全面罩，工位加装便携式负压排风罩。每日上岗前进行呼吸器密合性自检，每周由安全部门复核一次。', indicator: '2 周后复查血 Pb，预期下降 10-15%', period: '即刻执行', cost: '低' },
+      { title: '肾功能深度筛查', tag: '精准诊断', type: 'primary', desc: 'Cd 对肾小管的损伤不可逆且早期隐匿，必须通过专项指标捕获极早期病变。', detail: '尿 Cd 定量、尿 β2-微球蛋白、尿 NAG 酶、尿视黄醇结合蛋白、肾小球滤过率(eGFR)、肾脏超声。', indicator: '尿 Cd > 5 μg/g Cr 或 β2-微球蛋白 > 300 μg/L 提示肾小管损伤', period: '3-5 个工作日', cost: '低' },
+      { title: '驱铅治疗 + 保肾联合方案', tag: '临床干预', type: 'warning', desc: '在密切监测肾功能前提下实施 EDTA 驱铅，同时给予保肾治疗。', detail: 'EDTA-CaNa2 1g 静滴 × 3 天，同步给予金水宝胶囊（虫草制剂）保肾。治疗期间每日监测尿量与尿常规。', indicator: '肌酐清除率 < 60ml/min 时禁用 EDTA，改用 DMSA 口服', period: '1-2 个疗程', cost: '中' },
+      { title: 'Cd 蓄积专项监测', tag: '长期管控', type: 'primary', desc: 'Cd 在肾脏的生物半衰期长达 10-30 年，需建立长期监测计划。', detail: '每 3 个月检测尿 Cd 与 β2-微球蛋白。建立个人 Cd 蓄积趋势图。若尿 Cd 持续 > 3 μg/g Cr，需考虑永久调离。', indicator: '尿 Cd 年均下降 > 10% 为有效干预', period: '持续 3-5 年', cost: '低' },
+      { title: '营养拮抗与膳食干预', tag: '辅助措施', type: 'safe', desc: '通过高钙高锌膳食竞争性减少 Cd/Pb 吸收，补充维 C 促进排泄。', detail: '每日钙片 600mg + 锌 15mg，维生素 C 1000mg。食堂优先供应牛奶、豆制品、海产品。禁止饮酒（加重肾脏负担）。', indicator: '3 个月后复查血 Pb，结合驱铅效果综合评估', period: '长期维持', cost: '极低' }
+    ],
+    outcomes: [
+      { label: '血 Pb 浓度', before: 95, after: 40 },
+      { label: '尿 Cd 蓄积', before: 78, after: 55 },
+      { label: '肾小管损伤', before: 60, after: 30 },
+      { label: '神经病变风险', before: 55, after: 35 }
+    ]
+  },
+  {
+    id: 'SZ-032', name: '王强', dept: '第一熔炼车间', years: 14, factors: 'As, Ni', score: 55.4, levelClass: 'danger',
+    workflow: [
+      { title: '岗位轮换 + 工时管控', tag: '暴露阻断', type: 'danger', desc: '将高暴露岗位连续作业时间缩短至 4 小时以内，配合轮岗降低累积剂量。', detail: '与 SZ-284（已调离）互换岗位，安排间歇性进入熔炼区。每日高暴露时段不超过 4 小时，工间在通风良好区域休息 30 分钟。', indicator: '1 个月后尿 As 代谢物预期下降 20%', period: '长期执行', cost: '低' },
+      { title: 'As 代谢物 + Ni 专项检测', tag: '精准诊断', type: 'primary', desc: '检测尿中砷代谢物形态分布与尿镍浓度，评估实际内暴露剂量。', detail: '尿总砷、无机砷/有机砷比值（判断 As 来源）、尿 Ni、发砷、肝功全套、皮肤科会诊（砷角化筛查）。', indicator: '无机砷占比 > 20% 提示职业暴露为主，尿 Ni > 40 μg/L 需重点关注', period: '3-5 个工作日', cost: '低' },
+      { title: '抗氧化与肝脏保护治疗', tag: '靶器官保护', type: 'warning', desc: 'As 和 Ni 均具有显著肝毒性，需给予保肝与抗氧化联合治疗。', detail: '多烯磷脂酰胆碱 456mg tid 口服保肝，GSH 1.2g 静滴 × 7 天抗氧化。禁止饮酒，避免使用肝毒性药物。', indicator: 'ALT/AST 恢复正常，γ-GT 下降', period: '14-28 天', cost: '中' },
+      { title: '皮肤与呼吸系统专项筛查', tag: '并发症排查', type: 'primary', desc: '慢性砷暴露可致皮肤角化、色素沉着及肺癌风险升高，需专项排查。', detail: '皮肤科全面体检（掌跖角化、色素异常、 Bowen 病筛查）；胸部低剂量 CT；肺功能检测。', indicator: '发现皮肤角化灶需活检排除癌前病变', period: '1-2 周', cost: '低' },
+      { title: '季度复查与年度评估', tag: '长期监测', type: 'safe', desc: '建立 As/Ni 长期监测档案，每季度复查暴露指标，年度全面评估。', detail: '每 3 个月：尿 As 形态分析、尿 Ni、肝功。每年：胸部 CT、皮肤科复查、神经传导速度。', indicator: '连续 4 个季度尿 As < 50 μg/L 视为稳定', period: '持续 2 年以上', cost: '低' }
+    ],
+    outcomes: [
+      { label: '尿 As 浓度', before: 82, after: 35 },
+      { label: '尿 Ni 浓度', before: 56, after: 30 },
+      { label: '肝损伤风险', before: 50, after: 22 },
+      { label: '皮肤病变风险', before: 40, after: 15 }
+    ]
+  },
+  {
+    id: 'SZ-142', name: '李明', dept: '原矿粉碎区', years: 12, factors: 'Pb, Hg', score: 48.2, levelClass: 'warn',
+    workflow: [
+      { title: '标准防护装备全面升级', tag: '暴露阻断', type: 'danger', desc: '配发半面罩+P100滤盒、防化手套、护目镜，强化个人防护。', detail: '由安全员现场指导佩戴，确保面部密合。每周检查滤毒盒使用状况，每月更换一次。工服由企业统一清洗，禁止带回家。', indicator: '2 周后复查血 Pb，评估防护效果', period: '即刻执行', cost: '低' },
+      { title: 'Pb/Hg 联合暴露精准检测', tag: '精准诊断', type: 'primary', desc: '同时评估铅和汞的体内蓄积水平及联合毒性效应。', detail: '全血 Pb、尿 Hg、血汞、24h 尿汞排泄量、肾功（肌酐/尿素氮/胱抑素 C）、神经行为功能测试（WHO-NCTB）。', indicator: '血 Pb > 300 μg/L 且尿 Hg > 20 μg/L 时需药物干预', period: '3-5 个工作日', cost: '低' },
+      { title: '驱铅 + 排汞联合治疗', tag: '临床干预', type: 'warning', desc: '根据检测结果选择 EDTA 驱铅或 DMSA 排汞，或两者序贯治疗。', detail: '若以 Pb 为主：EDTA 1g × 3 天驱铅；若以 Hg 为主：DMSA 10mg/kg × 5 天排汞。两者并存时先驱铅再排汞，间隔 1 周。', indicator: '治疗后 24h 尿铅/尿汞排泄量评估清除效果', period: '2-4 周', cost: '中' },
+      { title: '神经行为功能评估', tag: '靶器官评估', type: 'primary', desc: 'Pb/Hg 均具有显著神经毒性，需系统评估中枢与周围神经功能。', detail: 'WHO 神经行为核心测试组合（NCTB）：情绪状态 Profile、简单反应时、数字广度、手提转速度、Benton 视觉保留、目标追踪。', indicator: '任一测试维度 Z 分 < -2 需神经内科进一步评估', period: '1-2 天', cost: '低' },
+      { title: '长期随访与健康管理', tag: '持续管控', type: 'safe', desc: '建立 Pb/Hg 联合暴露长期随访档案，动态调整干预强度。', detail: '每月复查血 Pb/尿 Hg × 3 个月，此后每季度一次。年度神经行为复测。个人健康档案电子化管理，自动趋势预警。', indicator: '连续 6 个月血 Pb < 200 μg/L 且尿 Hg < 10 μg/L 视为达标', period: '12-24 个月', cost: '低' }
+    ],
+    outcomes: [
+      { label: '血 Pb 浓度', before: 72, after: 32 },
+      { label: '尿 Hg 浓度', before: 60, after: 25 },
+      { label: '神经毒性风险', before: 48, after: 18 },
+      { label: '肾损伤风险', before: 38, after: 15 }
+    ]
+  }
+])
 
 const goToWorkspace = async () => {
   router.push('/datainput')
 }
 
-const goToDetail = async (plan) => {
-  router.push({
-    path: '/plan/specplan', 
-    query: {
-      id: plan.id,
-      title: plan.title
-    }
-  })
-}
-
 const goToPdfReport = async () => {
+  const personId = selectedLevel.value === 'level2' ? activePerson.value : activeMediumPerson.value
   router.push({
-    path: 'plan/specplan',
-    query: {
-      id: 'summary',
-      title: '全维度智能干预综合报告'
-    }
+    path: '/plan/specplan',
+    query: { person: personId }
   })
 }
 
-const interventionMatrix = ref([
+const mediumRiskPersons = ref([
   {
-    id: 'c1', category: '职业环境与工程阻断', icon: 'OfficeBuilding',
-    plans: [
-      { id: 'env1', title: '全隔离调岗预案', desc: '立即脱离重金属熔炼作业环境，调拨至无尘辅助区。', mechanism: '通过切断物理暴露源，强行终止重金属通过呼吸道与消化道的持续摄入。', preExp: [124, 105, 89], postExp: [124, 105, 89], preRisk: [92, 78], postRisk: [85, 75], extraDetails: '此方案要求企业具备完善的转岗安置制度，主要针对极度敏感或已出现实质性器官损伤的个体，隔离期需配合严格的医学观察。短期内直接阻断环境刺激源。', period: '永久或长期', cost: '中（涉及人力调配）' },
-      { id: 'env2', title: 'P100级面罩与负压改造', desc: '不调岗，但强制佩戴P100全面罩，加装局部负压排风罩。', mechanism: '大幅降低悬浮粉尘气溶胶的吸入比例，兼顾生产连续性与基本防护。', preExp: [124, 105, 89], postExp: [110, 95, 80], preRisk: [92, 78], postRisk: [88, 76], extraDetails: '适用于轻中度超标人群或关键岗位不可替代人员。需定期更换滤毒盒并进行呼吸器密合性测试，排风系统需连接粉尘收集池以防二次污染。', period: '即刻执行，持续', cost: '低（仅物料消耗）' },
-      { id: 'env3', title: '全自动化无人值守升级', desc: '停工实施产线自动化改造，实现熔炼环节的无人化操作。', mechanism: '从根源消除职业暴露场景，彻底切断所有工人的危险金属接触途径。', preExp: [124, 105, 89], postExp: [30, 20, 15], preRisk: [92, 78], postRisk: [40, 35], extraDetails: '彻底的终极解决方案。引入机械臂与隔离控制舱，从物理空间上把人与重金属粉尘隔绝。实施周期较长，但可一劳永逸解决该车间职业病隐患。', period: '3-6个月改造期', cost: '极高（固定资产投资）' }
+    id: 'SZ-089', name: '赵铁柱', dept: '原矿粉碎区', years: 11, factors: 'Cd, Cr', score: 41.5,
+    workflow: [
+      { title: '岗位轮换与暴露时间管控', tag: '暴露阻断', type: 'warning', desc: '实施轮岗制度，将高暴露岗位连续作业时间缩短至 4 小时以内。', detail: '与低暴露岗位（质检、仓库）轮换，每 2 周轮换一次。工间在通风良好区域休息 30 分钟以上。', indicator: '1 个月后复查尿 Cd，预期下降 10-15%', period: '长期执行', cost: '低' },
+      { title: 'Cd/Cr 暴露基线评估', tag: '健康筛查', type: 'primary', desc: '检测尿镉、尿铬及肾功能早期标志物，建立个人暴露基线。', detail: '尿 Cd、尿 Cr、尿 β2-微球蛋白、尿 NAG 酶、血常规、肝肾功能、尿常规。', indicator: '尿 Cd > 3 μg/g Cr 或 β2-微球蛋白 > 200 μg/L 需升级管理', period: '3-5 个工作日', cost: '低' },
+      { title: '标准防护装备配发', tag: '个人防护', type: 'warning', desc: '配发 KN95 口罩、防护手套、护目镜，培训正确佩戴方法。', detail: '由安全员现场指导佩戴，确保面部密合。每周检查口罩使用状况，每月更换滤芯。', indicator: '防护依从率 > 90%', period: '即刻执行', cost: '低' },
+      { title: '钙锌营养拮抗方案', tag: '营养干预', type: 'safe', desc: '每日服用钙锌补充剂，食堂增设高钙高锌菜品。', detail: '钙片 600mg + 锌 15mg/日。食堂每日供应牛奶、豆腐、虾皮。果胶膳食纤维辅助排毒。', indicator: '3 个月后复查尿 Cd，结合轮岗效果综合评估', period: '长期维持', cost: '极低' },
+      { title: '季度常规体检', tag: '定期监测', type: 'primary', desc: '每 3 个月复查尿 Cd、尿 Cr 及肾功能指标。', detail: '检查项目：尿 Cd、尿 Cr、尿 β2-微球蛋白、肝肾功能。连续 2 次异常者升级为高危管理。', indicator: '连续 4 个季度指标稳定或下降为达标', period: '每 3 个月', cost: '低' },
+      { title: '职业卫生知识培训', tag: '健康教育', type: 'safe', desc: '参加职业危害防护培训，掌握个人卫生规范与防护要点。', content: '培训内容：重金属危害认知、正确佩戴口罩、工后淋浴更衣、禁止车间进食。', indicator: '培训考核通过率 100%', detail: '每半年复训一次，新入职人员必须岗前培训合格方可上岗。', period: '每半年一次', cost: '极低' }
+    ],
+    outcomes: [
+      { label: '尿 Cd 浓度', before: 42, after: 28 },
+      { label: '尿 Cr 浓度', before: 35, after: 22 },
+      { label: '肾损伤风险', before: 30, after: 18 },
+      { label: '综合健康风险', before: 41.5, after: 25 }
     ]
   },
   {
-    id: 'c2', category: '临床医疗与药物干预', icon: 'FirstAidKit',
-    plans: [
-      { id: 'med1', title: 'EDTA-CaNa2 靶向驱铅疗法', desc: '依地酸钙钠静脉滴注，每日1次，连续使用3天为一个疗程。', mechanism: '络合血液及软组织中游离的铅离子，形成可溶性络合物随尿液排出。', preExp: [124, 105, 89], postExp: [45, 100, 85], preRisk: [92, 78], postRisk: [45, 75], extraDetails: '首选的一线临床驱铅药物。需密切关注患者肾功能耐受情况，治疗期间需大量饮水排尿。连续三日后停药四天，视指标可开启下一疗程。', period: '1-3个短疗程', cost: '中（医疗与住院费用）' },
-      { id: 'med2', title: 'GSH 抗氧化与促排联用', desc: '给予还原型谷胱甘肽保护靶器官，联合二巯丙磺钠促进排泄。', mechanism: '提供巯基结合有害金属，同时中和重金属诱发的氧自由基。', preExp: [124, 105, 89], postExp: [115, 40, 50], preRisk: [92, 78], postRisk: [80, 45], extraDetails: '主要用于缓解重金属引发的急性靶器官损害（特别是肾小管和肝脏），二巯丙磺钠对砷和汞的络合效果尤佳，为保肾促排的双管齐下方案。', period: '7-14天', cost: '中' },
-      { id: 'med3', title: '重度急性血液透析干预', desc: '针对极高危对象，直接采用血液透析或血浆置换术。', mechanism: '通过体外循环物理清除血液中的重金属毒素，见效极快。', preExp: [124, 105, 89], postExp: [15, 15, 10], preRisk: [92, 78], postRisk: [30, 25], extraDetails: '属于急救干预手段，主要针对突发性急性重度暴露或已出现重金属脑病、急性肾衰竭先兆的患者。具备创伤性，需在 ICU 严密监控下进行。', period: '单次或短期数次', cost: '高（特殊医疗干预）' }
+    id: 'SZ-311', name: '陈刚', dept: '第一熔炼车间', years: 9, factors: 'Pb, As', score: 36.8,
+    workflow: [
+      { title: '工位通风改善', tag: '环境控制', type: 'warning', desc: '在工位加装局部排风罩，降低 Pb/As 粉尘吸入浓度。', detail: '安装便携式负压排风罩，连接粉尘收集池。每日开工前检查排风系统运行状态。', indicator: '工位粉尘浓度下降 > 50%', period: '1-2 周安装', cost: '中' },
+      { title: 'Pb/As 基线检测', tag: '健康筛查', type: 'primary', desc: '检测全血铅和尿砷代谢物，评估当前内暴露水平。', detail: '全血 Pb、尿 As（含无机砷/有机砷比值）、肝功能、血常规。', indicator: '血 Pb > 200 μg/L 或尿 As > 50 μg/L 需加强干预', period: '3-5 个工作日', cost: '低' },
+      { title: '维生素 C 与抗氧化补充', tag: '营养干预', type: 'safe', desc: '每日补充维生素 C 1000mg，促进铅排泄并抗氧化。', detail: '维生素 C 可将六价铬还原为三价铬，同时加速铅的排泄。配合优质蛋白饮食。', indicator: '3 个月后血 Pb 预期下降 10-15%', period: '长期维持', cost: '极低' },
+      { title: '个人卫生规范强化', tag: '行为干预', type: 'warning', desc: '严格执行工后淋浴、工服单独清洗、禁止车间进食。', detail: '设置更衣淋浴区，工服由企业统一清洗。洗手后方可进食饮水。', indicator: '卫生规范依从率 > 95%', period: '长期执行', cost: '极低' },
+      { title: '季度血铅监测', tag: '定期监测', type: 'primary', desc: '每 3 个月复查全血 Pb 和尿 As，追踪暴露趋势。', detail: '建立个人纵向趋势图。连续 2 次上升趋势需升级为高危管理并安排深度体检。', indicator: '连续 4 个季度血 Pb < 200 μg/L 为达标', period: '每 3 个月', cost: '低' },
+      { title: '年度职业健康体检', tag: '综合评估', type: 'safe', desc: '每年一次全面体检，含神经传导速度和肺功能检测。', detail: '依据《职业健康监护技术规范》(GBZ 188) 执行，含纯音听力、神经传导、肺功能等。', indicator: '体检结果归入个人健康档案', period: '每年一次', cost: '低' }
+    ],
+    outcomes: [
+      { label: '血 Pb 浓度', before: 55, after: 30 },
+      { label: '尿 As 浓度', before: 42, after: 25 },
+      { label: '肝损伤风险', before: 28, after: 15 },
+      { label: '综合健康风险', before: 36.8, after: 20 }
     ]
   },
   {
-    id: 'c3', category: '营养与代谢拮抗支持', icon: 'Apple',
-    plans: [
-      { id: 'nut1', title: '高钙锌离子竞争抑制法', desc: '每日服用复合钙片与锌补充剂，并指导高钙高锌饮食。', mechanism: '高浓度的二价有益离子（钙/锌）能竞争性阻断有害离子的吸收。', preExp: [124, 105, 89], postExp: [95, 95, 70], preRisk: [92, 78], postRisk: [75, 65], extraDetails: '铅与钙、锌在肠黏膜吸收时共用转运蛋白。保持体内高水平的钙、锌离子，能有效减少微量外源性铅的吸收率，非常适合长期从事低剂量接触的人群保健。', period: '日常长期维持', cost: '极低' },
-      { id: 'nut2', title: '果胶多糖大分子吸附', desc: '每日摄入高纯度柑橘果胶或大量苹果、燕麦等膳食纤维。', mechanism: '果胶分子在消化道内形成网络，强效吸附重金属并随粪便排出。', preExp: [124, 105, 89], postExp: [100, 70, 80], preRisk: [92, 78], postRisk: [85, 70], extraDetails: '临床证实，改性柑橘果胶(MCP)在消化道内不易被降解，能有效结合铅、镉、砷等离子，并阻断其肝肠循环，是一种安全无副作用的日常辅助排毒方式。', period: '日常膳食改善', cost: '低' },
-      { id: 'nut3', title: '优质蛋白与维C抗氧化食疗', desc: '增加优质蛋白质摄入，每日补充 1000mg 维生素C。', mechanism: '氨基酸与游离重金属结合降低毒性；维C还原有害自由基。', preExp: [124, 105, 89], postExp: [110, 90, 75], preRisk: [92, 78], postRisk: [80, 60], extraDetails: '足量的维生素C可以将毒性极强的六价铬还原为三价铬，同时加速铅的排泄。高蛋白饮食能在消化液中沉淀重金属盐，形成难以吸收的复合物。', period: '日常饮食干预', cost: '低' }
+    id: 'SZ-402', name: '孙磊', dept: '尾气处理组', years: 8, factors: 'As, Ni', score: 32.1,
+    workflow: [
+      { title: '防护装备升级', tag: '个人防护', type: 'warning', desc: '配发半面罩+P100滤盒和防化手套，强化呼吸与皮肤防护。', detail: '尾气处理岗位 As/Ni 粉尘浓度较高，需升级至 P100 级别防护。每周检查面罩密合性。', indicator: '2 周后尿 As 预期下降 10%', period: '即刻执行', cost: '低' },
+      { title: 'As/Ni 基线检测', tag: '健康筛查', type: 'primary', desc: '检测尿砷代谢物和尿镍浓度，评估实际内暴露水平。', detail: '尿总砷、无机砷比值、尿 Ni、肝功、皮肤科筛查（砷角化）。', indicator: '无机砷占比 > 15% 或尿 Ni > 30 μg/L 需重点关注', period: '3-5 个工作日', cost: '低' },
+      { title: '高钙锌膳食方案', tag: '营养干预', type: 'safe', desc: '食堂增设高钙高锌菜品，发放钙锌补充剂。', detail: '钙片 600mg + 锌 15mg/日。增加牛奶、豆制品、海产品摄入。', indicator: '3 个月后复查暴露指标', period: '长期维持', cost: '极低' },
+      { title: '皮肤健康监测', tag: '专项筛查', type: 'primary', desc: '每 6 个月进行皮肤科检查，排查砷相关皮肤病变。', detail: '重点检查掌跖角化、皮肤色素异常、 Bowen 病等癌前病变。发现异常立即活检。', indicator: '无新发角化灶或色素异常', period: '每 6 个月', cost: '低' },
+      { title: '季度常规体检', tag: '定期监测', type: 'primary', desc: '每 3 个月复查尿 As、尿 Ni 和肝功能。', detail: '建立个人暴露趋势档案。连续 2 次异常者升级管理。', indicator: '连续 4 个季度指标稳定为达标', period: '每 3 个月', cost: '低' },
+      { title: '戒烟限酒指导', tag: '行为干预', type: 'safe', desc: '提供戒烟限酒咨询，吸烟会加重呼吸道对 As 粉尘的吸收。', detail: '研究显示吸烟工人重金属暴露风险升高 15-20%。提供尼古丁替代疗法支持。', indicator: '吸烟者戒烟或减量 > 50%', period: '持续跟踪', cost: '低' }
+    ],
+    outcomes: [
+      { label: '尿 As 浓度', before: 40, after: 22 },
+      { label: '尿 Ni 浓度', before: 32, after: 18 },
+      { label: '皮肤病变风险', before: 25, after: 12 },
+      { label: '综合健康风险', before: 32.1, after: 18 }
     ]
   },
   {
-    id: 'c4', category: '动态监测与随访预案', icon: 'DataBoard',
-    plans: [
-      { id: 'mon1', title: '高频双周生化溯源复查', desc: '实施驱铅治疗后第 2 周，复查全血 Pb、尿 As 及尿 Cd 浓度。', mechanism: '跟踪药物促排效率，防范因骨骼蓄积铅反流入血引发的“二次中毒”。', preExp: [124, 105, 89], postExp: [80, 80, 80], preRisk: [92, 78], postRisk: [85, 70], extraDetails: '在停止络合治疗后的一周内，体内骨骼组织中深层蓄积的铅会释放回血液中，导致血铅再次反弹升高。因此双周复查是决定是否开启第二疗程的金标准。', period: '治疗后 2-4 周', cost: '低（常规化验）' },
-      { id: 'mon2', title: '靶器官微损伤专项监测', desc: '连续 6 个月检测尿 β2-微球蛋白、NAG 酶等指标。', mechanism: '传统重金属指标有滞后性，专项监测能捕获微观极早期实质性损伤。', preExp: [124, 105, 89], postExp: [120, 100, 85], preRisk: [92, 78], postRisk: [70, 50], extraDetails: '金属镉(Cd)造成的近曲肾小管损伤是不可逆的。常规肌酐尿素氮指标不够敏感，必须使用 β2-微球蛋白或 NAG 酶作为哨兵指标，做到毫末级预防。', period: '至少连续半年', cost: '低' },
-      { id: 'mon3', title: '长效神经行为深度随访', desc: '建立为期 12 个月的专项档案，每季度进行神经肌电图评估。', mechanism: '持续随访可排除退行性中枢神经系统疾病的远期爆发风险。', preExp: [124, 105, 89], postExp: [120, 100, 85], preRisk: [92, 78], postRisk: [60, 70], extraDetails: '重金属导致的神经脱髓鞘病变通常进程缓慢且隐蔽。此方案强调通过定期的神经传导速度测试和认知量表(MMSE)测评，追踪潜在的退行性病变。', period: '1-3年长期随访', cost: '中' }
+    id: 'SZ-175', name: '周波', dept: '第一熔炼车间', years: 7, factors: 'Pb', score: 28.5,
+    workflow: [
+      { title: '标准防护配发', tag: '个人防护', type: 'warning', desc: '配发 KN95 口罩和防护手套，培训正确使用方法。', detail: '每日上岗前自检口罩密合性。工服由企业统一清洗，禁止带回家中。', indicator: '防护依从率 > 90%', period: '即刻执行', cost: '低' },
+      { title: '血铅基线检测', tag: '健康筛查', type: 'primary', desc: '检测全血铅浓度和血常规，评估当前铅暴露水平。', detail: '全血 Pb、血常规（关注网织红细胞、点彩红细胞）、锌原卟啉(ZPP)。', indicator: '血 Pb > 150 μg/L 需加强干预', period: '1-3 个工作日', cost: '低' },
+      { title: '钙锌竞争性营养补充', tag: '营养干预', type: 'safe', desc: '每日服用钙锌补充剂，通过竞争性吸收减少铅摄入。', detail: '钙片 600mg + 锌 15mg/日。增加牛奶、豆制品摄入。', indicator: '3 个月后血 Pb 预期下降 10%', period: '长期维持', cost: '极低' },
+      { title: '个人卫生规范', tag: '行为干预', type: 'warning', desc: '工后淋浴更衣，禁止在车间进食饮水。', detail: '洗手后方可进食。工服与日常衣物分开清洗。', indicator: '卫生规范执行率 100%', period: '长期执行', cost: '极低' },
+      { title: '季度血铅监测', tag: '定期监测', type: 'primary', desc: '每 3 个月复查全血 Pb，追踪暴露趋势。', detail: '建立个人血铅趋势图。若连续 2 次上升，升级为中高危管理。', indicator: '连续 4 个季度血 Pb < 150 μg/L 为达标', period: '每 3 个月', cost: '低' },
+      { title: '年度职业健康体检', tag: '综合评估', type: 'safe', desc: '每年全面体检，含神经系统和肾功能评估。', detail: '依据 GBZ 188 执行，含血常规、肝肾功能、神经传导速度、纯音听力。', indicator: '体检结果归入健康档案', period: '每年一次', cost: '低' }
+    ],
+    outcomes: [
+      { label: '血 Pb 浓度', before: 35, after: 18 },
+      { label: '血液系统风险', before: 22, after: 10 },
+      { label: '神经毒性风险', before: 20, after: 10 },
+      { label: '综合健康风险', before: 28.5, after: 15 }
+    ]
+  },
+  {
+    id: 'SZ-219', name: '吴涛', dept: '原矿粉碎区', years: 6, factors: 'Cd, Hg', score: 24.2,
+    workflow: [
+      { title: '防护装备配发', tag: '个人防护', type: 'warning', desc: '配发 KN95 口罩、防化手套，强化呼吸与皮肤防护。', detail: '粉碎区粉尘浓度较高，需确保口罩密合性。每周检查更换滤芯。', indicator: '防护依从率 > 90%', period: '即刻执行', cost: '低' },
+      { title: 'Cd/Hg 基线检测', tag: '健康筛查', type: 'primary', desc: '检测尿镉和尿汞，评估两种金属的蓄积水平。', detail: '尿 Cd、尿 Hg、尿 β2-微球蛋白、肾功能全套。', indicator: '尿 Cd > 2 μg/g Cr 或尿 Hg > 10 μg/L 需重点关注', period: '3-5 个工作日', cost: '低' },
+      { title: '高钙膳食方案', tag: '营养干预', type: 'safe', desc: '增加高钙食品摄入，竞争性减少 Cd/Hg 肠道吸收。', detail: '每日牛奶 500ml、豆腐或虾皮。补充维生素 C 500mg/日。', indicator: '3 个月后复查尿 Cd/Hg', period: '长期维持', cost: '极低' },
+      { title: '肾功能定期监测', tag: '定期监测', type: 'primary', desc: '每 3 个月检测尿 Cd、尿 Hg 和肾功能早期标志物。', detail: '尿 Cd、尿 Hg、尿 β2-微球蛋白、尿常规。建立个人趋势图。', indicator: '连续 4 个季度指标稳定为达标', period: '每 3 个月', cost: '低' },
+      { title: '个人卫生强化', tag: '行为干预', type: 'warning', desc: '工后淋浴更衣，工服单独清洗，禁止车间进食。', detail: '粉碎区粉尘易附着衣物，必须更换清洁衣物后方可离开。', indicator: '卫生规范执行率 100%', period: '长期执行', cost: '极低' },
+      { title: '年度综合体检', tag: '综合评估', type: 'safe', desc: '每年全面体检，重点关注肾功能和神经系统。', detail: '含肾功能、神经传导速度、纯音听力、血常规等。', indicator: '体检结果归入健康档案', period: '每年一次', cost: '低' }
+    ],
+    outcomes: [
+      { label: '尿 Cd 浓度', before: 28, after: 15 },
+      { label: '尿 Hg 浓度', before: 22, after: 12 },
+      { label: '肾损伤风险', before: 18, after: 8 },
+      { label: '综合健康风险', before: 24.2, after: 12 }
+    ]
+  },
+  {
+    id: 'SZ-056', name: '郑凯', dept: '尾气处理组', years: 5, factors: 'Cr', score: 18.6,
+    workflow: [
+      { title: '工位通风改善', tag: '环境控制', type: 'warning', desc: '在尾气处理工位加装局部排风，降低铬粉尘浓度。', detail: '安装移动式排风除尘设备，配合湿式操作减少粉尘扬起。', indicator: '工位 Cr 浓度下降 > 40%', period: '1-2 周', cost: '中' },
+      { title: 'Cr 暴露基线检测', tag: '健康筛查', type: 'primary', desc: '检测尿铬浓度和肺功能，评估当前暴露水平。', detail: '尿 Cr、血常规、肝肾功能、肺功能检测、胸部 X 线。', indicator: '尿 Cr > 30 μg/L 或肺功能异常需加强干预', period: '1-3 个工作日', cost: '低' },
+      { title: '维生素 C 抗氧化补充', tag: '营养干预', type: 'safe', desc: '每日补充维生素 C 1000mg，将六价铬还原为低毒三价铬。', detail: '维生素 C 是铬中毒的关键拮抗剂。配合优质蛋白饮食。', indicator: '3 个月后复查尿 Cr', period: '长期维持', cost: '极低' },
+      { title: '呼吸防护强化', tag: '个人防护', type: 'warning', desc: '配发 KN95 口罩，培训正确佩戴方法。', detail: '铬粉尘主要经呼吸道吸入，确保口罩密合性是关键。', indicator: '防护依从率 > 95%', period: '即刻执行', cost: '低' },
+      { title: '季度常规体检', tag: '定期监测', type: 'primary', desc: '每 3 个月复查尿 Cr 和肺功能。', detail: '建立个人暴露趋势档案。连续 2 次异常升级管理。', indicator: '连续 4 个季度尿 Cr < 20 μg/L 为达标', period: '每 3 个月', cost: '低' },
+      { title: '年度综合体检', tag: '综合评估', type: 'safe', desc: '每年全面体检，含肺功能和皮肤科检查。', detail: '铬可致鼻中隔穿孔和皮肤溃疡，年度体检需专项排查。', indicator: '体检结果归入健康档案', period: '每年一次', cost: '低' }
+    ],
+    outcomes: [
+      { label: '尿 Cr 浓度', before: 20, after: 10 },
+      { label: '肺功能风险', before: 15, after: 6 },
+      { label: '皮肤病变风险', before: 12, after: 5 },
+      { label: '综合健康风险', before: 18.6, after: 8 }
     ]
   }
 ])
 
-let echartInstances = []
-
-const switchTab = (tabId) => {
-  if (activeTab.value === tabId) return;
-  activeTab.value = tabId;
-  nextTick(() => {
-    initAllMiniCharts();
-  });
-}
 
 const startGeneration = () => {
   isGenerating.value = true
   isGenerated.value = false
   isThinkingExpanded.value = true
   genProgress.value = 0
-  
+
   const interval = setInterval(() => {
     genProgress.value++
     if (genProgress.value >= 4) clearInterval(interval)
@@ -307,65 +530,15 @@ const startGeneration = () => {
   setTimeout(() => {
     isGenerating.value = false
     isGenerated.value = true
-    isThinkingExpanded.value = false 
-    activeTab.value = interventionMatrix.value[0].id 
-    nextTick(() => { initAllMiniCharts() })
+    isThinkingExpanded.value = false
+    if (selectedLevel.value === 'level1') {
+      activeMediumPerson.value = mediumRiskPersons.value[0].id
+    } else {
+      activePerson.value = highRiskPersons.value[0].id
+    }
   }, 3500)
 }
 
-const initAllMiniCharts = () => {
-  interventionMatrix.value.forEach(cat => {
-    if (cat.id !== activeTab.value) return; 
-
-    cat.plans.forEach(plan => {
-      const domA = document.getElementById(`exp-chart-${plan.id}`)
-      if (domA) {
-        const chartA = echarts.getInstanceByDom(domA) || echarts.init(domA)
-        chartA.setOption({
-          grid: { left: '15%', right: '5%', top: '20%', bottom: '20%' },
-          tooltip: { trigger: 'axis' },
-          legend: { data: ['当前', '预期'], itemWidth: 10, itemHeight: 10, top: 0, right: 0, textStyle: { fontSize: 10 } },
-          xAxis: { type: 'category', data: ['Pb', 'As', 'Cd'], axisLabel: { fontSize: 10, fontWeight: 'bold' } },
-          yAxis: { type: 'value', show: false }, 
-          series: [
-            { name: '当前', type: 'bar', data: plan.preExp, barWidth: '30%', itemStyle: { color: '#EF4444', borderRadius: [2,2,0,0] } },
-            { name: '预期', type: 'bar', data: plan.postExp, barWidth: '30%', itemStyle: { color: '#10B981', borderRadius: [2,2,0,0] } }
-          ]
-        })
-        chartA.resize();
-        if (!echartInstances.includes(chartA)) echartInstances.push(chartA)
-      }
-
-      const domB = document.getElementById(`risk-chart-${plan.id}`)
-      if (domB) {
-        const chartB = echarts.getInstanceByDom(domB) || echarts.init(domB)
-        chartB.setOption({
-          grid: { left: '15%', right: '5%', top: '20%', bottom: '20%' },
-          tooltip: { trigger: 'axis' },
-          legend: { data: ['当前', '预期'], itemWidth: 10, itemHeight: 10, top: 0, right: 0, textStyle: { fontSize: 10 } },
-          xAxis: { type: 'category', data: ['神经', '肾脏'], axisLabel: { fontSize: 10, fontWeight: 'bold' } },
-          yAxis: { type: 'value', show: false },
-          series: [
-            { name: '当前', type: 'bar', data: plan.preRisk, barWidth: '30%', itemStyle: { color: '#F59E0B', borderRadius: [2,2,0,0] } },
-            { name: '预期', type: 'bar', data: plan.postRisk, barWidth: '30%', itemStyle: { color: '#3B82F6', borderRadius: [2,2,0,0] } }
-          ]
-        })
-        chartB.resize();
-        if (!echartInstances.includes(chartB)) echartInstances.push(chartB)
-      }
-    })
-  })
-}
-
-const resizeCharts = () => { echartInstances.forEach(c => c.resize()) }
-onMounted(() => {
-  if (isGenerated.value) nextTick(() => initAllMiniCharts())
-  window.addEventListener('resize', resizeCharts)
-})
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', resizeCharts)
-  echartInstances.forEach(c => c.dispose())
-})
 </script>
 
 <style lang="scss" scoped>
@@ -405,6 +578,14 @@ $color-danger: #EF4444;
 
 .data-verification-banner { background: #fff; border-radius: 12px; border: 1px solid #93C5FD; border-left: 4px solid $color-primary; margin-bottom: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); overflow: hidden; .dv-top { display: flex; justify-content: space-between; padding: 16px 24px; border-bottom: 1px dashed #E2E8F0; } .dv-bottom { display: flex; align-items: center; padding: 12px 24px; background: #F8FAFC; .dv-label { font-weight: 700; font-size: 0.9rem; margin-right: 12px; } } .dv-left { display: flex; align-items: center; gap: 16px; } .dv-label { font-size: 0.95rem; font-weight: 700; color: $text-main; } .file-chips { display: flex; gap: 12px; flex-wrap: wrap; align-items: center;} .custom-tag { font-size: 0.9rem; font-weight: 600; color: $color-primary; background: #EFF6FF; border: none; padding: 4px 12px; height: auto; .el-icon { margin-right: 6px; font-size: 1rem; color: $color-primary;} :deep(.el-tag__close) { color: $color-primary; &:hover{background:$color-primary; color:#fff;} } } .no-file-tip { font-size: 0.9rem; color: $color-danger; font-weight: 600;} .dv-right { display: flex; align-items: center; gap: 12px; font-size: 0.9rem; color: $text-muted; font-weight: 500; .meta-item { display: flex; align-items: center; gap: 6px; } .meta-divider { color: #CBD5E1; } } .pipeline-tags { display: flex; align-items: center; gap: 8px; flex: 1; } .p-arrow { color: #9CA3AF; font-size: 0.8rem; margin: 0 4px;} }
 
+.warning-level-section { background: #fff; border-radius: 12px; border: 1px solid $border-color; padding: 24px 28px; margin-bottom: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+  .wls-header { margin-bottom: 20px; h3 { margin: 0 0 8px 0; font-size: 1.15rem; font-weight: 800; color: $text-main; display: flex; align-items: center; gap: 8px; .el-icon { color: $color-primary; } } .wls-desc { margin: 0; font-size: 0.9rem; color: $text-muted; line-height: 1.5; } }
+  .wls-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .wls-card { display: flex; gap: 16px; padding: 18px 20px; border: 2px solid $border-color; border-radius: 10px; cursor: pointer; transition: all 0.25s; &:hover { border-color: #93C5FD; background: #F8FAFC; } &.active { border-color: $color-primary; background: #EFF6FF; box-shadow: 0 0 0 3px rgba(29,78,216,0.1); } }
+  .wls-badge { flex-shrink: 0; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 800; height: fit-content; margin-top: 2px; &.danger { background: #FEF2F2; color: #EF4444; border: 1px solid #FECACA; } &.warn { background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; } }
+  .wls-info { h4 { margin: 0 0 6px 0; font-size: 1rem; font-weight: 700; color: $text-main; .wls-count { font-size: 0.85rem; color: $text-muted; font-weight: 600; margin-left: 8px; } } p { margin: 0 0 8px 0; font-size: 0.85rem; color: $text-muted; line-height: 1.5; } .wls-workers { font-size: 0.8rem; color: $color-primary; font-weight: 600; font-family: monospace; } }
+}
+
 .action-card { background: #fff; border-radius: 12px; border: 1px solid $border-color; padding: 30px; margin-bottom: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); .action-content { display: flex; justify-content: space-between; align-items: center; } .a-text h3 { margin: 0 0 8px 0; font-size: 1.2rem; color: $text-main; font-weight: 800; } .a-text p { margin: 0; color: $text-muted; font-size: 0.95rem; max-width: 600px; line-height: 1.5; } .btn-generate { font-weight: 700; font-size: 1.05rem; padding: 0 32px; height: 48px; border-radius: 8px;} }
 
 .gemini-thinking-container { background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; margin-bottom: 30px; overflow: hidden; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.02); .thinking-header { padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; .t-left { display: flex; align-items: center; gap: 12px; } .sparkle-icon { width: 22px; height: 22px; color: #2563EB; } .spinning { animation: spin 2s linear infinite; } .t-text { font-size: 1.05rem; font-weight: 700; color: #1E3A8A; } .chevron-icon { color: #60A5FA; transition: transform 0.3s; &.rotated { transform: rotate(180deg); } } } .thinking-body { padding: 0 24px 24px 60px; } .think-steps { list-style: none; padding: 0; margin: 0; border-left: 2px solid #DBEAFE; padding-left: 16px;} .t-step { font-size: 0.95rem; color: #64748B; margin-bottom: 12px; position: relative; &::before { content: ''; position: absolute; left: -21px; top: 6px; width: 8px; height: 8px; border-radius: 50%; background: #DBEAFE; } &.active { color: #1E40AF; font-weight: 600; &::before { background: #3B82F6; box-shadow: 0 0 8px rgba(59, 130, 246, 0.6); } } } }
@@ -435,6 +616,73 @@ $color-danger: #EF4444;
   display: flex;
   flex-direction: column;
 }
+
+/* 一级预防（中危）专用配色 */
+.level1-tabs { gap: 10px; flex-wrap: wrap; }
+.level1-tab { border-color: #FDE68A;
+  &:hover { border-color: #FBBF24; background: #FFFBEB; }
+  &.active { border-color: #D97706; background: #FFFBEB; box-shadow: 0 0 0 3px rgba(217,119,6,0.1); }
+  .level1-score { background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; }
+}
+.level1-profile { border-left: 4px solid #D97706; background: #FFFBEB;
+  .pw-info h3 { color: #92400E; }
+}
+.level1-outcome { border-left: 4px solid #D97706;
+  h4 { color: #92400E; .el-icon { color: #D97706; } }
+}
+.level1-before { background: #F59E0B !important; }
+.level1-after { background: #D97706 !important; }
+
+/* 个人化干预流程样式 */
+.person-tabs { display: flex; gap: 12px; margin-bottom: 24px; }
+.person-tab { display: flex; align-items: center; gap: 8px; padding: 10px 18px; border: 2px solid $border-color; border-radius: 10px; cursor: pointer; transition: all 0.25s; background: #fff;
+  &:hover { border-color: #93C5FD; }
+  &.active { border-color: $color-primary; background: #EFF6FF; box-shadow: 0 0 0 3px rgba(29,78,216,0.1); }
+  .pt-id { font-weight: 800; font-size: 0.95rem; color: $text-main; font-family: monospace; }
+  .pt-score { font-weight: 700; font-size: 0.85rem; padding: 2px 8px; border-radius: 4px; &.danger { background: #FEF2F2; color: #EF4444; } &.warn { background: #FFFBEB; color: #D97706; } }
+}
+
+.person-workflow { animation: fadeIn 0.4s ease-out forwards; }
+.pw-profile { background: #fff; border: 1px solid $border-color; border-radius: 12px; padding: 20px 24px; margin-bottom: 20px;
+  .pw-info h3 { margin: 0 0 10px 0; font-size: 1.2rem; font-weight: 800; color: $text-main; }
+  .pw-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+}
+
+.workflow-steps { display: flex; flex-direction: column; gap: 0; margin-bottom: 24px; }
+.wf-step { background: #fff; border: 1px solid $border-color; border-radius: 12px; padding: 20px 24px; margin-bottom: 12px; position: relative; transition: all 0.2s;
+  &:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+}
+.wf-step-header { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.wf-step-num { width: 32px; height: 32px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 0.9rem; flex-shrink: 0;
+  &.danger { background: #FEF2F2; color: #EF4444; border: 2px solid #FECACA; }
+  &.primary { background: #EFF6FF; color: #1D4ED8; border: 2px solid #BFDBFE; }
+  &.warning { background: #FFFBEB; color: #D97706; border: 2px solid #FDE68A; }
+  &.safe { background: #ECFDF5; color: #059669; border: 2px solid #A7F3D0; }
+}
+.wf-step-title { flex: 1; display: flex; align-items: center; gap: 10px;
+  h4 { margin: 0; font-size: 1.05rem; font-weight: 700; color: $text-main; }
+  .wf-step-tag { font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; background: #F1F5F9; color: #475569; }
+}
+.wf-step-body { padding-left: 46px;
+  .wf-desc { margin: 0 0 10px 0; font-size: 0.9rem; color: #475569; line-height: 1.6; }
+  .wf-detail, .wf-indicator { font-size: 0.85rem; color: #64748B; margin-bottom: 8px; line-height: 1.5; strong { color: $text-main; } }
+  .wf-detail { padding: 10px 12px; background: #F8FAFC; border-radius: 6px; border: 1px solid #F1F5F9; }
+  .wf-indicator { padding: 10px 12px; background: #FFFBEB; border-radius: 6px; border: 1px solid #FDE68A; strong { color: #92400E; } }
+  .wf-timeline { display: flex; gap: 8px; margin-top: 10px; }
+}
+
+.pw-outcome { background: #fff; border: 1px solid $border-color; border-radius: 12px; padding: 20px 24px;
+  h4 { margin: 0 0 16px 0; font-size: 1.05rem; font-weight: 700; color: #065F46; display: flex; align-items: center; gap: 8px; .el-icon { color: #10B981; } }
+}
+.outcome-grid { display: flex; flex-direction: column; gap: 12px; }
+.outcome-item { display: flex; align-items: center; gap: 12px;
+  .o-label { width: 120px; font-size: 0.85rem; font-weight: 700; color: $text-main; flex-shrink: 0; text-align: right; }
+}
+.o-bar-wrap { flex: 1; display: flex; align-items: center; gap: 8px; }
+.o-bar-before, .o-bar-after { height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: flex-end; padding: 0 8px; font-size: 0.75rem; font-weight: 700; color: #fff; min-width: 40px; transition: width 0.6s ease; }
+.o-bar-before { background: #EF4444; }
+.o-bar-after { background: #10B981; }
+.o-arrow { color: #9CA3AF; font-weight: 700; font-size: 0.9rem; }
 
 .dimension-section { margin-bottom: 40px; animation: fadeIn 0.4s ease-out forwards; }
 

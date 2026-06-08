@@ -67,6 +67,80 @@
                       <div class="clinical-input-item"><span class="label">Age</span><div class="input-wrap"><input type="number" v-model="formData.singleData.age" placeholder="0" /><span class="unit">Y</span></div></div>
                       <div class="clinical-input-item"><span class="label">Exposure Years</span><div class="input-wrap"><input type="number" v-model="formData.singleData.workYears" placeholder="0" /><span class="unit">Y</span></div></div>
                     </div>
+                    <div class="clinical-input-grid cols-4" style="margin-top: 16px;">
+                      <div class="clinical-input-item">
+                        <span class="label">学历</span>
+                        <div class="input-wrap select-wrap">
+                          <select v-model="formData.singleData.education">
+                            <option value="">请选择</option>
+                            <option value="primary">小学及以下</option>
+                            <option value="middle">初中</option>
+                            <option value="high">高中/中专</option>
+                            <option value="college">大专</option>
+                            <option value="bachelor">本科</option>
+                            <option value="master">硕士及以上</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="clinical-input-item">
+                        <span class="label">婚姻状况</span>
+                        <div class="input-wrap select-wrap">
+                          <select v-model="formData.singleData.marital">
+                            <option value="">请选择</option>
+                            <option value="unmarried">未婚</option>
+                            <option value="married">已婚</option>
+                            <option value="divorced">离异</option>
+                            <option value="widowed">丧偶</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="clinical-input-item">
+                        <span class="label">吸烟情况</span>
+                        <div class="input-wrap select-wrap">
+                          <select v-model="formData.singleData.smoking">
+                            <option value="">请选择</option>
+                            <option value="never">从不吸烟</option>
+                            <option value="former">已戒烟</option>
+                            <option value="current_lt10">现吸 (&lt;10支/日)</option>
+                            <option value="current_ge10">现吸 (≥10支/日)</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="clinical-input-item">
+                        <span class="label">饮酒情况</span>
+                        <div class="input-wrap select-wrap">
+                          <select v-model="formData.singleData.drinking">
+                            <option value="">请选择</option>
+                            <option value="never">从不饮酒</option>
+                            <option value="occasional">偶尔饮酒</option>
+                            <option value="frequent">经常饮酒</option>
+                            <option value="daily">每日饮酒</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="clinical-input-grid cols-4" style="margin-top: 16px;">
+                      <div class="clinical-input-item">
+                        <span class="label">BMI (体质指数)</span>
+                        <div class="input-wrap"><input type="number" v-model="formData.singleData.bmi" placeholder="0.0" step="0.1" /><span class="unit">kg/m²</span></div>
+                      </div>
+                      <div class="clinical-input-item">
+                        <span class="label">防护装备使用</span>
+                        <div class="input-wrap select-wrap">
+                          <select v-model="formData.singleData.ppe">
+                            <option value="">请选择</option>
+                            <option value="none">无防护</option>
+                            <option value="basic">基本防护 (口罩/手套)</option>
+                            <option value="standard">标准防护 (半面罩+护目镜)</option>
+                            <option value="full">全面防护 (P100+防护服)</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="clinical-input-item" style="grid-column: span 2;">
+                        <span class="label">既往职业病史</span>
+                        <div class="input-wrap"><input type="text" v-model="formData.singleData.history" placeholder="如：2023年诊断轻度铅中毒，已治愈" /></div>
+                      </div>
+                    </div>
                   </div>
 
                   <div class="form-section">
@@ -146,131 +220,194 @@
 
         <div class="visualization-dashboard" v-if="showDashboard">
           
+          <!-- 群体模式大屏 -->
           <div v-if="formData.mode === 'batch'" class="batch-dashboard-container animate-on-scroll is-visible">
             
             <div class="kpi-row">
               <div class="kpi-card total"><el-icon class="kpi-icon"><Avatar /></el-icon><div class="kpi-info"><span>总提取解析人数</span><strong>1,245<small> 人</small></strong></div></div>
               <div class="kpi-card male"><el-icon class="kpi-icon"><Male /></el-icon><div class="kpi-info"><span>男性占比</span><strong>856<small> 人 (68.7%)</small></strong></div></div>
               <div class="kpi-card female"><el-icon class="kpi-icon"><Female /></el-icon><div class="kpi-info"><span>女性占比</span><strong>389<small> 人 (31.3%)</small></strong></div></div>
-              <div class="kpi-card risk"><el-icon class="kpi-icon"><WarningFilled /></el-icon><div class="kpi-info"><span>触发高危预警人数</span><strong class="text-danger">142<small> 人</small></strong></div></div>
+              <div class="kpi-card ready"><el-icon class="kpi-icon"><CircleCheckFilled /></el-icon><div class="kpi-info"><span>多维度暴露评估基线</span><strong>预处理就绪</strong></div></div>
             </div>
 
-            <div class="batch-charts-grid">
-              <div class="b-chart-card col-span-2">
-                <div class="b-c-header"><h4>群体样本暴露工龄序列特征分析</h4><span class="sub-title">按个体暴露时间(年)升序排列，展示体内核心重金属蓄积趋势</span></div>
-                <div id="batchChartSeq" class="b-c-canvas"></div>
-              </div>
+            <!-- 人口学特征统计行 -->
+            <div class="batch-charts-grid demographic-row">
+
+              <!-- 婚姻状况 -->
               <div class="b-chart-card col-span-1">
-                <div class="b-c-header"><h4>群体综合靶器官风险评级占比</h4><span class="sub-title">系统 AHP 模型自动定级分布</span></div>
-                <div id="batchChartRiskPie" class="b-c-canvas"></div>
+                <div class="b-c-header">
+                  <h4>婚姻状况分布 (Marital Status)</h4>
+                  <span class="sub-title">统计群体婚姻结构，评估家庭因素对职业暴露易感性的潜在修饰效应。</span>
+                </div>
+                <div id="batchChartMarital" class="b-c-canvas"></div>
               </div>
 
+              <!-- 文化程度 -->
               <div class="b-chart-card col-span-1">
-                <div class="b-c-header"><h4>人群年龄结构与性别分布</h4><span class="sub-title">多维度劳动力画像</span></div>
-                <div id="batchChartAgeRose" class="b-c-canvas"></div>
+                <div class="b-c-header">
+                  <h4>文化程度构成 (Education Level)</h4>
+                  <span class="sub-title">呈现群体受教育水平分布，分析文化程度与防护认知、健康素养的关联。</span>
+                </div>
+                <div id="batchChartEducation" class="b-c-canvas"></div>
               </div>
+
+              <!-- 家庭年收入 -->
               <div class="b-chart-card col-span-1">
-                <div class="b-c-header"><h4>车间特征均值 vs 国家基线</h4><span class="sub-title">雷达图覆盖暴露面</span></div>
-                <div id="batchChartRadar" class="b-c-canvas"></div>
+                <div class="b-c-header">
+                  <h4>家庭年收入分布 (Annual Household Income)</h4>
+                  <span class="sub-title">揭示群体经济水平分层，辅助评估医疗可及性与营养干预的可行性。</span>
+                </div>
+                <div id="batchChartIncome" class="b-c-canvas"></div>
               </div>
+
+            </div>
+
+            <!-- 图表矩阵: 3 列 x 3 行 -->
+            <div class="batch-charts-grid">
+
+              <!-- 图表 1 (占 2 列) -->
+              <div class="b-chart-card col-span-2">
+                <div class="b-c-header">
+                  <h4>特征共线性矩阵 (Correlation Heatmap)</h4>
+                  <span class="sub-title">呈现暴露因子间的相关程度，辅助识别具有高度协同作用的复合暴露组合。</span>
+                </div>
+                <div id="batchChartCorr" class="b-c-canvas"></div>
+              </div>
+
+              <!-- 图表 2 -->
               <div class="b-chart-card col-span-1">
-                <div class="b-c-header"><h4>致病因子超标率排行 (%)</h4><span class="sub-title">车间核心危险源溯源</span></div>
-                <div id="batchChartExceed" class="b-c-canvas"></div>
+                <div class="b-c-header">
+                  <h4>核心暴露分布四分位数 (Quartiles)</h4>
+                  <span class="sub-title">按暴露浓度将人群划分为四个区间，直观展示处于极高暴露水平（Q4区间）的样本规模。</span>
+                </div>
+                <div id="batchChartQuartile" class="b-c-canvas"></div>
               </div>
+
+              <!-- 图表 3 -->
+              <div class="b-chart-card col-span-1">
+                <div class="b-c-header">
+                  <h4>特征分布与异常离群点 (Boxplot)</h4>
+                  <span class="sub-title">评估各项指标的分布离散度，定位偏离整体分布的极端高值个体以供重点复查。</span>
+                </div>
+                <div id="batchChartBoxplot" class="b-c-canvas"></div>
+              </div>
+
+              <!-- 图表 4 -->
+              <div class="b-chart-card col-span-1">
+                <div class="b-c-header">
+                  <h4>主成分降维特征聚类 (PCA Projection)</h4>
+                  <span class="sub-title">将高维特征投影至二维空间，验证健康组与高危组样本在多特征下的分布差异。</span>
+                </div>
+                <div id="batchChartPCA" class="b-c-canvas"></div>
+              </div>
+
+              <!-- 图表 5 -->
+              <div class="b-chart-card col-span-1">
+                <div class="b-c-header">
+                  <h4>数据检出率与缺失评估 (LOD Analysis)</h4>
+                  <span class="sub-title">统计各暴露因子在检出限（LOD）以上的有效样本比例，评估数据源质量。</span>
+                </div>
+                <div id="batchChartMissing" class="b-c-canvas"></div>
+              </div>
+
+              <!-- 图表 6 -->
+              <div class="b-chart-card col-span-1">
+                <div class="b-c-header">
+                  <h4>核密度平滑分布 (Density Smooth)</h4>
+                  <span class="sub-title">对原始暴露浓度进行概率密度拟合，消除极端值干扰，揭示人群真实分布形态。</span>
+                </div>
+                <div id="batchChartDensity" class="b-c-canvas"></div>
+              </div>
+
+              <!-- 图表 7 -->
+              <div class="b-chart-card col-span-1">
+                <div class="b-c-header">
+                  <h4>群体暴露浓度频数分布 (Concentration Histogram)</h4>
+                  <span class="sub-title">按浓度区间统计群体样本频数，直观呈现各重金属的分布偏态与集中趋势。</span>
+                </div>
+                <div id="batchChartParallel" class="b-c-canvas"></div>
+              </div>
+
+              <!-- 图表 8 -->
+              <div class="b-chart-card col-span-1">
+                <div class="b-c-header">
+                  <h4>工龄-年龄-暴露水平画像 (Bubble)</h4>
+                  <span class="sub-title">综合呈现年龄、工龄与综合暴露指数的关系，气泡面积反映个体毒物蓄积程度。</span>
+                </div>
+                <div id="batchChartBubble" class="b-c-canvas"></div>
+              </div>
+              
             </div>
           </div>
 
-          <div v-else class="single-dashboard-container">
-            <div class="chart-card main-master-chart animate-on-scroll is-visible">
-              <div class="chart-title-wrap">
-                <div class="title-left">
-                  <h4>个体多金属暴露综合评估画像</h4>
-                  <p>各项指标绝对浓度已转换为基于临床安全阈值的相对暴露指数 (%)</p>
-                </div>
-                <div class="filter-legend">
-                  <span :class="{'active': activeFilter === 'all' || activeFilter === 'safe', 'dimmed': activeFilter !== 'all' && activeFilter !== 'safe'}" @click="toggleFilter('safe')"><i class="dot safe"></i>正常 (&lt;50%)</span>
-                  <span :class="{'active': activeFilter === 'all' || activeFilter === 'warn', 'dimmed': activeFilter !== 'all' && activeFilter !== 'warn'}" @click="toggleFilter('warn')"><i class="dot warn"></i>预警 (50%-100%)</span>
-                  <span :class="{'active': activeFilter === 'all' || activeFilter === 'danger', 'dimmed': activeFilter !== 'all' && activeFilter !== 'danger'}" @click="toggleFilter('danger')"><i class="dot danger"></i>危险超标 (&gt;100%)</span>
-                  <span class="reset-filter" v-if="activeFilter !== 'all'" @click="activeFilter = 'all'">[重置]</span>
-                </div>
+          <!-- 单人模式科研图表 -->
+          <div v-else class="single-dashboard-container animate-on-scroll is-visible">
+            
+            <div class="b-chart-card mb-6" style="padding-bottom: 0;">
+              <div class="b-c-header">
+                <h4>个体多维暴露全景画像 (Relative Exposure Index)</h4>
+                <span class="sub-title">将多项绝对指标转化为相对安全限值的比率，直观呈现各指标是否突破安全或预警阈值。</span>
               </div>
-              
-              <div class="chart-content master-bar-chart">
-                <div class="axis-y-label">相对暴露指数 (%)</div>
-                <div class="axis-y"><span>150%</span><span>100%</span><span>50%</span><span>0</span></div>
-                <div class="threshold-line danger-line" style="bottom: 66.6%"><span>100% 危险超标线</span></div>
-                <div class="threshold-line warn-line" style="bottom: 33.3%"><span>50% 早期预警线</span></div>
-                
-                <div class="bars-container">
-                  <div class="master-bar-item" v-for="m in metalsData" :key="m.id" :class="['status-' + m.status, {'dimmed-bar': activeFilter !== 'all' && activeFilter !== m.status}]">
-                    <div class="bar-val-static">{{ m.value }}%</div>
-                    <div class="bar-track"><div class="bar-fill" :style="{ height: Math.min((m.value / 150 * 100), 100) + '%' }"></div></div>
-                    <span class="bar-label">{{ m.symbol }}<span class="cn">{{ m.name }}</span></span>
-                    
-                    <div class="hover-detail-box">
-                      <div class="h-head" :class="'bg-' + m.status">
-                        <strong>{{ m.symbol }} ({{ m.name }})</strong>
-                        <span class="badge">{{ m.status === 'danger' ? '危险超标' : m.status === 'warn' ? '临界预警' : '健康正常' }}</span>
-                      </div>
-                      <div class="h-body">
-                        <p>相对指数：<strong>{{ m.value }}%</strong></p>
-                        <p>实际浓度：{{ m.raw }}{{ m.unit }}</p>
-                        <p class="h-risk">临床风险：{{ m.risk }}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <div id="singleChartMaster" style="width: 100%; height: 350px;"></div>
             </div>
 
-            <div class="sub-charts-grid animate-on-scroll is-visible">
-              <div class="chart-card col-span-1">
-                <h4>核心元素密度分布图</h4>
-                <div class="chart-content distribution-chart">
-                  <div class="dist-layer layer-pb"></div><div class="dist-layer layer-cd"></div><div class="dist-layer layer-hg"></div>
-                  <div class="axis-x"></div>
-                  <div class="chart-legend"><span class="c-pb">Pb</span><span class="c-cd">Cd</span><span class="c-hg">Hg</span></div>
+            <div class="batch-charts-grid" style="margin-top: 24px;">
+              
+              <div class="b-chart-card col-span-1">
+                <div class="b-c-header">
+                  <h4>靶向因子偏移雷达图 (Radar)</h4>
+                  <span class="sub-title">对比个体指标与国家职业卫生基线的覆盖面积，精准定位偏离安全基准的主要特征向。</span>
                 </div>
+                <div id="singleChartRadar" class="b-c-canvas"></div>
               </div>
-              <div class="chart-card col-span-1" style="min-width: 0; overflow: hidden;">
-                <h4>历史监测时间序列趋势</h4>
-                <div class="chart-content line-trend-chart" style="display: block; width: 100%; height: 220px; padding-top: 15px;">
-                  <svg width="100%" height="100%" viewBox="0 0 600 200" preserveAspectRatio="none" style="display: block; overflow: visible;">
-                    <path class="trend-line line-danger" d="M10,180 Q100,140 200,90 T400,60 T580,20" fill="none" stroke="#F87171" stroke-width="3"/>
-                    <path class="trend-line line-safe" d="M10,190 Q100,150 200,130 T400,110 T580,120" fill="none" stroke="#34D399" stroke-width="3"/>
-                    <circle cx="200" cy="90" r="5" fill="#F87171"/><circle cx="400" cy="60" r="5" fill="#F87171"/><circle cx="580" cy="20" r="5" fill="#F87171"/>
-                  </svg>
+
+              <div class="b-chart-card col-span-1">
+                <div class="b-c-header">
+                  <h4>核心指标纵向时间序列 (Longitudinal)</h4>
+                  <span class="sub-title">追踪个体连续多年的暴露水平演变，底部绿色阴影区代表临床参考的安全基线范围。</span>
                 </div>
+                <div id="singleChartTimeline" class="b-c-canvas"></div>
               </div>
-              <div class="chart-card col-span-1">
-                <h4>特征相关性 (Pearson)</h4>
-                <div class="chart-content heatmap-chart">
-                  <div class="hm-grid">
-                    <div class="hm-cell bg-high">Pb</div><div class="hm-cell bg-med">0.68</div><div class="hm-cell bg-low">0.21</div>
-                    <div class="hm-cell bg-med">0.68</div><div class="hm-cell bg-high">Cd</div><div class="hm-cell bg-med-low">0.45</div>
-                    <div class="hm-cell bg-low">0.21</div><div class="hm-cell bg-med-low">0.45</div><div class="hm-cell bg-high">Hg</div>
-                  </div>
+
+              <div class="b-chart-card col-span-1">
+                <div class="b-c-header">
+                  <h4>暴露特征群体排位 (Percentiles)</h4>
+                  <span class="sub-title">评估个体各项重金属指标在整体流行病学队列中的相对水平与百分位排名。</span>
                 </div>
+                <div id="singleChartPercentile" class="b-c-canvas"></div>
               </div>
-              <div class="chart-card col-span-1">
-                <h4>总风险贡献结构占比</h4>
-                <div class="chart-content pie-chart-area">
-                  <div class="donut-chart"></div>
-                  <div class="donut-center"><span class="val">高危</span><span class="lbl">综合评级</span></div>
-                  <div class="pie-legend">
-                    <div><span class="dot d-pb"></span>Pb (45%)</div>
-                    <div><span class="dot d-as"></span>As (35%)</div>
-                    <div><span class="dot d-cd"></span>Cd (20%)</div>
-                  </div>
+
+              <div class="b-chart-card col-span-1">
+                <div class="b-c-header">
+                  <h4>靶器官风险归因拆解 (Organ Breakdown)</h4>
+                  <span class="sub-title">内环指示存在潜在受损风险的靶器官，外环解析导致该风险的主导金属及协同因子。</span>
                 </div>
+                <div id="singleChartRiskPie" class="b-c-canvas"></div>
               </div>
+
+              <div class="b-chart-card col-span-1">
+                <div class="b-c-header">
+                  <h4>特征标准化偏离度 (Z-Score)</h4>
+                  <span class="sub-title">量化个体各项指标偏离群体均值的标准差倍数，识别个体特异性的高吸收或高暴露项。</span>
+                </div>
+                <div id="singleChartZScore" class="b-c-canvas"></div>
+              </div>
+
+              <div class="b-chart-card col-span-1">
+                <div class="b-c-header">
+                  <h4>多维异常综合指数 (Anomaly Index)</h4>
+                  <span class="sub-title">基于马氏距离等算法生成的综合健康偏移指标，表征个体整体状态偏离正常群体的程度。</span>
+                </div>
+                <div id="singleChartAnomaly" class="b-c-canvas"></div>
+              </div>
+
             </div>
           </div>
           
           <div class="bottom-action-bar">
             <div class="tips">
               <el-icon><CircleCheckFilled /></el-icon>
-              数据特征提取完毕，核心因子存在超标预警。请将特征矩阵推入 <strong>复合风险量化模型</strong> 获取具体报告。
+              数据特征清洗完毕，相关性与缺失率预处理（EDA）校验完成。您可以安全地将特征矩阵推入 <strong>复合风险量化与推理模型</strong>。
             </div>
             <button class="btn-next-step" @click="goToRiskWarning">
               进入风险预警与因果推理控制台 ➔
@@ -287,8 +424,8 @@
 import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { 
-  Coin, DataLine, TrendCharts, Share, DocumentChecked, Upload, DocumentAdd, 
-  CircleCheckFilled, InfoFilled, ArrowLeft, Male, Female, Avatar, WarningFilled 
+  Coin, DataLine, TrendCharts, Share, DocumentChecked, Upload, DocumentAdd,
+  CircleCheckFilled, InfoFilled, ArrowLeft, Male, Female, Avatar
 } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 
@@ -296,10 +433,11 @@ const router = useRouter()
 const currentStep = ref(1)
 
 const formData = ref({
-  job: 'smelting', mode: 'batch', 
-  singleData: { 
-    name: '', gender: 'male', age: null, workYears: null, 
-    pb: 1.24, cd: 0.89, hg: 0.12, th: 0.05, li: 0.18, cr: 0.34, ni: 0.45, co: 0.11, as: 1.05, rn: 15.0 
+  job: 'smelting', mode: 'batch',
+  singleData: {
+    name: '', gender: 'male', age: null, workYears: null,
+    pb: 1.24, cd: 0.89, hg: 0.12, th: 0.05, li: 0.18, cr: 0.34, ni: 0.45, co: 0.11, as: 1.05, rn: 15.0,
+    education: '', marital: '', smoking: '', drinking: '', bmi: null, ppe: '', history: ''
   }
 })
 
@@ -309,18 +447,6 @@ const showDashboard = ref(false)
 
 const activeFilter = ref('all')
 const toggleFilter = (status) => { activeFilter.value = activeFilter.value === status ? 'all' : status }
-const metalsData = ref([
-  { id: 'pb', symbol: 'Pb', name: '铅', value: 124, raw: 1.24, unit: 'μg/L', status: 'danger', risk: '神经系统风险' },
-  { id: 'cd', symbol: 'Cd', name: '镉', value: 89, raw: 0.89, unit: 'μg/g', status: 'warn', risk: '肾小管预警' },
-  { id: 'hg', symbol: 'Hg', name: '汞', value: 24, raw: 0.12, unit: 'μg/L', status: 'safe', risk: '正常' },
-  { id: 'th', symbol: 'Th', name: '钍', value: 12, raw: 0.05, unit: 'μg/L', status: 'safe', risk: '正常' },
-  { id: 'li', symbol: 'Li', name: '锂', value: 18, raw: 0.18, unit: 'μg/L', status: 'safe', risk: '正常' },
-  { id: 'cr', symbol: 'Cr', name: '铬', value: 34, raw: 0.34, unit: 'μg/L', status: 'safe', risk: '正常' },
-  { id: 'ni', symbol: 'Ni', name: '镍', value: 65, raw: 0.45, unit: 'μg/L', status: 'warn', risk: '呼吸道预警' },
-  { id: 'co', symbol: 'Co', name: '钴', value: 40, raw: 0.11, unit: 'μg/L', status: 'safe', risk: '正常' },
-  { id: 'as', symbol: 'As', name: '砷', value: 105, raw: 1.05, unit: 'μg/g', status: 'danger', risk: '致癌风险' },
-  { id: 'rn', symbol: 'Rn', name: '氡', value: 30, raw: 15.0, unit: 'Bq/m³', status: 'safe', risk: '正常' }
-])
 
 const handleModeChange = (mode) => {
   formData.value.mode = mode
@@ -346,12 +472,14 @@ const runAnalysis = () => {
         window.scrollTo({ top: 800, behavior: 'smooth' })
       })
     } else {
-      setTimeout(() => { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }) }, 100)
+      nextTick(() => {
+        initSingleECharts()
+        window.scrollTo({ top: 800, behavior: 'smooth' })
+      })
     }
   }, 1200)
 }
 
-// ✨ 跳转到风险控制台
 const goToRiskWarning = async () => { 
   currentStep.value = 3 
   await navigateTo('/risk') 
@@ -361,138 +489,515 @@ const goToHome = async () => {
   await navigateTo('/')
 }
 
-/* ==============================================
-   初始化群体大盘 ECharts
-   ============================================== */
 let batchCharts = []
 
 const initBatchECharts = () => {
   batchCharts.forEach(c => c.dispose())
   batchCharts = []
 
-  const domSeq = document.getElementById('batchChartSeq')
-  if (domSeq) {
-    const chartSeq = echarts.init(domSeq)
-    let xAxisData = []; let yearData = []; let pbData = []; let asData = [];
-    for(let i=1; i<=100; i++) {
-      xAxisData.push(`ID-${Math.floor(Math.random()*9000)+1000}`);
-      yearData.push((i/100 * 25).toFixed(1)); 
-      pbData.push((Math.pow(i/100, 1.5) * 180 + Math.random()*30).toFixed(1)); 
-      asData.push((i/100 * 100 + Math.random()*20).toFixed(1));
-    }
-
-    chartSeq.setOption({
-      tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-      legend: { data: ['暴露工龄 (年)', 'Pb 浓度 (μg/L)', 'As 浓度 (μg/g)'], top: 0 },
-      grid: { left: '3%', right: '3%', bottom: '5%', top: '15%', containLabel: true },
-      xAxis: { type: 'category', data: xAxisData, axisLabel: { show: false }, axisTick: { show: false } },
-      yAxis: [
-        { type: 'value', name: '重金属浓度', position: 'left', axisLine: {show: true} },
-        { type: 'value', name: '暴露工龄', position: 'right', axisLine: {show: true}, max: 30, splitLine: {show: false} }
-      ],
-      series: [
-        { name: '暴露工龄 (年)', type: 'line', yAxisIndex: 1, data: yearData, smooth: true, itemStyle: { color: '#9CA3AF' }, areaStyle: { color: 'rgba(156,163,175,0.1)'} },
-        { name: 'Pb 浓度 (μg/L)', type: 'scatter', symbolSize: 6, data: pbData, itemStyle: { color: '#EF4444' } },
-        { name: 'As 浓度 (μg/g)', type: 'scatter', symbolSize: 5, data: asData, itemStyle: { color: '#F59E0B' } }
-      ]
-    })
-    batchCharts.push(chartSeq)
-  }
-
-  const domRisk = document.getElementById('batchChartRiskPie')
-  if (domRisk) {
-    const chartRisk = echarts.init(domRisk)
-    chartRisk.setOption({
-      tooltip: { trigger: 'item' },
-      legend: { bottom: '0', left: 'center' },
-      color: ['#10B981', '#F59E0B', '#EF4444'],
-      series: [{
-        name: '风险评级', type: 'pie', radius: ['45%', '75%'], center: ['50%', '42%'],
-        itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
-        label: { show: true, formatter: '{b}\n{d}%' },
-        data: [ { value: 748, name: '健康安全' }, { value: 355, name: '临界预警' }, { value: 142, name: '危险超标' } ]
+  // 1. 共线性矩阵 (Heatmap)
+  const domCorr = document.getElementById('batchChartCorr')
+  if (domCorr) {
+    const chartCorr = echarts.init(domCorr)
+    const corrData = [
+      [0,0, 1.00], [0,1, 0.45], [0,2, 0.62], [0,3, 0.15], [0,4, 0.22],
+      [1,0, 0.45], [1,1, 1.00], [1,2, 0.38], [1,3, 0.11], [1,4, 0.28],
+      [2,0, 0.62], [2,1, 0.38], [2,2, 1.00], [2,3, 0.33], [2,4, 0.19],
+      [3,0, 0.15], [3,1, 0.11], [3,2, 0.33], [3,3, 1.00], [3,4, 0.41],
+      [4,0, 0.22], [4,1, 0.28], [4,2, 0.19], [4,3, 0.41], [4,4, 1.00]
+    ]
+    chartCorr.setOption({
+      tooltip: { position: 'top', formatter: (p) => `Pearson(r): ${p.data[2]}` },
+      grid: { left: '10%', right: '5%', top: '5%', bottom: '15%' },
+      xAxis: { type: 'category', data: ['Pb', 'Cd', 'As', 'Hg', 'Cr'], axisLine: {show: false}, axisTick: {show: false} },
+      yAxis: { type: 'category', data: ['Pb', 'Cd', 'As', 'Hg', 'Cr'], axisLine: {show: false}, axisTick: {show: false} },
+      visualMap: { 
+        min: 0, max: 1, calculable: true, orient: 'horizontal', 
+        left: 'center', bottom: '0%', itemWidth: 12, itemHeight: 120, 
+        inRange: { color: ['#F8FAFC', '#93C5FD', '#1E3A8A'] }, show: false 
+      },
+      series: [{ 
+        type: 'heatmap', data: corrData, 
+        label: { show: true, color: '#fff', fontWeight: 'bold' }, 
+        itemStyle: { borderWidth: 2, borderColor: '#fff', borderRadius: 4 } 
       }]
     })
-    batchCharts.push(chartRisk)
+    batchCharts.push(chartCorr)
   }
 
-  const domAge = document.getElementById('batchChartAgeRose')
-  if (domAge) {
-    const chartAge = echarts.init(domAge)
-    chartAge.setOption({
-      tooltip: { trigger: 'item' },
-      legend: { top: '5%', left: 'center' },
+  // 2. 四分位数分布 (Bar)
+  const domQuartile = document.getElementById('batchChartQuartile')
+  if (domQuartile) {
+    const chartQuartile = echarts.init(domQuartile)
+    chartQuartile.setOption({
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      grid: { left: '15%', right: '5%', bottom: '15%', top: '15%' },
+      xAxis: { type: 'category', data: ['Q1 (<25%)', 'Q2 (中位)', 'Q3 (75%)', 'Q4 (极端)'], axisLabel: { fontSize: 11, fontWeight: 'bold' }, axisTick: {show: false} },
+      yAxis: { type: 'value', name: '样本分布数量', splitLine: { lineStyle: { type: 'dashed' } } },
       series: [{
-        name: '年龄分布', type: 'pie', radius: [20, 110], center: ['50%', '55%'], roseType: 'area',
-        itemStyle: { borderRadius: 4 },
+        name: '样本数', type: 'bar', barWidth: '45%',
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#3B82F6' }, { offset: 1, color: '#93C5FD' }
+          ]),
+          borderRadius: [4, 4, 0, 0]
+        },
+        label: { show: true, position: 'top', fontWeight: 'bold', color: '#1E3A8A' },
+        data: [312, 450, 280, 203]
+      }]
+    })
+    batchCharts.push(chartQuartile)
+  }
+
+  // 3. 异常值检测 (Boxplot)
+  const domBoxplot = document.getElementById('batchChartBoxplot')
+  if (domBoxplot) {
+    const chartBoxplot = echarts.init(domBoxplot)
+    chartBoxplot.setOption({
+      tooltip: { trigger: 'item', axisPointer: { type: 'shadow' } },
+      grid: { left: '15%', right: '5%', bottom: '15%', top: '15%' },
+      xAxis: { type: 'category', data: ['Pb', 'Cd', 'As', 'Hg', 'Cr'], axisTick: {show: false}, axisLabel: {fontWeight: 'bold'} },
+      yAxis: { type: 'value', name: 'Z-Score 浓度', splitLine: { lineStyle: { type: 'dashed' } } },
+      series: [
+        {
+          name: '分布范围', type: 'boxplot',
+          itemStyle: { color: '#EFF6FF', borderColor: '#3B82F6', borderWidth: 2 },
+          data: [
+            [-1.2, -0.5, 0.2, 0.8, 2.5],
+            [-0.8, -0.2, 0.4, 1.1, 3.2],
+            [-1.5, -0.6, 0.1, 0.9, 2.1],
+            [-0.9, -0.3, 0.3, 0.7, 1.8],
+            [-1.0, -0.4, 0.0, 0.5, 1.5]
+          ]
+        },
+        {
+          name: '极端离群点', type: 'scatter',
+          itemStyle: { color: '#EF4444' },
+          data: [ [0, 3.1], [0, 3.5], [1, 4.2], [1, 4.5], [2, 2.8], [3, 2.5] ]
+        }
+      ]
+    })
+    batchCharts.push(chartBoxplot)
+  }
+
+  // 4. PCA 主成分降维投影 (Scatter)
+  const domPCA = document.getElementById('batchChartPCA')
+  if (domPCA) {
+    const chartPCA = echarts.init(domPCA)
+    const dataCluster1 = Array.from({length: 40}, () => [Math.random()*10 - 5, Math.random()*10 - 5]);
+    const dataCluster2 = Array.from({length: 30}, () => [Math.random()*8 + 2, Math.random()*8 + 3]);
+    chartPCA.setOption({
+      tooltip: { trigger: 'item', formatter: 'PC1: {c[0]}<br/>PC2: {c[1]}' },
+      legend: { top: 0, right: 0, itemWidth: 10, itemHeight: 10, textStyle: { fontSize: 10 } },
+      grid: { left: '15%', right: '10%', bottom: '15%', top: '15%' },
+      xAxis: { type: 'value', name: 'PC1 (45%)', scale: true, splitLine: { show: false } },
+      yAxis: { type: 'value', name: 'PC2 (22%)', scale: true, splitLine: { show: false } },
+      series: [
+        { type: 'scatter', name: '健康本底组', data: dataCluster1, itemStyle: { color: '#10B981', opacity: 0.6 } },
+        { type: 'scatter', name: '高暴露风险组', data: dataCluster2, itemStyle: { color: '#EF4444', opacity: 0.6 } }
+      ]
+    })
+    batchCharts.push(chartPCA)
+  }
+
+  // 5. 缺失值与检出率占比 (Stacked Bar)
+  const domMissing = document.getElementById('batchChartMissing')
+  if (domMissing) {
+    const chartMissing = echarts.init(domMissing)
+    chartMissing.setOption({
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      legend: { top: 0, right: 0, itemWidth: 10, itemHeight: 10, textStyle: { fontSize: 10 } },
+      grid: { left: '15%', right: '5%', bottom: '15%', top: '15%' },
+      xAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { type: 'dashed' } } },
+      yAxis: { type: 'category', data: ['Cr', 'Hg', 'As', 'Cd', 'Pb'], axisTick: {show: false}, axisLabel: {fontWeight: 'bold'} },
+      series: [
+        { name: '有效检出', type: 'bar', stack: 'total', barWidth: '40%', itemStyle: { color: '#34D399', borderRadius: [0,0,0,0] }, label: { show: true, position: 'insideRight', formatter: '{c}%', color: '#fff' }, data: [88, 76, 92, 85, 98] },
+        { name: '低于LOD/缺失', type: 'bar', stack: 'total', barWidth: '40%', itemStyle: { color: '#FCA5A5', borderRadius: [0,4,4,0] }, data: [12, 24, 8, 15, 2] }
+      ]
+    })
+    batchCharts.push(chartMissing)
+  }
+
+  // 6. 暴露浓度“偏科”纠正 (Density Area Line)
+  const domDensity = document.getElementById('batchChartDensity')
+  if (domDensity) {
+    const chartDensity = echarts.init(domDensity)
+    const xData = Array.from({length: 50}, (_, i) => i);
+    const yBefore = xData.map(x => Math.exp(-Math.pow(x - 10, 2) / 20) * 100 + Math.random()*5);
+    const yAfter = xData.map(x => Math.exp(-Math.pow(x - 25, 2) / 100) * 60);
+    chartDensity.setOption({
+      tooltip: { trigger: 'axis' },
+      legend: { top: 0, right: 0, itemWidth: 10, itemHeight: 10, textStyle: { fontSize: 10 } },
+      grid: { left: '15%', right: '5%', bottom: '15%', top: '15%' },
+      xAxis: { type: 'category', data: xData, show: false },
+      yAxis: { type: 'value', name: '数据密度', splitLine: { lineStyle: { type: 'dashed' } } },
+      series: [
+        { name: '处理前', type: 'line', smooth: true, symbol: 'none', data: yBefore, itemStyle: { color: '#EF4444' }, areaStyle: { opacity: 0.2 } },
+        { name: '处理后', type: 'line', smooth: true, symbol: 'none', data: yAfter, itemStyle: { color: '#3B82F6' }, areaStyle: { opacity: 0.4 } }
+      ]
+    })
+    batchCharts.push(chartDensity)
+  }
+
+  // 7. 群体暴露浓度频数分布 (Histogram)
+  const domParallel = document.getElementById('batchChartParallel')
+  if (domParallel) {
+    const chartParallel = echarts.init(domParallel)
+    const bins = ['0-20', '20-40', '40-60', '60-80', '80-100', '100-150', '150-200', '200-300', '300+']
+    const pbFreq  = [68, 195, 312, 278, 186, 112, 58, 28, 8]
+    const asFreq  = [124, 248, 305, 241, 158, 98, 48, 18, 5]
+    chartParallel.setOption({
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: function (params) {
+          let res = params[0].axisValue + ' μg/L<br/>'
+          params.forEach(p => { res += `${p.marker} ${p.seriesName}: ${p.value} 人<br/>` })
+          return res
+        }
+      },
+      legend: { top: 0, right: 0, itemWidth: 10, itemHeight: 10, textStyle: { fontSize: 10 } },
+      grid: { left: '15%', right: '5%', bottom: '15%', top: '18%' },
+      xAxis: {
+        type: 'category',
+        data: bins,
+        axisTick: { show: false },
+        axisLabel: { fontWeight: 'bold', fontSize: 10, rotate: 30 }
+      },
+      yAxis: { type: 'value', name: '样本数 (人)', splitLine: { lineStyle: { type: 'dashed' } } },
+      series: [
+        {
+          name: 'Pb (铅)', type: 'bar', barWidth: '35%',
+          itemStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: '#60A5FA' }, { offset: 1, color: '#3B82F6' }
+            ]),
+            borderRadius: [4, 4, 0, 0]
+          },
+          data: pbFreq
+        },
+        {
+          name: 'As (砷)', type: 'bar', barWidth: '35%',
+          itemStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: '#A7F3D0' }, { offset: 1, color: '#10B981' }
+            ]),
+            borderRadius: [4, 4, 0, 0]
+          },
+          data: asFreq
+        }
+      ]
+    })
+    batchCharts.push(chartParallel)
+  }
+
+  // 8. 工龄-年龄-毒素累积画像 (Bubble Scatter)
+  const domBubble = document.getElementById('batchChartBubble')
+  if (domBubble) {
+    const chartBubble = echarts.init(domBubble)
+    const bubbleData = [
+      [25, 2, 15], [30, 5, 25], [35, 8, 40], [42, 15, 65], [48, 20, 85], [55, 25, 110],
+      [28, 4, 20], [38, 12, 55], [45, 18, 75], [52, 22, 95], [58, 28, 130]
+    ]
+    chartBubble.setOption({
+      tooltip: { formatter: (p) => `年龄: ${p.data[0]}岁<br/>工龄: ${p.data[1]}年<br/>特征指数: ${p.data[2]}` },
+      grid: { left: '15%', right: '10%', bottom: '15%', top: '15%' },
+      xAxis: { type: 'value', name: '年龄 (岁)', splitLine: { show: false } },
+      yAxis: { type: 'value', name: '工龄 (年)', splitLine: { lineStyle: { type: 'dashed' } } },
+      series: [{
+        type: 'scatter',
+        data: bubbleData,
+        symbolSize: function (data) { return Math.max(data[2] / 3, 10); }, 
+        itemStyle: {
+          color: function(params) { return params.data[2] > 70 ? 'rgba(239, 68, 68, 0.7)' : 'rgba(59, 130, 246, 0.7)'; },
+          borderColor: '#fff', borderWidth: 1
+        }
+      }]
+    })
+    batchCharts.push(chartBubble)
+  }
+
+  // ========== 人口学特征统计图表 ==========
+
+  // D1. 婚姻状况分布 (Pie)
+  const domMarital = document.getElementById('batchChartMarital')
+  if (domMarital) {
+    const chartMarital = echarts.init(domMarital)
+    chartMarital.setOption({
+      tooltip: { trigger: 'item', formatter: '{b}: {c} 人 ({d}%)' },
+      legend: { orient: 'horizontal', bottom: '2%', itemWidth: 10, itemHeight: 10, textStyle: { fontSize: 12, fontWeight: 600 } },
+      series: [{
+        type: 'pie',
+        radius: ['35%', '60%'],
+        center: ['50%', '45%'],
+        avoidLabelOverlap: true,
+        itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 3 },
+        label: { show: true, formatter: '{b}\n{d}%', fontWeight: 'bold', fontSize: 12 },
+        labelLine: { show: true, length: 8, length2: 12 },
+        emphasis: {
+          label: { show: true, fontSize: 14, fontWeight: 'bold' },
+          itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.2)' }
+        },
         data: [
-          { value: 120, name: '18-25 男', itemStyle: {color: '#93C5FD'} },
-          { value: 280, name: '26-35 男', itemStyle: {color: '#3B82F6'} },
-          { value: 300, name: '36-45 男', itemStyle: {color: '#1D4ED8'} },
-          { value: 156, name: '46+ 男', itemStyle: {color: '#1E3A8A'} },
-          { value: 150, name: '26-35 女', itemStyle: {color: '#F472B6'} },
-          { value: 239, name: '36-45 女', itemStyle: {color: '#DB2777'} }
+          { value: 682, name: '已婚', itemStyle: { color: '#3B82F6' } },
+          { value: 327, name: '未婚', itemStyle: { color: '#10B981' } },
+          { value: 158, name: '离异', itemStyle: { color: '#F59E0B' } },
+          { value: 78,  name: '丧偶', itemStyle: { color: '#8B5CF6' } }
         ]
       }]
     })
-    batchCharts.push(chartAge)
+    batchCharts.push(chartMarital)
   }
 
-  const domRadar = document.getElementById('batchChartRadar')
+  // D2. 文化程度构成 (Horizontal Bar)
+  const domEducation = document.getElementById('batchChartEducation')
+  if (domEducation) {
+    const chartEducation = echarts.init(domEducation)
+    chartEducation.setOption({
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      grid: { left: '22%', right: '10%', bottom: '10%', top: '10%' },
+      xAxis: { type: 'value', name: '人数', splitLine: { lineStyle: { type: 'dashed' } } },
+      yAxis: {
+        type: 'category',
+        data: ['小学及以下', '初中', '高中/中专', '大专', '本科', '硕士及以上'],
+        axisTick: { show: false },
+        axisLabel: { fontWeight: 'bold', fontSize: 12 }
+      },
+      series: [{
+        type: 'bar',
+        barWidth: '50%',
+        data: [
+          { value: 86,  itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#FCA5A5' }, { offset: 1, color: '#EF4444' }]) } },
+          { value: 312, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#FCD34D' }, { offset: 1, color: '#F59E0B' }]) } },
+          { value: 428, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#A7F3D0' }, { offset: 1, color: '#10B981' }]) } },
+          { value: 245, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#93C5FD' }, { offset: 1, color: '#3B82F6' }]) } },
+          { value: 142, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#C4B5FD' }, { offset: 1, color: '#6366F1' }]) } },
+          { value: 32,  itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: '#DDD6FE' }, { offset: 1, color: '#8B5CF6' }]) } }
+        ],
+        label: { show: true, position: 'right', fontWeight: 'bold', fontSize: 12, color: '#374151', formatter: '{c} 人' },
+        itemStyle: { borderRadius: [0, 4, 4, 0] }
+      }]
+    })
+    batchCharts.push(chartEducation)
+  }
+
+  // D3. 家庭年收入分布 (Stacked Bar by range)
+  const domIncome = document.getElementById('batchChartIncome')
+  if (domIncome) {
+    const chartIncome = echarts.init(domIncome)
+    chartIncome.setOption({
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: function(params) {
+        let res = params[0].axisValue + '<br/>'
+        params.forEach(p => { res += `${p.marker} ${p.seriesName}: ${p.value} 人<br/>` })
+        return res
+      }},
+      legend: { top: 0, right: 0, itemWidth: 10, itemHeight: 10, textStyle: { fontSize: 10 } },
+      grid: { left: '15%', right: '5%', bottom: '15%', top: '18%' },
+      xAxis: {
+        type: 'category',
+        data: ['<3万', '3~5万', '5~8万', '8~12万', '12~20万', '>20万'],
+        axisTick: { show: false },
+        axisLabel: { fontWeight: 'bold', fontSize: 11 }
+      },
+      yAxis: { type: 'value', name: '人数', splitLine: { lineStyle: { type: 'dashed' } } },
+      series: [
+        {
+          name: '男性', type: 'bar', stack: 'total', barWidth: '45%',
+          itemStyle: { color: '#3B82F6', borderRadius: [0, 0, 0, 0] },
+          label: { show: true, color: '#fff', fontWeight: 'bold', fontSize: 11 },
+          data: [52, 148, 245, 218, 138, 55]
+        },
+        {
+          name: '女性', type: 'bar', stack: 'total', barWidth: '45%',
+          itemStyle: { color: '#EC4899', borderRadius: [4, 4, 0, 0] },
+          label: { show: true, color: '#fff', fontWeight: 'bold', fontSize: 11 },
+          data: [38, 102, 118, 72, 42, 17]
+        }
+      ]
+    })
+    batchCharts.push(chartIncome)
+  }
+}
+
+/* ==============================================
+   初始化单人模式科研 ECharts (纯 EDA 阶段)
+   ============================================== */
+let singleCharts = []
+
+const initSingleECharts = () => {
+  singleCharts.forEach(c => c.dispose())
+  singleCharts = []
+
+  // 1. 主图：相对暴露指数画像
+  const domMaster = document.getElementById('singleChartMaster')
+  if (domMaster) {
+    const chartMaster = echarts.init(domMaster)
+    const elements = ['Pb(铅)', 'Cd(镉)', 'Hg(汞)', 'Th(钍)', 'Li(锂)', 'Cr(铬)', 'Ni(镍)', 'Co(钴)', 'As(砷)', 'Rn(氡)']
+    const values = [124, 89, 24, 12, 18, 34, 65, 40, 105, 30]
+    chartMaster.setOption({
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: '{b}: {c}% 相对限值' },
+      grid: { left: '5%', right: '5%', bottom: '10%', top: '15%', containLabel: true },
+      xAxis: { type: 'category', data: elements, axisLabel: { fontWeight: 'bold' }, axisTick: { show: false } },
+      yAxis: { type: 'value', max: 150, splitLine: { lineStyle: { type: 'dashed' } } },
+      visualMap: { show: false, pieces: [{ gt: 0, lte: 50, color: '#34D399' }, { gt: 50, lte: 100, color: '#FBBF24' }, { gt: 100, color: '#EF4444' }] },
+      series: [{
+        name: '相对暴露指数', type: 'bar', barWidth: '40%', data: values, itemStyle: { borderRadius: [4, 4, 0, 0] },
+        label: { show: true, position: 'top', formatter: '{c}%', fontWeight: 'bold' },
+        markLine: {
+          silent: true, symbol: 'none', lineStyle: { width: 2, type: 'dashed' },
+          data: [
+            { yAxis: 50, lineStyle: { color: '#FBBF24' }, label: { formatter: '早期预警界限 (50%)', position: 'insideEndTop' } },
+            { yAxis: 100, lineStyle: { color: '#EF4444' }, label: { formatter: '危险超标界限 (100%)', position: 'insideEndTop' } }
+          ]
+        }
+      }]
+    })
+    singleCharts.push(chartMaster)
+  }
+
+  // 子图 1：雷达图
+  const domRadar = document.getElementById('singleChartRadar')
   if (domRadar) {
     const chartRadar = echarts.init(domRadar)
     chartRadar.setOption({
-      tooltip: {},
-      legend: { bottom: 0 },
-      radar: {
-        indicator: [
-          { name: 'Pb 均值', max: 150 }, { name: 'As 均值', max: 100 }, { name: 'Cd 均值', max: 10 },
-          { name: 'Hg 均值', max: 20 }, { name: 'Cr 均值', max: 10 }, { name: 'Ni 均值', max: 10 }
-        ]
-      },
+      tooltip: {}, legend: { bottom: 0, itemWidth: 12, itemHeight: 12 },
+      radar: { indicator: [{ name: 'Pb 铅', max: 150 }, { name: 'As 砷', max: 150 }, { name: 'Cd 镉', max: 100 }, { name: 'Hg 汞', max: 50 }, { name: 'Cr 铬', max: 50 }, { name: 'Ni 镍', max: 100 }], radius: '60%', center: ['50%', '45%'] },
       series: [{
-        name: '均值对比', type: 'radar',
+        name: '暴露分布对比', type: 'radar',
         data: [
-          { value: [85, 45, 6, 8, 4, 5], name: '群体样本均值', areaStyle: { color: 'rgba(59, 130, 246, 0.3)'}, lineStyle: {color: '#3B82F6'} },
-          { value: [100, 35, 5, 10, 5, 3], name: '国家医学限值', lineStyle: {color: '#10B981', type: 'dashed'} }
+          { value: [124, 105, 89, 24, 34, 65], name: '受试者指标', areaStyle: { color: 'rgba(239, 68, 68, 0.3)' }, lineStyle: { color: '#EF4444' }, itemStyle: { color: '#EF4444' } },
+          { value: [100, 100, 100, 100, 100, 100], name: '临床安全阈值上限', areaStyle: { color: 'rgba(16, 185, 129, 0.1)' }, lineStyle: { color: '#10B981', type: 'dashed' }, itemStyle: { color: '#10B981' } }
         ]
       }]
     })
-    batchCharts.push(chartRadar)
+    singleCharts.push(chartRadar)
   }
 
-  const domExceed = document.getElementById('batchChartExceed')
-  if (domExceed) {
-    const chartExceed = echarts.init(domExceed)
-    chartExceed.setOption({
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      grid: { left: '3%', right: '10%', bottom: '5%', top: '5%', containLabel: true },
-      xAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
-      yAxis: { type: 'category', data: ['Hg(汞)', 'Ni(镍)', 'Cd(镉)', 'As(砷)', 'Pb(铅)'], axisLabel: {fontWeight: 'bold', fontSize: 13} },
+  // 子图 2：折线图
+  const domTimeline = document.getElementById('singleChartTimeline')
+  if (domTimeline) {
+    const chartTimeline = echarts.init(domTimeline)
+    chartTimeline.setOption({
+      tooltip: { trigger: 'axis' }, legend: { top: 0, right: 0, itemWidth: 10, itemHeight: 10 },
+      grid: { left: '12%', right: '5%', bottom: '15%', top: '20%' },
+      xAxis: { type: 'category', boundaryGap: false, data: ['2022', '2023', '2024', '2025', '2026(今)'] },
+      yAxis: { type: 'value', max: 150, splitLine: { lineStyle: { type: 'dashed' } } },
+      series: [
+        { name: 'Pb 走势', type: 'line', data: [80, 95, 110, 118, 124], smooth: true, itemStyle: { color: '#EF4444' }, lineStyle: { width: 3 }, markArea: { itemStyle: { color: 'rgba(16, 185, 129, 0.1)' }, data: [ [{ yAxis: '0' }, { yAxis: '100' }] ] } },
+        { name: 'As 走势', type: 'line', data: [70, 85, 95, 102, 105], smooth: true, itemStyle: { color: '#F59E0B' }, lineStyle: { width: 3 } },
+        { name: 'Cd 走势', type: 'line', data: [45, 55, 68, 79, 89], smooth: true, itemStyle: { color: '#3B82F6' }, lineStyle: { width: 3 } }
+      ]
+    })
+    singleCharts.push(chartTimeline)
+  }
+
+  // 子图 3：条形图
+  const domPercentile = document.getElementById('singleChartPercentile')
+  if (domPercentile) {
+    const chartPercentile = echarts.init(domPercentile)
+    chartPercentile.setOption({
+      tooltip: { formatter: '{b} 处于全厂前 {c}% 水平' },
+      grid: { left: '15%', right: '10%', bottom: '15%', top: '10%' },
+      xAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { type: 'dashed' } } },
+      yAxis: { type: 'category', data: ['Cr', 'Ni', 'Cd', 'As', 'Pb'], axisTick: { show: false }, axisLabel: { fontWeight: 'bold' } },
       series: [{
-        name: '群体超标率', type: 'bar', barWidth: '40%',
-        label: { show: true, position: 'right', formatter: '{c}%', fontWeight: 'bold' },
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [
-            { offset: 0, color: '#EF4444' }, { offset: 1, color: '#FCA5A5' }
-          ]),
-          borderRadius: [0, 4, 4, 0]
-        },
-        data: [4.5, 12.3, 28.5, 41.2, 56.8]
+        name: '百分位', type: 'bar', barWidth: '40%', data: [42, 68, 85, 92, 98],
+        itemStyle: { color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [{ offset: 0, color: '#FCA5A5' }, { offset: 1, color: '#EF4444' }]), borderRadius: [0, 4, 4, 0] },
+        label: { show: true, position: 'right', formatter: '前 {c}%', fontWeight: 'bold' },
+        markLine: { silent: true, symbol: 'none', label: { formatter: '中位数\n(P50)', position: 'start' }, lineStyle: { color: '#64748B', type: 'dashed' }, data: [{ xAxis: 50 }] }
       }]
     })
-    batchCharts.push(chartExceed)
+    singleCharts.push(chartPercentile)
+  }
+
+  // 子图 4：嵌套环形图
+  const domRiskPie = document.getElementById('singleChartRiskPie')
+  if (domRiskPie) {
+    const chartRiskPie = echarts.init(domRiskPie)
+    chartRiskPie.setOption({
+      tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: {c} ({d}%)' },
+      series: [
+        {
+          name: '受累靶器官', type: 'pie', selectedMode: 'single', radius: [0, '40%'], label: { position: 'inner', fontSize: 11, color: '#fff', fontWeight: 'bold' }, labelLine: { show: false }, itemStyle: { borderColor: '#fff', borderWidth: 1 },
+          data: [ { value: 45, name: '神经系', itemStyle: { color: '#EF4444' } }, { value: 35, name: '泌尿系', itemStyle: { color: '#F59E0B' } }, { value: 20, name: '肝/心', itemStyle: { color: '#3B82F6' } } ]
+        },
+        {
+          name: '主导金属特征', type: 'pie', radius: ['50%', '75%'], itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 }, label: { formatter: '{b|{b}}\n{c}%', rich: { b: { fontSize: 12, fontWeight: 'bold' } } },
+          data: [ { value: 30, name: 'Pb 诱导', itemStyle: { color: '#FCA5A5' } }, { value: 15, name: 'Hg 协同', itemStyle: { color: '#F87171' } }, { value: 25, name: 'As 诱导', itemStyle: { color: '#FCD34D' } }, { value: 10, name: 'Cd 协同', itemStyle: { color: '#FBBF24' } }, { value: 12, name: 'Cd 蓄积', itemStyle: { color: '#93C5FD' } }, { value: 8, name: 'Cr/Ni', itemStyle: { color: '#60A5FA' } } ]
+        }
+      ]
+    })
+    singleCharts.push(chartRiskPie)
+  }
+
+  // 子图 5：特征标准化 Z-Score 偏离图 
+  const domZScore = document.getElementById('singleChartZScore')
+  if (domZScore) {
+    const chartZScore = echarts.init(domZScore)
+    chartZScore.setOption({
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      grid: { left: '15%', right: '10%', bottom: '15%', top: '15%' },
+      xAxis: { type: 'value', name: '偏离程度', splitLine: { lineStyle: { type: 'dashed' } } },
+      yAxis: { type: 'category', data: ['Cr', 'Ni', 'Cd', 'As', 'Pb'], axisTick: { show: false }, axisLabel: { fontWeight: 'bold' } },
+      series: [
+        {
+          name: '特异性偏离', type: 'bar', barWidth: '50%',
+          label: { show: true, position: 'right', formatter: '{c}' },
+          data: [
+            { value: -0.8, itemStyle: { color: '#34D399' }, label: { position: 'left' } },
+            { value: 0.3, itemStyle: { color: '#FBBF24' } },
+            { value: 1.5, itemStyle: { color: '#F87171' } },
+            { value: 2.1, itemStyle: { color: '#EF4444' } },
+            { value: 3.2, itemStyle: { color: '#B91C1C' } }
+          ]
+        }
+      ]
+    })
+    singleCharts.push(chartZScore)
+  }
+
+  // 子图 6：多维异常检测指数 (Gauge)
+  const domAnomaly = document.getElementById('singleChartAnomaly')
+  if (domAnomaly) {
+    const chartAnomaly = echarts.init(domAnomaly)
+    chartAnomaly.setOption({
+      tooltip: { formatter: '{a} <br/>{b} : {c}' },
+      series: [
+        {
+          name: '偏移指数', type: 'gauge',
+          center: ['50%', '60%'], radius: '80%',
+          min: 0, max: 20,
+          splitNumber: 4,
+          axisLine: {
+            lineStyle: {
+              width: 12,
+              color: [ [0.5, '#34D399'], [0.8, '#FBBF24'], [1, '#EF4444'] ]
+            }
+          },
+          pointer: { itemStyle: { color: 'auto' } },
+          axisTick: { distance: -12, length: 8, lineStyle: { color: '#fff', width: 2 } },
+          splitLine: { distance: -12, length: 20, lineStyle: { color: '#fff', width: 3 } },
+          axisLabel: { color: 'inherit', distance: 20, fontSize: 10 },
+          detail: { valueAnimation: true, formatter: '{value}', color: 'inherit', fontSize: 24, fontWeight: 'bold' },
+          data: [{ value: 16.4, name: '报警红区' }],
+          title: { offsetCenter: [0, '30%'], fontSize: 12, color: '#64748B', fontWeight: 'bold' }
+        }
+      ]
+    })
+    singleCharts.push(chartAnomaly)
   }
 }
 
 onMounted(() => {
-  window.addEventListener('resize', () => { batchCharts.forEach(c => c.resize()) })
+  window.addEventListener('resize', () => { 
+    batchCharts.forEach(c => c.resize()) 
+    singleCharts.forEach(c => c.resize())
+  })
 })
 </script>
 
 <style lang="scss" scoped>
 @use "sass:color";
-/* 🛡️ 针对 Tailwind CSS 的 SVG 无限放大防御补丁，去掉原生 svg，防止误伤折线图 */
 :deep(.el-icon svg) {
   max-width: 1em;
   max-height: 1em;
@@ -513,39 +1018,10 @@ $color-danger: #F87171;
 
 .system-layout { display: flex; height: 100vh; background-color: $color-bg; font-family: 'Inter', -apple-system, sans-serif; overflow: hidden; }
 
-/* ==========================================
-   全新优化的侧边栏
-   ========================================== */
-.sidebar { 
-  width: 280px; background-color: #fff; border-right: 1px solid $border-color; 
-  display: flex; flex-direction: column; z-index: 10; flex-shrink: 0; box-shadow: 2px 0 15px rgba(0,0,0,0.03);
-}
-.brand-logo { 
-  height: 70px; display: flex; align-items: center; gap: 14px; padding: 0 24px; border-bottom: 1px solid $border-color; 
-  svg { width: 30px; height: 30px; color: $color-primary; flex-shrink: 0; }
-  .brand-text { display: flex; flex-direction: column; }
-  .title-en { font-size: 1.1rem; font-weight: 900; color: #1E3A8A; letter-spacing: -0.5px;}
-  .title-cn { font-size: 0.8rem; font-weight: 600; color: #64748B; letter-spacing: 1px; margin-top: 2px;}
-}
-.menu-container { 
-  overflow-y: auto; flex: 1; padding: 16px 0;
-  :deep(.custom-el-menu) {
-    border-right: none;
-    .menu-group-title { font-size: 0.85rem; font-weight: 800; color: #94A3B8; padding: 24px 24px 10px 24px; letter-spacing: 1px;}
-    .el-sub-menu__title, .el-menu-item { font-weight: 600; color: #475569; font-size: 1.05rem; margin: 6px 12px; border-radius: 8px; height: 50px; line-height: 50px;}
-    .el-sub-menu__title:hover, .el-menu-item:hover { background-color: #F8FAFC; color: $color-primary; }
-    .el-menu-item.is-active { background-color: $color-primary-light; color: $color-primary; font-weight: 700;}
-    .el-icon { font-size: 1.3rem; margin-right: 12px; color: #64748B; }
-    .is-active > .el-icon { color: $color-primary; }
-    .el-sub-menu .el-menu-item { min-width: auto; padding-left: 55px !important; font-size: 0.95rem; font-weight: 500;}
-  }
-}
-
 .main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; scroll-behavior: smooth; background: #F8FAFC;}
 
-/* ✨ 修复：强化顶部导航的横向不换行布局 */
 .ep-header { 
-  height: 64px; /* 稍微增加高度增加呼吸感 */
+  height: 64px; 
   background: #fff; 
   border-bottom: 1px solid $border-color; 
   position: sticky; 
@@ -559,8 +1035,8 @@ $color-danger: #F87171;
   width: 100%; 
   padding: 0 32px; 
   display: flex !important; 
-  flex-direction: row !important; /* 强制横向 */
-  flex-wrap: nowrap !important; /* 强制不换行 */
+  flex-direction: row !important; 
+  flex-wrap: nowrap !important; 
   justify-content: space-between !important; 
   align-items: center !important; 
   height: 100%; 
@@ -593,7 +1069,7 @@ $color-danger: #F87171;
   font-weight: 600; 
   color: $text-main; 
   font-size: 0.95rem; 
-  white-space: nowrap; /* 绝对禁止换行 */
+  white-space: nowrap; 
   .avatar { 
     width: 32px; 
     height: 32px; 
@@ -610,10 +1086,8 @@ $color-danger: #F87171;
 
 .page-container { padding: 40px; max-width: 1400px; margin: 0 auto; width: 100%; padding-bottom: 100px; }
 
-/* 进度条 */
 .pipeline-steps { display: flex; align-items: center; margin-bottom: 30px; background: transparent; padding: 0; border: none; .step { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; font-weight: 600; color: $text-muted; .step-num { width: 24px; height: 24px; border-radius: 50%; background: #E5E7EB; display: flex; justify-content: center; align-items: center; font-size: 0.85rem; } &.active { color: $color-primary; .step-num { background: $color-primary; color: #FFF; } } } .step-line { flex: 1; height: 2px; background: #E5E7EB; margin: 0 16px; position: relative; transition: 0.3s; &.active-line { background: $color-primary; } } }
 
-/* 表单区域 */
 .clean-clinical-card { background: #fff; border-radius: 12px; border: 1px solid $border-color; box-shadow: 0 4px 15px rgba(0,0,0,0.03); overflow: hidden; margin-bottom: 40px; }
 .card-layout-grid { display: flex; min-height: 400px; }
 .form-entry-area { flex: 2.2; padding: 40px; border-right: 1px solid $border-color; }
@@ -676,11 +1150,12 @@ $color-danger: #F87171;
   &.total .kpi-icon { background: #EFF6FF; color: #3B82F6; }
   &.male .kpi-icon { background: #F0FDF4; color: #10B981; }
   &.female .kpi-icon { background: #FDF2F8; color: #EC4899; }
-  &.risk .kpi-icon { background: #FEF2F2; color: #EF4444; }
+  &.ready .kpi-icon { background: #ECFDF5; color: #10B981; }
   .kpi-info { display: flex; flex-direction: column; span { font-size: 0.85rem; color: $text-muted; font-weight: 600; text-transform: uppercase; margin-bottom: 4px;} strong { font-size: 1.8rem; font-weight: 900; color: $text-main; small { font-size: 0.9rem; color: #94A3B8; font-weight: 600;}} .text-danger { color: #EF4444; } }
 }
 
 .batch-charts-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 40px; }
+.demographic-row { margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px dashed #E2E8F0; }
 .b-chart-card { 
   background: #fff; border: 1px solid $border-color; border-radius: 12px; padding: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); display: flex; flex-direction: column;
   .b-c-header { margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px dashed #F1F5F9; h4 { margin: 0; font-size: 1.05rem; font-weight: 800; color: $text-main; } .sub-title { font-size: 0.85rem; color: $text-muted; margin-top: 6px; display: block;} }
@@ -688,6 +1163,7 @@ $color-danger: #F87171;
 }
 .col-span-2 { grid-column: span 2; }
 .col-span-1 { grid-column: span 1; }
+.mb-6 { margin-bottom: 24px; }
 
 .chart-card { background: #fff; border: 1px solid $border-color; border-radius: 12px; padding: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); h4 { margin: 0 0 16px 0; font-size: 1.05rem; font-weight: 700; color: $text-main; } }
 
@@ -780,5 +1256,5 @@ $color-danger: #F87171;
 /* 底部操作条 */
 .bottom-action-bar { display: flex; justify-content: space-between; align-items: center; background: #FFFFFF; padding: 24px 32px; border-radius: 12px; border: 1px solid $border-color; box-shadow: 0 4px 20px -5px rgba(0,0,0,0.05); .tips { display: flex; align-items: center; gap: 8px; color: $text-muted; font-size: 1rem; .el-icon { color: $color-primary; font-size: 1.4rem; } strong { color: $text-main; } } .btn-next-step { background: $color-primary; color: #FFFFFF; border: none; padding: 16px 32px; border-radius: 8px; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(31, 119, 180, 0.3); &:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(31, 119, 180, 0.4); background: color.adjust($color-primary, $lightness: -5%); } } }
 
-@media (max-width: 1200px) { .batch-charts-grid { grid-template-columns: 1fr 1fr; } .kpi-row { grid-template-columns: 1fr 1fr; } .sub-charts-grid { grid-template-columns: 1fr; } .card-layout-grid { flex-direction: column; } .form-entry-area { border-right: none; border-bottom: 1px solid $border-color; } .clinical-input-grid { grid-template-columns: repeat(2, 1fr); } .bottom-action-bar { flex-direction: column; gap: 20px; align-items: stretch; .btn-next-step{ width: 100%; } } }
+@media (max-width: 1200px) { .batch-charts-grid { grid-template-columns: 1fr 1fr; } .kpi-row { grid-template-columns: 1fr 1fr; } .card-layout-grid { flex-direction: column; } .form-entry-area { border-right: none; border-bottom: 1px solid $border-color; } .clinical-input-grid { grid-template-columns: repeat(2, 1fr); } .bottom-action-bar { flex-direction: column; gap: 20px; align-items: stretch; .btn-next-step{ width: 100%; } } }
 </style>

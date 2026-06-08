@@ -1,5 +1,5 @@
 <template>
   <div>
-    <NuxtPage />
+    <NuxtPage :keepalive="{}" />
   </div>
 </template>

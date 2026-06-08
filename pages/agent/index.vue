@@ -31,19 +31,9 @@
       <div class="page-container chat-page-container">
         
         <div class="model-selector-top-left">
-          <el-dropdown trigger="click" @command="handleModelChange">
-            <span class="model-dropdown-link">
-              {{ currentModel }} <el-icon class="ml-1"><ArrowDown /></el-icon>
-            </span>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="Causal-RAG-72B"><strong>Causal-RAG-72B</strong> (主推：因果机制推理)</el-dropdown-item>
-                <el-dropdown-item command="Tox-Agent-Pro"><strong>Tox-Agent-Pro</strong> (专精：金属毒理与靶点)</el-dropdown-item>
-                <el-dropdown-item command="Med-Decision-Max"><strong>Med-Decision-Max</strong> (专精：临床干预生成)</el-dropdown-item>
-                <el-dropdown-item divided command="DeepSeek-R1-Distill"><strong>DeepSeek-R1-Distill</strong> (全能：深度逻辑思考)</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+          <el-select v-model="currentModel" size="default" style="width: 240px;" @change="handleModelChange">
+            <el-option v-for="m in modelOptions" :key="m" :label="m" :value="m" />
+          </el-select>
         </div>
 
         <div class="agent-hero-section" v-if="!hasStartedChat">
@@ -53,23 +43,24 @@
           
           <div class="ai-group-badge">
             <img src="https://api.iconify.design/lucide:bot.svg?color=%231f77b4" alt="bot" />
-            <span>{{ currentKB }} 已挂载</span>
+            <span>{{ currentKBDisplay }} 已挂载</span>
           </div>
 
           <div class="hero-input-wrapper" :class="{ 'is-focused': inputFocused }">
-            <el-popover placement="bottom-start" :width="280" trigger="click" :visible="showKBPopover">
+            <el-popover placement="bottom-start" :width="320" trigger="click" :visible="showKBPopover">
               <template #reference>
                 <div class="kb-selector-btn" @click="showKBPopover = !showKBPopover">
                   <el-icon><FolderOpened /></el-icon>
-                  <span class="truncate-text">{{ currentKB }}</span>
+                  <span class="truncate-text">{{ currentKBDisplay }}</span>
                   <el-icon><ArrowDown /></el-icon>
                 </div>
               </template>
               <div class="kb-popover-list">
-                <div v-for="(kb, idx) in kbList" :key="idx" 
-                     :class="['kb-item', { 'active': currentKB === kb }]"
-                     @click="handleKBChange(kb)">
-                  <el-icon><Document /></el-icon> {{ kb }}
+                <div v-for="(kb, idx) in kbList" :key="idx"
+                     :class="['kb-item', { 'active': selectedKBs.includes(kb) }]"
+                     @click="toggleKB(kb)">
+                  <el-checkbox :model-value="selectedKBs.includes(kb)" @click.stop @change="toggleKB(kb)" />
+                  <span>{{ kb }}</span>
                 </div>
                 <div class="kb-divider"></div>
                 <div class="kb-item"><el-icon><Upload /></el-icon> 上传本地私有知识库 (.pdf/.md)</div>
@@ -141,7 +132,7 @@
                   </div>
 
                   <div class="kb-citation" v-if="msg.cited && !msg.loading">
-                    <el-icon><Reading /></el-icon> 已结合检索源: <strong>《{{ currentKB }}》</strong>
+                    <el-icon><Reading /></el-icon> 已结合检索源: <strong>{{ currentKBText }}</strong>
                   </div>
 
                   <div v-if="!msg.loading" class="msg-content markdown-body" v-html="msg.content"></div>
@@ -169,17 +160,18 @@
               <div class="hero-input-actions">
                 <div class="actions-left">
                   <el-button circle class="action-btn"><el-icon><Paperclip /></el-icon></el-button>
-                  <el-popover placement="top-start" :width="280" trigger="hover">
+                  <el-popover placement="top-start" :width="320" trigger="hover">
                     <template #reference>
                       <el-button round class="action-btn kb-mini-btn">
-                        <el-icon><FolderOpened /></el-icon> <span class="truncate-text ax-w-25">{{ currentKB }}</span>
+                        <el-icon><FolderOpened /></el-icon> <span class="truncate-text ax-w-25">{{ currentKBDisplay }}</span>
                       </el-button>
                     </template>
                     <div class="kb-popover-list mini">
-                      <div v-for="(kb, idx) in kbList" :key="idx" 
-                           :class="['kb-item', { 'active': currentKB === kb }]"
-                           @click="handleKBChange(kb); showToast(`已挂载：${kb}`)">
-                        <el-icon><Document /></el-icon> {{ kb }}
+                      <div v-for="(kb, idx) in kbList" :key="idx"
+                           :class="['kb-item', { 'active': selectedKBs.includes(kb) }]"
+                           @click="toggleKB(kb)">
+                        <el-checkbox :model-value="selectedKBs.includes(kb)" @click.stop @change="toggleKB(kb)" />
+                        <span>{{ kb }}</span>
                       </div>
                     </div>
                   </el-popover>
@@ -200,13 +192,12 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { 
-  Coin, DataLine, TrendCharts, Share, DocumentChecked, ChatDotRound, 
-  ArrowLeft, ArrowDown, Position, Paperclip, MagicStick, ChromeFilled, Connection,
+import {
+  Position, Paperclip, MagicStick, ChromeFilled, Connection,
   Microphone, DataAnalysis, ScaleToOriginal, FolderOpened,
-  Cloudy, Document, Upload, Monitor, Reading, Loading, CircleCheck,
+  Document, Upload, Monitor, Reading, Loading, CircleCheck,
   DocumentCopy, RefreshRight, Pointer, Bottom
 } from '@element-plus/icons-vue'
 
@@ -228,31 +219,48 @@ const showToast = (msg) => {
   setTimeout(() => { toast.value.visible = false }, 2500)
 }
 
-const currentModel = ref('Causal-RAG-72B')
+const currentModel = ref('XGBoost')
+const modelOptions = [
+  'XGBoost', 'DNN', 'LightGBM', 'G-computation', 'BKMR',
+  'Random Forest', 'CatBoost', 'Elastic Net', 'Cox-PH', 'Weibull-AFT',
+  'Bayesian Network', 'GAM', 'SHAP-Integrated MLP', 'QG-Comp', 'TMLE',
+  'DeepSurv', 'AFT-NN', 'BKMR-CS', 'SuperLearner', 'Causal Forest'
+]
 const handleModelChange = (cmd) => {
-  currentModel.value = cmd
-  showToast(`已无缝切换至大模型：${cmd}`)
+  showToast(`已切换至：${cmd}`)
 }
 
 const showKBPopover = ref(false)
 const kbList = [
-  '职业重金属复合暴露因果库', 
-  'IARC 致癌物风险评级报告', 
-  'WHO 化学品安全与毒理库 (IPCS)', 
-  'ToxNet 毒理学数据网络', 
-  'NHANES 营养与健康调查库', 
-  'CTD 比较毒理基因组学数据库', 
-  'EPA/ATSDR 毒物学概况库', 
-  '职业病临床诊疗指南 (2025版)', 
+  '职业重金属复合暴露因果库',
+  'IARC 致癌物风险评级报告',
+  'WHO 化学品安全与毒理库 (IPCS)',
+  'ToxNet 毒理学数据网络',
+  'NHANES 营养与健康调查库',
+  'CTD 比较毒理基因组学数据库',
+  'EPA/ATSDR 毒物学概况库',
+  '职业病临床诊疗指南 (2025版)',
   'PubMed 职业流行病学文献库'
 ]
-const currentKB = ref(kbList[0])
+const selectedKBs = ref([kbList[0], kbList[1]])
 
-const handleKBChange = (kb) => {
-  currentKB.value = kb
-  showKBPopover.value = false
-  showToast(`知识图谱已重新挂载：${kb}`)
+const toggleKB = (kb) => {
+  const idx = selectedKBs.value.indexOf(kb)
+  if (idx >= 0) {
+    if (selectedKBs.value.length <= 1) { showToast('至少需要挂载一个知识库'); return }
+    selectedKBs.value.splice(idx, 1)
+  } else {
+    selectedKBs.value.push(kb)
+  }
 }
+
+const currentKBDisplay = computed(() => {
+  if (selectedKBs.value.length === kbList.length) return '全部知识库'
+  if (selectedKBs.value.length === 1) return selectedKBs.value[0]
+  return `已选 ${selectedKBs.value.length} 个知识库`
+})
+
+const currentKBText = computed(() => selectedKBs.value.map(k => `《${k}》`).join('、'))
 
 const toggleDeepThink = () => {
   enableDeepThink.value = !enableDeepThink.value
@@ -317,9 +325,43 @@ const generateThinkingProcess = (query) => {
     <div style="color: #64748B; font-size: 0.9rem; line-height: 1.6;">
       <p>> 正在解析用户意图：意图识别为对 "${query.substring(0, 10)}..." 的机制/评估请求...</p>
       <p>> 正在调用 <strong>${currentModel.value}</strong> 推理模型...</p>
-      <p>> 正在通过 RAG 向量引擎检索 <strong>《${currentKB.value}》</strong> ...</p>
+      <p>> 正在通过 RAG 向量引擎检索 <strong>${currentKBText.value}</strong> ...</p>
       <p>> 提取关键三元组：[暴露源] -> [病理机制] -> [靶器官疾病]</p>
       <p>> 融合知识图谱完毕，准备生成最终推演报告。</p>
+    </div>
+  `
+}
+
+const getRecommendedKBs = (query) => {
+  const rules = [
+    { keywords: ['铅', 'Pb', '铅中毒', '驱铅', 'EDTA'], kbs: ['职业重金属复合暴露因果库', '职业病临床诊疗指南 (2025版)', 'EPA/ATSDR 毒物学概况库'], reason: '铅暴露因果机制与临床驱铅方案' },
+    { keywords: ['砷', 'As', '砷中毒', '皮肤癌'], kbs: ['IARC 致癌物风险评级报告', 'CTD 比较毒理基因组学数据库', 'PubMed 职业流行病学文献库'], reason: '砷致癌性评估与基因组毒理学' },
+    { keywords: ['镉', 'Cd', '肾病', '骨质疏松', '痛痛病'], kbs: ['WHO 化学品安全与毒理库 (IPCS)', 'NHANES 营养与健康调查库', 'ToxNet 毒理学数据网络'], reason: '镉的肾毒性与骨骼损伤机制' },
+    { keywords: ['汞', 'Hg', '甲基汞', '神经毒性'], kbs: ['ToxNet 毒理学数据网络', 'WHO 化学品安全与毒理库 (IPCS)', 'PubMed 职业流行病学文献库'], reason: '汞的神经毒理学与甲基汞代谢' },
+    { keywords: ['癌症', '致癌', '肿瘤', 'IARC'], kbs: ['IARC 致癌物风险评级报告', 'CTD 比较毒理基因组学数据库', 'PubMed 职业流行病学文献库'], reason: '致癌物分级与流行病学证据' },
+    { keywords: ['肾', '肾脏', 'CKD', '肾衰竭', '蛋白尿'], kbs: ['NHANES 营养与健康调查库', '职业病临床诊疗指南 (2025版)', 'EPA/ATSDR 毒物学概况库'], reason: '慢性肾病的营养流行病学与临床管理' },
+    { keywords: ['神经', '认知', '脑', '帕金森', '阿尔茨海默'], kbs: ['PubMed 职业流行病学文献库', '职业重金属复合暴露因果库', 'IARC 致癌物风险评级报告'], reason: '神经退行性病变的职业暴露流行病学' },
+    { keywords: ['干预', '治疗', '防护', '方案', '策略'], kbs: ['职业病临床诊疗指南 (2025版)', 'EPA/ATSDR 毒物学概况库', '职业重金属复合暴露因果库'], reason: '临床干预方案与毒物防护指南' },
+    { keywords: ['暴露', '监测', '生物标志', '筛查'], kbs: ['NHANES 营养与健康调查库', 'ToxNet 毒理学数据网络', 'CTD 比较毒理基因组学数据库'], reason: '暴露生物标志物与健康监测数据' }
+  ]
+
+  const matched = rules.find(r => r.keywords.some(k => query.includes(k) || query.toLowerCase().includes(k.toLowerCase())))
+  if (matched) {
+    const recommended = matched.kbs.filter(kb => !selectedKBs.value.includes(kb))
+    if (recommended.length > 0) return { kbs: recommended, reason: matched.reason }
+  }
+
+  const fallback = kbList.filter(kb => !selectedKBs.value.includes(kb)).slice(0, 2)
+  return fallback.length > 0 ? { kbs: fallback, reason: '扩展检索以补充更多维度的毒理学证据' } : null
+}
+
+const buildRecommendedHTML = (query) => {
+  const rec = getRecommendedKBs(query)
+  if (!rec) return ''
+  return `
+    <div class="kb-recommend">
+      <div class="kb-rec-title">📚 推荐追加知识库 <span class="kb-rec-reason">${rec.reason}</span></div>
+      <div class="kb-rec-tags">${rec.kbs.map(kb => `<span class="kb-rec-tag">${kb}</span>`).join('')}</div>
     </div>
   `
 }
@@ -333,9 +375,11 @@ const retrieveKnowledge = (query) => {
     }
   }
 
+  const recommendedHTML = buildRecommendedHTML(query)
+
   if (matchedMetal) {
     return `
-      <p>为您从 <strong>《${currentKB.value}》</strong> 中提取到关于 <span class="highlight-blue">${matchedMetal.name}</span> 的因果分析图谱结构化数据：</p>
+      <p>为您从 ${currentKBText.value} 中提取到关于 <span class="highlight-blue">${matchedMetal.name}</span> 的因果分析图谱结构化数据：</p>
       <div class="kb-card">
         <div class="kb-row"><span class="kb-label">📍 核心暴露来源</span> <span class="kb-val">${matchedMetal.source}</span></div>
         <div class="kb-row"><span class="kb-label">🧬 关键分子机制</span> <span class="kb-val">${matchedMetal.mechanism}</span></div>
@@ -344,14 +388,16 @@ const retrieveKnowledge = (query) => {
         <div class="kb-row"><span class="kb-label">⚖️ 循证证据等级</span> <span class="kb-val text-emerald-600 font-bold">${matchedMetal.evidence}</span></div>
       </div>
       <p style="margin-top: 10px;"><strong>💡 智能干预建议：</strong>建议在图谱沙盘中将 ${matchedMetal.name.split(' ')[1]} 的环境特征参数下调 30%，即可在因果图神经网络中观察其对 <em>氧化应激</em> 与 <em>靶器官</em> 风险的涟漪阻断效应。</p>
+      ${recommendedHTML}
     `
   } else {
     return `
-      <p>在当前的 <strong>《${currentKB.value}》</strong> 中未匹配到单一重金属特征。系统目前已挂载 <strong>铅(Pb)、砷(As)、镉(Cd)、汞(Hg)</strong> 等常见金属的毒理机制库。</p>
+      <p>在当前已挂载的知识库中未匹配到单一重金属特征。系统目前已挂载 <strong>铅(Pb)、砷(As)、镉(Cd)、汞(Hg)</strong> 等常见金属的毒理机制库。</p>
       <p>您可以尝试修改提问：<br/>
       👉 "深度解析一下镉(Cd)的靶器官衰竭路径是什么？"<br/>
       👉 "重金属诱导的氧化应激会导致哪些慢性疾病？"
       </p>
+      ${recommendedHTML}
     `
   }
 }
@@ -435,11 +481,6 @@ $border-light: #E2E8F0;
 /* 左上角大模型选择器 */
 .model-selector-top-left {
   position: absolute; top: 24px; left: 32px; z-index: 20;
-  background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); padding: 8px 16px; border-radius: 12px; border: 1px solid #E5E7EB; box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-}
-.model-dropdown-link {
-  display: flex; align-items: center; font-size: 1.15rem; font-weight: 900; color: #111827; cursor: pointer; transition: color 0.2s;
-  &:hover { color: #1f77b4; }
 }
 
 /* 初始欢迎态 */
@@ -593,6 +634,18 @@ $border-light: #E2E8F0;
   .kb-label { font-weight: 800; color: #475569; font-size: 0.9rem;}
   .kb-val { color: #1F2937; font-size: 0.95rem; line-height: 1.5;}
   .highlight-blue { color: #1f77b4; font-weight: 800; }
+}
+
+/* 推荐知识库 */
+:deep(.kb-recommend) {
+  margin-top: 16px; padding: 14px 16px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px;
+  .kb-rec-title { font-size: 0.9rem; font-weight: 700; color: #1E40AF; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+    .kb-rec-reason { font-size: 0.8rem; font-weight: 500; color: #64748B; }
+  }
+  .kb-rec-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .kb-rec-tag { display: inline-flex; align-items: center; padding: 5px 12px; background: #fff; border: 1px solid #93C5FD; border-radius: 6px; font-size: 0.82rem; font-weight: 600; color: #1D4ED8; cursor: pointer; transition: all 0.2s;
+    &:hover { background: #1D4ED8; color: #fff; border-color: #1D4ED8; }
+  }
 }
 
 .typing-indicator {

@@ -31,7 +31,7 @@
               </svg>
               <div class="rh-text">
                 <h1>全员健康风险排查与预测报告</h1>
-                <p>提取文件：SZ-102_Profile.csv, LIS_Biomarkers.lst | 生成时间：2026-05-12 15:40</p>
+                <p>提取文件：第一熔炼车间_全体环境与生物监测表.csv | 生成时间：2026-05-12 15:40</p>
               </div>
             </div>
             <div class="rh-right">
@@ -66,7 +66,7 @@
           </div>
 
           <div class="report-section highlight">
-            <h3 class="rs-title">二、 首要高危人员 (SZ-102) 综合靶器官预测</h3>
+            <h3 class="rs-title">二、 首要高危人员 (SZ-284) 综合靶器官预测</h3>
             <el-row :gutter="40">
               <el-col :span="10">
                 <div class="chart-box-report" ref="reportGaugeRef"></div>
@@ -83,7 +83,7 @@
                 </div>
               </el-col>
             </el-row>
-            <p class="report-desc"><strong>[系统洞察]：</strong> XGBoost 多靶器官概率推演显示，该员工患退行性中枢神经系统疾病的概率高达 92%，已越过临床安全红线；同时慢性肾病与尿毒症并发概率亦达到 78%，亟待医学干预。</p>
+            <p class="report-desc"><strong>[系统洞察]：</strong> XGBoost 多靶器官概率推演显示，该员工因果风险增幅达 68.5%，已越过极度危险界限；同时慢性肾病与尿毒症并发概率亦达到 52%，亟待医学干预。</p>
           </div>
 
           <div class="report-section">
@@ -110,43 +110,23 @@
           </div>
 
           <div class="report-section highlight">
-            <h3 class="rs-title">四、 风险演化时序与靶器官毒性分布</h3>
+            <h3 class="rs-title">四、 毒物剂量-致病突变曲线</h3>
             <el-row :gutter="40">
-              <el-col :span="12">
-                <div class="chart-box-report" ref="reportLineRef"></div>
-              </el-col>
-              <el-col :span="12">
-                <div class="chart-box-report" ref="reportHeatmapRef"></div>
+              <el-col :span="24">
+                <div class="chart-box-report" ref="reportDoseResponseRef" style="height: 300px;"></div>
               </el-col>
             </el-row>
-            <p class="report-desc"><strong>[系统洞察]：</strong> 时序图揭示了该评估对象的健康风险自 2024 年起呈现指数级攀升（突破 75% 警戒线）。热力图谱进一步明确：Pb 极度富集于神经与骨骼系统，而 Cd 则精准靶向攻击泌尿系统。</p>
+            <p class="report-desc"><strong>[系统洞察]：</strong> 以铅为例的 Sigmoid 剂量-反应曲线显示，当体内蓄积剂量突破 50 μg/L 爆发拐点后，患病概率呈非线性急剧攀升。该群体中已有多名工人的血铅浓度逼近或超越此拐点，属于高危预警状态。</p>
           </div>
 
           <div class="report-section">
-            <h3 class="rs-title">五、 毒理学桑基图与靶向因果网络提取</h3>
+            <h3 class="rs-title">五、 双毒物协同放大效应</h3>
             <el-row :gutter="40">
-              <el-col :span="10">
-                <div class="chart-box-report" ref="reportSankeyRef"></div>
-              </el-col>
-              <el-col :span="14">
-                <div class="causal-graph" style="margin-top: 10px; height: 230px;">
-                  <svg class="graph-svg" viewBox="0 0 1000 200">
-                    <defs>
-                      <marker id="arrowRedRpt" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0 0, 6 3, 0 6" fill="#EF4444" /></marker>
-                      <marker id="arrowGreyRpt" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0 0, 6 3, 0 6" fill="#9CA3AF" /></marker>
-                    </defs>
-                    <path d="M 150 150 C 300 150, 300 50, 450 50" stroke="#E5E7EB" stroke-width="2" fill="none" marker-end="url(#arrowGreyRpt)"/>
-                    <path class="path-active danger" d="M 150 50 C 300 50, 300 50, 450 50" fill="none" marker-end="url(#arrowRedRpt)"/>
-                    <path class="path-active danger delay-1" d="M 450 50 C 600 50, 600 100, 750 100" fill="none" marker-end="url(#arrowRedRpt)"/>
-                  </svg>
-                  <div class="c-node source danger pulse-glow" style="left: 150px; top: 50px;">Pb 暴露异常</div>
-                  <div class="c-node source warn" style="left: 150px; top: 150px;">Cd 暴露临界</div>
-                  <div class="c-node mechanism danger" style="left: 450px; top: 50px;">血脑屏障通透性异常</div>
-                  <div class="c-node target danger pulse-glow" style="left: 750px; top: 100px;">神经退行性病变</div>
-                </div>
+              <el-col :span="24">
+                <div class="chart-box-report" ref="reportJointEffectRef" style="height: 300px;"></div>
               </el-col>
             </el-row>
-            <p class="report-desc"><strong>[系统洞察]：</strong> 因果图谱(DAG)最终提炼出一条最短的确定性致病链条：<strong>[Pb 持续暴露] ➔ [血脑屏障通透性破坏] ➔ [不可逆中枢神经退行性病变]</strong>。这为后续智能生成阻断策略提供了唯一核心靶点。</p>
+            <p class="report-desc"><strong>[系统洞察]：</strong> 热力图谱清晰揭示了铅(Pb)与砷(As)的协同致毒效应：当两种金属同时处于高浓度暴露时，致病概率呈倍增放大（右上角深红区域），远超单一金属的独立风险叠加。这一非线性交互效应是制定联合干预策略的核心依据。</p>
           </div>
 
           <div class="report-footer">
@@ -166,11 +146,8 @@
 
 <script setup>
 import { ref, onMounted, nextTick, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
-import { Coin, DataLine, TrendCharts, Share, DocumentChecked, ArrowLeft, Printer } from '@element-plus/icons-vue'
+import { ArrowLeft, Printer } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
-
-const router = useRouter()
 
 const goBack = async () => {
   await navigateTo('/risk')
@@ -181,18 +158,23 @@ const handlePrint = () => {
 }
 
 const highRiskWorkers = ref([
-  { id: 'SZ-102', name: '张建国', dept: '第一熔炼车间', years: 12, factors: 'Pb, As', score: 92, level: 'danger' },
-  { id: 'SZ-089', name: '刘伟', dept: '第一熔炼车间', years: 15, factors: 'Pb, Cd', score: 88, level: 'danger' },
-  { id: 'SZ-214', name: '王强', dept: '原矿粉碎区', years: 8, factors: 'As, Ni', score: 75, level: 'warn' },
-  { id: 'SZ-156', name: '李明', dept: '尾气处理组', years: 10, factors: 'Pb, Hg', score: 68, level: 'warn' },
-  { id: 'SZ-042', name: '赵铁柱', dept: '原矿粉碎区', years: 14, factors: 'Cd', score: 55, level: 'warn' }
+  { id: 'SZ-284', name: '张建国', dept: '第一熔炼车间', years: 18, factors: 'Pb, As', score: 68.5, level: 'danger' },
+  { id: 'SZ-105', name: '刘伟', dept: '第一熔炼车间', years: 15, factors: 'Pb, Cd', score: 62.1, level: 'danger' },
+  { id: 'SZ-032', name: '王强', dept: '第一熔炼车间', years: 14, factors: 'As, Ni', score: 55.4, level: 'danger' },
+  { id: 'SZ-142', name: '李明', dept: '原矿粉碎区', years: 12, factors: 'Pb, Hg', score: 48.2, level: 'danger' },
+  { id: 'SZ-089', name: '赵铁柱', dept: '原矿粉碎区', years: 11, factors: 'Cd, Cr', score: 41.5, level: 'warn' },
+  { id: 'SZ-311', name: '陈刚', dept: '第一熔炼车间', years: 9, factors: 'Pb, As', score: 36.8, level: 'warn' },
+  { id: 'SZ-402', name: '孙磊', dept: '尾气处理组', years: 8, factors: 'As, Ni', score: 32.1, level: 'warn' },
+  { id: 'SZ-175', name: '周波', dept: '第一熔炼车间', years: 7, factors: 'Pb', score: 28.5, level: 'warn' },
+  { id: 'SZ-219', name: '吴涛', dept: '原矿粉碎区', years: 6, factors: 'Cd, Hg', score: 24.2, level: 'warn' },
+  { id: 'SZ-056', name: '郑凯', dept: '尾气处理组', years: 5, factors: 'Cr', score: 18.6, level: 'warn' }
 ])
 
 const diseaseRisks = ref([
-  { name: '退行性中枢神经系统疾病', prob: 92, status: 'danger' },
-  { name: '慢性肾病与尿毒症', prob: 78, status: 'warn' },
-  { name: '骨质疏松与骨折', prob: 45, status: 'safe' },
-  { name: '心脑血管病', prob: 32, status: 'safe' }
+  { name: '退行性中枢神经系统疾病', prob: 65, status: 'danger' },
+  { name: '慢性肾病与尿毒症', prob: 52, status: 'warn' },
+  { name: '骨质疏松与骨折', prob: 34, status: 'safe' },
+  { name: '心脑血管病', prob: 22, status: 'safe' }
 ])
 
 const getDiseaseColor = (status) => {
@@ -215,25 +197,73 @@ const shapData = ref([
 ])
 
 /* ================== ECharts 渲染逻辑 ================== */
-const reportGaugeRef = ref(null); const reportRadarRef = ref(null); const reportLineRef = ref(null); 
-const reportHeatmapRef = ref(null); const reportSankeyRef = ref(null);
+const reportGaugeRef = ref(null); const reportRadarRef = ref(null);
+const reportDoseResponseRef = ref(null); const reportJointEffectRef = ref(null);
 let chartsInstances = []
 
 const clearCharts = () => { chartsInstances.forEach(c => c.dispose()); chartsInstances = [] }
 
-const getGaugeOption = () => ({ series: [{ type: 'gauge', startAngle: 180, endAngle: 0, center: ['50%', '75%'], radius: '100%', axisLine: { lineStyle: { width: 15, color: [[0.5, '#10B981'], [0.8, '#F59E0B'], [1, '#EF4444']] } }, pointer: { show: false }, axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false }, detail: { fontSize: 36, fontWeight: 'bold', formatter: '{value}%', color: '#EF4444', offsetCenter: [0, '-10%'] }, data: [{ value: 92 }] }] })
-const getRadarOption = () => ({ radar: { indicator: [ { name: 'Pb', max: 150 }, { name: 'As', max: 150 }, { name: 'Cd', max: 150 }, { name: 'Hg', max: 150 }, { name: 'Cr', max: 150 }, { name: 'Ni', max: 150 } ], axisName: { color: '#64748B', fontWeight: 'bold' } }, series: [{ type: 'radar', data: [{ value: [124, 105, 89, 24, 34, 65], areaStyle: { color: 'rgba(239, 68, 68, 0.3)' }, lineStyle: { color: '#EF4444' }, itemStyle: { color: '#EF4444' } }] }] })
-const getLineOption = () => ({ grid: { left: '10%', right: '5%', top: '10%', bottom: '15%' }, xAxis: { type: 'category', boundaryGap: false, data: ['2021', '2022', '2023', '2024', '2025', '2026'] }, yAxis: { type: 'value' }, series: [{ data: [45, 52, 60, 75, 85, 92], type: 'line', smooth: true, lineStyle: { color: '#EF4444', width: 3 }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{offset: 0, color: 'rgba(239, 68, 68, 0.5)'}, {offset: 1, color: 'rgba(239, 68, 68, 0)'}]) } }] })
-const getHeatmapOption = () => ({ grid: { left: '20%', right: '5%', top: '5%', bottom: '15%' }, xAxis: { type: 'category', data: ['Pb', 'As', 'Cd', 'Hg', 'Cr'] }, yAxis: { type: 'category', data: ['神经系统', '泌尿系统', '骨骼系统'] }, visualMap: { min: 0, max: 100, calculable: true, orient: 'horizontal', left: 'center', bottom: '0%', inRange: { color: ['#10B981', '#F59E0B', '#EF4444'] }, show: false }, series: [{ name: 'Damage', type: 'heatmap', data: [[0,0,95], [1,0,80], [2,0,20], [3,0,10], [4,0,15], [0,1,30], [1,1,40], [2,1,85], [3,1,20], [4,1,10], [0,2,60], [1,2,30], [2,2,50], [3,2,10], [4,2,5]], label: { show: true } }] })
-const getSankeyOption = () => ({ series: [{ type: 'sankey', layout: 'none', focusNodeAdjacency: true, data: [{name:'Pb暴露'}, {name:'As暴露'}, {name:'Cd暴露'}, {name:'血脑屏障异常'}, {name:'肾小管应激'}, {name:'神经退行性病变'}, {name:'慢性肾病'}], links: [ {source:'Pb暴露', target:'血脑屏障异常', value:5}, {source:'As暴露', target:'血脑屏障异常', value:3}, {source:'Cd暴露', target:'肾小管应激', value:4}, {source:'血脑屏障异常', target:'神经退行性病变', value:8}, {source:'肾小管应激', target:'慢性肾病', value:4} ], lineStyle: { color: 'source', curveness: 0.5, opacity: 0.4 } }] })
+const getGaugeOption = () => ({ series: [{ type: 'gauge', startAngle: 180, endAngle: 0, center: ['50%', '75%'], radius: '100%', axisLine: { lineStyle: { width: 15, color: [[0.5, '#10B981'], [0.8, '#F59E0B'], [1, '#EF4444']] } }, pointer: { show: false }, axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false }, detail: { fontSize: 36, fontWeight: 'bold', formatter: '{value}%', color: '#EF4444', offsetCenter: [0, '-10%'] }, data: [{ value: 68.5 }] }] })
+const getRadarOption = () => ({ radar: { indicator: [ { name: 'Pb', max: 150 }, { name: 'As', max: 150 }, { name: 'Cd', max: 150 }, { name: 'Hg', max: 150 }, { name: 'Cr', max: 150 }, { name: 'Ni', max: 150 } ], axisName: { color: '#64748B', fontWeight: 'bold' } }, series: [{ type: 'radar', data: [{ value: [98, 82, 56, 18, 28, 42], areaStyle: { color: 'rgba(239, 68, 68, 0.3)' }, lineStyle: { color: '#EF4444' }, itemStyle: { color: '#EF4444' } }] }] })
+
+const getDoseResponseOption = () => {
+  const data = Array.from({length: 50}, (_, i) => {
+    const x = i * 2;
+    const y = 100 / (1 + Math.exp(-0.15 * (x - 60)));
+    return [x, y];
+  });
+  return {
+    tooltip: { trigger: 'axis' },
+    grid: { left: '10%', right: '5%', top: '10%', bottom: '15%' },
+    xAxis: { type: 'value', name: '体内蓄积剂量 (μg/L)', nameLocation: 'middle', nameGap: 25, splitLine: { show: false } },
+    yAxis: { type: 'value', name: '患病概率 (%)', max: 100 },
+    series: [{
+      name: '致病风险', type: 'line', data: data, smooth: true, symbol: 'none',
+      lineStyle: { color: '#EF4444', width: 3 },
+      areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(239, 68, 68, 0.4)' }, { offset: 1, color: 'rgba(239, 68, 68, 0)' }]) },
+      markLine: {
+        silent: true, symbol: 'none',
+        lineStyle: { color: '#F59E0B', type: 'dashed', width: 2 },
+        label: { formatter: '爆发拐点', position: 'insideStartTop' },
+        data: [{ xAxis: 50 }]
+      }
+    }]
+  }
+}
+
+const getJointEffectOption = () => {
+  const heatmapData = [];
+  const yLabels = ['低', '较低', '中等', '高', '极高(As)'];
+  const xLabels = ['低', '较低', '中等', '高', '极高(Pb)'];
+  for (let i = 0; i < 5; i++) {
+    for (let j = 0; j < 5; j++) {
+      let risk = (i + 1) * (j + 1) * 3.5 + Math.random() * 5;
+      heatmapData.push([j, i, risk.toFixed(1)]);
+    }
+  }
+  return {
+    tooltip: { position: 'top', formatter: (p) => `联合致病概率: ${p.data[2]}%` },
+    grid: { left: '15%', right: '5%', top: '5%', bottom: '15%' },
+    xAxis: { type: 'category', data: xLabels, name: '铅浓度', nameLocation: 'middle', nameGap: 25, axisTick: {show: false} },
+    yAxis: { type: 'category', data: yLabels, name: '砷浓度', axisTick: {show: false} },
+    visualMap: {
+      min: 0, max: 100, calculable: true, orient: 'horizontal', left: 'center', bottom: '0%', show: false,
+      inRange: { color: ['#F0FDF4', '#FDE047', '#EF4444'] }
+    },
+    series: [{
+      name: '风险概率', type: 'heatmap', data: heatmapData,
+      label: { show: true, color: '#111827', fontWeight: 'bold' },
+      itemStyle: { borderWidth: 2, borderColor: '#fff', borderRadius: 4 }
+    }]
+  }
+}
 
 const initReportCharts = () => {
   clearCharts()
   if(reportGaugeRef.value) { const c = echarts.init(reportGaugeRef.value); c.setOption(getGaugeOption()); chartsInstances.push(c) }
   if(reportRadarRef.value) { const c = echarts.init(reportRadarRef.value); c.setOption(getRadarOption()); chartsInstances.push(c) }
-  if(reportLineRef.value) { const c = echarts.init(reportLineRef.value); c.setOption(getLineOption()); chartsInstances.push(c) }
-  if(reportHeatmapRef.value) { const c = echarts.init(reportHeatmapRef.value); c.setOption(getHeatmapOption()); chartsInstances.push(c) }
-  if(reportSankeyRef.value) { const c = echarts.init(reportSankeyRef.value); c.setOption(getSankeyOption()); chartsInstances.push(c) }
+  if(reportDoseResponseRef.value) { const c = echarts.init(reportDoseResponseRef.value); c.setOption(getDoseResponseOption()); chartsInstances.push(c) }
+  if(reportJointEffectRef.value) { const c = echarts.init(reportJointEffectRef.value); c.setOption(getJointEffectOption()); chartsInstances.push(c) }
 }
 
 const resizeCharts = () => { chartsInstances.forEach(c => c.resize()) }

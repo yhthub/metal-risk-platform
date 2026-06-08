@@ -13,7 +13,6 @@ export default defineNuxtConfig({
 
   css: [
     '~/assets/css/app.css',
-    'element-plus/dist/index.css'
   ],
 
   future: {
@@ -23,6 +22,14 @@ export default defineNuxtConfig({
   vite: {
     ssr: {
       noExternal: ['element-plus']
+    },
+    server: {
+      fs: {
+        allow: [
+          'D:/gradstu/gard1/vite+vue3/my-nuxt-app',
+          'D:/gradstu/gard1/vite+vue3/node_modules',
+        ]
+      }
     }
   }
 })
@@ -39,5 +46,4 @@ export default defineNuxtConfig({
 //     fonts: false
 //   }
 // })
-// cd my-nuxt-app  pnpm dev 
-// Nuxt4 + Vue3 + Vite7 + Tailwind4 + Element plus + ECharts6 + pnpm
+
