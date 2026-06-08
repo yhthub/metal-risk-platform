@@ -47,9 +47,9 @@
           </div>
 
           <div class="hero-input-wrapper" :class="{ 'is-focused': inputFocused }">
-            <el-popover placement="bottom-start" :width="320" trigger="click" :visible="showKBPopover">
+            <el-popover placement="bottom-start" :width="320" trigger="click">
               <template #reference>
-                <div class="kb-selector-btn" @click="showKBPopover = !showKBPopover">
+                <div class="kb-selector-btn">
                   <el-icon><FolderOpened /></el-icon>
                   <span class="truncate-text">{{ currentKBDisplay }}</span>
                   <el-icon><ArrowDown /></el-icon>
@@ -230,7 +230,6 @@ const handleModelChange = (cmd) => {
   showToast(`已切换至：${cmd}`)
 }
 
-const showKBPopover = ref(false)
 const kbList = [
   '职业重金属复合暴露因果库',
   'IARC 致癌物风险评级报告',

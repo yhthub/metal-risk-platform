@@ -310,19 +310,23 @@ const clearCharts = () => { chartsInstances.forEach(c => c.dispose()); chartsIns
 const getGaugeOption = () => ({
   series: [{
     type: 'gauge', startAngle: 180, endAngle: 0, center: ['50%', '75%'], radius: '100%',
-    min: 0, max: 20, splitNumber: 4,
+    min: 0, max: 30, splitNumber: 3,
     axisLine: {
       lineStyle: {
         width: 15,
-        color: [[0.25, '#10B981'], [0.6, '#F59E0B'], [1, '#EF4444']]
+        color: [[0.33, '#10B981'], [0.66, '#F59E0B'], [1, '#EF4444']]
       }
     },
     pointer: { show: true, length: '60%', width: 5 },
     axisTick: { show: false },
     splitLine: { show: false },
-    axisLabel: { show: true, distance: -25, color: '#64748B', fontSize: 10, formatter: '{value}' },
-    detail: { fontSize: 36, fontWeight: 'bold', formatter: '{value} 人', color: '#EF4444', offsetCenter: [0, '-10%'] },
-    data: [{ value: 10, name: '高危易感人数', title: { offsetCenter: [0, '25%'], fontSize: 12, color: '#64748B' } }]
+    axisLabel: { show: true, distance: -25, color: '#64748B', fontSize: 10, formatter: '{value}%' },
+    detail: {
+      fontSize: 36, fontWeight: 'bold', offsetCenter: [0, '-10%'],
+      formatter: '{value}%',
+      color: 'inherit'
+    },
+    data: [{ value: 8.5, name: '高危占比 (10人/1,245人)', title: { offsetCenter: [0, '25%'], fontSize: 12, color: '#64748B' } }]
   }]
 })
 
