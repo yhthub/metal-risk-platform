@@ -291,7 +291,7 @@
       </div>
     </main>
 
-    <el-drawer v-model="drawerVisible" title="节点多维度精细机制说明" direction="right" size="440px" :close-on-click-modal="true" custom-class="scientific-drawer">
+    <el-drawer v-model="drawerVisible" title="节点多维度精细机制说明" direction="rtl" size="440px" :close-on-click-modal="true" custom-class="scientific-drawer">
       <div v-if="selectedNode" class="node-detail-content px-1 flex flex-col gap-6">
         <div class="node-header flex items-center justify-between border-b border-slate-100 pb-4">
           <div class="flex items-center gap-3">
