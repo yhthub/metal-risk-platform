@@ -171,17 +171,69 @@
                 </div>
 
                 <div class="input-mode-section" v-if="formData.mode === 'batch'">
-                  <div class="upload-dragger" :class="{'has-file': hasFile}">
+                  <div class="outcome-config-panel">
+                    <div class="outcome-selector">
+                      <span class="config-label">预测结局</span>
+                      <el-select
+                        v-model="selectedOutcomeId"
+                        placeholder="请选择预测结局"
+                        size="large"
+                        :disabled="isAnalyzing"
+                        @change="handleOutcomeChange"
+                      >
+                        <el-option
+                          v-for="item in outcomeOptions"
+                          :key="item.id"
+                          :label="item.name"
+                          :value="item.id"
+                        />
+                      </el-select>
+                      <p>{{ selectedOutcome?.description }}</p>
+                    </div>
+                    <div class="field-role-summary" v-if="selectedOutcome">
+                      <div class="role-line">
+                        <span class="role-title exposure">暴露因素</span>
+                        <span v-for="item in selectedOutcome.exposures" :key="item.column" class="field-chip">
+                          {{ item.label }} <small>{{ item.unit }}</small>
+                        </span>
+                      </div>
+                      <div class="role-line">
+                        <span class="role-title confounder">混杂因素</span>
+                        <span v-for="item in selectedOutcome.confounders" :key="item.column" class="field-chip muted">
+                          {{ item.label }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <input
+                    ref="fileInputRef"
+                    class="hidden-file-input"
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    @change="handleFileChange"
+                  />
+                  <div
+                    class="upload-dragger"
+                    :class="{'has-file': hasFile}"
+                    @dragover.prevent
+                    @drop.prevent="handleFileDrop"
+                  >
                     <el-icon class="upload-icon"><DocumentAdd /></el-icon>
                     <div v-if="!hasFile">
                       <div class="upload-text">拖拽群体监测数据至此 (支持 .csv / .xlsx)</div>
-                      <div class="upload-hint">需包含：工号及 Pb, Cd, Hg, Th, Li, Cr, Ni, Co, As, Rn 等暴露特征列</div>
-                      <button class="btn-upload" @click="simulateFileUpload">选择本地文件</button>
+                      <div class="upload-hint">系统将按照“{{ selectedOutcome?.name || '所选结局' }}”自动校验结局、暴露与混杂因素字段</div>
+                      <button class="btn-upload" type="button" @click="openFilePicker">选择本地文件</button>
                     </div>
                     <div v-else class="file-success">
-                      <div class="upload-text"><el-icon style="vertical-align: middle; margin-right: 6px;"><DocumentChecked/></el-icon> 第一熔炼车间_全体环境与生物监测表.csv</div>
-                      <div class="upload-hint success-text">成功解析 1,245 条样本特征数据，特征维度完整。</div>
-                      <button class="btn-upload btn-reupload" @click="hasFile = false">重新上传</button>
+                      <div class="upload-text"><el-icon style="vertical-align: middle; margin-right: 6px;"><DocumentChecked/></el-icon> {{ selectedFile?.name }}</div>
+                      <div class="upload-hint success-text" v-if="uploadResult">
+                        成功解析 {{ formatNumber(uploadResult.total_records) }} 条原始记录，成人有效分析队列 {{ formatNumber(uploadResult.analysis_records) }} 人。
+                      </div>
+                      <div class="upload-hint success-text" v-else>
+                        文件大小 {{ formatFileSize(selectedFile?.size || 0) }}，等待启动真实数据分析。
+                      </div>
+                      <button class="btn-upload btn-reupload" type="button" @click="resetSelectedFile">重新上传</button>
                     </div>
                   </div>
                 </div>
@@ -224,10 +276,14 @@
           <div v-if="formData.mode === 'batch'" class="batch-dashboard-container animate-on-scroll is-visible">
             
             <div class="kpi-row">
-              <div class="kpi-card total"><el-icon class="kpi-icon"><Avatar /></el-icon><div class="kpi-info"><span>总提取解析人数</span><strong>1,245<small> 人</small></strong></div></div>
-              <div class="kpi-card male"><el-icon class="kpi-icon"><Male /></el-icon><div class="kpi-info"><span>男性占比</span><strong>856<small> 人 (68.7%)</small></strong></div></div>
-              <div class="kpi-card female"><el-icon class="kpi-icon"><Female /></el-icon><div class="kpi-info"><span>女性占比</span><strong>389<small> 人 (31.3%)</small></strong></div></div>
-              <div class="kpi-card ready"><el-icon class="kpi-icon"><CircleCheckFilled /></el-icon><div class="kpi-info"><span>多维度暴露评估基线</span><strong>预处理就绪</strong></div></div>
+              <div class="kpi-card total"><el-icon class="kpi-icon"><Avatar /></el-icon><div class="kpi-info"><span>成人有效分析队列</span><strong>{{ formatNumber(analysisData?.kpis.analysis_records) }}<small> / {{ formatNumber(analysisData?.kpis.total_records) }} 人</small></strong></div></div>
+              <div class="kpi-card male"><el-icon class="kpi-icon"><Male /></el-icon><div class="kpi-info"><span>男性占比</span><strong>{{ formatNumber(analysisData?.kpis.male_count) }}<small> 人 ({{ analysisData?.kpis.male_ratio }}%)</small></strong></div></div>
+              <div class="kpi-card female"><el-icon class="kpi-icon"><Female /></el-icon><div class="kpi-info"><span>女性占比</span><strong>{{ formatNumber(analysisData?.kpis.female_count) }}<small> 人 ({{ analysisData?.kpis.female_ratio }}%)</small></strong></div></div>
+              <div class="kpi-card ready"><el-icon class="kpi-icon"><CircleCheckFilled /></el-icon><div class="kpi-info"><span>平均收缩压 / 舒张压</span><strong>{{ analysisData?.kpis.mean_sbp }} / {{ analysisData?.kpis.mean_dbp }}<small> mmHg</small></strong></div></div>
+            </div>
+
+            <div class="analysis-notes" v-if="analysisData?.metadata.warnings?.length">
+              <span v-for="note in analysisData.metadata.warnings" :key="note"><el-icon><InfoFilled /></el-icon>{{ note }}</span>
             </div>
 
             <!-- 人口学特征统计行 -->
@@ -254,8 +310,8 @@
               <!-- 家庭年收入 -->
               <div class="b-chart-card col-span-1">
                 <div class="b-c-header">
-                  <h4>家庭年收入分布 (Annual Household Income)</h4>
-                  <span class="sub-title">揭示群体经济水平分层，辅助评估医疗可及性与营养干预的可行性。</span>
+                  <h4>家庭收入贫困比分布 (Income-to-Poverty Ratio)</h4>
+                  <span class="sub-title">按家庭收入贫困比及性别呈现经济水平分层，作为血压分析的混杂因素之一。</span>
                 </div>
                 <div id="batchChartIncome" class="b-c-canvas"></div>
               </div>
@@ -278,7 +334,7 @@
               <div class="b-chart-card col-span-1">
                 <div class="b-c-header">
                   <h4>核心暴露分布四分位数 (Quartiles)</h4>
-                  <span class="sub-title">按暴露浓度将人群划分为四个区间，直观展示处于极高暴露水平（Q4区间）的样本规模。</span>
+                  <span class="sub-title">展示5项血中暴露指标的Q1、中位数和Q3，数值与单位均来自上传数据。</span>
                 </div>
                 <div id="batchChartQuartile" class="b-c-canvas"></div>
               </div>
@@ -296,7 +352,7 @@
               <div class="b-chart-card col-span-1">
                 <div class="b-c-header">
                   <h4>主成分降维特征聚类 (PCA Projection)</h4>
-                  <span class="sub-title">将高维特征投影至二维空间，验证健康组与高危组样本在多特征下的分布差异。</span>
+                  <span class="sub-title">将标准化后的5项暴露指标投影至二维空间，并按140/90 mmHg血压状态分组。</span>
                 </div>
                 <div id="batchChartPCA" class="b-c-canvas"></div>
               </div>
@@ -304,8 +360,8 @@
               <!-- 图表 5 -->
               <div class="b-chart-card col-span-1">
                 <div class="b-c-header">
-                  <h4>数据检出率与缺失评估 (LOD Analysis)</h4>
-                  <span class="sub-title">统计各暴露因子在检出限（LOD）以上的有效样本比例，评估数据源质量。</span>
+                  <h4>数据完整度与缺失评估 (Completeness)</h4>
+                  <span class="sub-title">统计上传文件中各暴露字段的有效数值与缺失比例，评估真实数据源质量。</span>
                 </div>
                 <div id="batchChartMissing" class="b-c-canvas"></div>
               </div>
@@ -314,7 +370,7 @@
               <div class="b-chart-card col-span-1">
                 <div class="b-c-header">
                   <h4>核密度平滑分布 (Density Smooth)</h4>
-                  <span class="sub-title">对原始暴露浓度进行概率密度拟合，消除极端值干扰，揭示人群真实分布形态。</span>
+                  <span class="sub-title">将不同量纲暴露指标标准化后进行密度估计，比较人群分布形态。</span>
                 </div>
                 <div id="batchChartDensity" class="b-c-canvas"></div>
               </div>
@@ -331,8 +387,8 @@
               <!-- 图表 8 -->
               <div class="b-chart-card col-span-1">
                 <div class="b-c-header">
-                  <h4>工龄-年龄-暴露水平画像 (Bubble)</h4>
-                  <span class="sub-title">综合呈现年龄、工龄与综合暴露指数的关系，气泡面积反映个体毒物蓄积程度。</span>
+                  <h4>年龄-血压-暴露水平画像 (Bubble)</h4>
+                  <span class="sub-title">横轴为年龄、纵轴为平均收缩压，气泡面积反映5项暴露指标的综合百分位。</span>
                 </div>
                 <div id="batchChartBubble" class="b-c-canvas"></div>
               </div>
@@ -421,8 +477,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ElMessage } from 'element-plus'
+import { renderBatchAnalysisCharts } from '~/composables/useBatchAnalysisCharts'
 import { 
   Coin, DataLine, TrendCharts, Share, DocumentChecked, Upload, DocumentAdd,
   CircleCheckFilled, InfoFilled, ArrowLeft, Male, Female, Avatar
@@ -431,6 +488,7 @@ import * as echarts from 'echarts'
 
 const router = useRouter()
 const currentStep = ref(1)
+const { getOutcomeConfigs, uploadBatchData, getDatasetAnalysis } = useApi()
 
 const formData = ref({
   job: 'smelting', mode: 'batch',
@@ -441,7 +499,39 @@ const formData = ref({
   }
 })
 
-const hasFile = ref(true)
+const outcomeOptions = ref([
+  {
+    id: 'blood_pressure',
+    name: '血压（连续结局）',
+    description: '分别分析平均收缩压和平均舒张压，限定18岁及以上且两类血压均至少有2次有效读数的人群。',
+    exposures: [
+      { column: 'PBCD_J__LBXBPB', label: 'Pb 血铅', unit: 'μg/dL' },
+      { column: 'PBCD_J__LBXBCD', label: 'Cd 血镉', unit: 'μg/L' },
+      { column: 'PBCD_J__LBXTHG', label: 'Hg 总汞', unit: 'μg/L' },
+      { column: 'PBCD_J__LBXBSE', label: 'Se 血硒', unit: 'μg/L' },
+      { column: 'PBCD_J__LBXBMN', label: 'Mn 血锰', unit: 'μg/L' }
+    ],
+    confounders: [
+      { column: 'DEMO_J__RIDAGEYR', label: '年龄' },
+      { column: 'DEMO_J__RIAGENDR', label: '性别' },
+      { column: 'DEMO_J__RIDRETH3', label: '种族/族裔' },
+      { column: 'DEMO_J__DMDEDUC2', label: '教育程度' },
+      { column: 'DEMO_J__DMDMARTL', label: '婚姻状况' },
+      { column: 'DEMO_J__INDFMPIR', label: '家庭收入贫困比' },
+      { column: 'SMQ_J__SMQ020', label: '吸烟状态' },
+      { column: 'ALQ_J__ALQ111', label: '饮酒状态' }
+    ]
+  }
+])
+const selectedOutcomeId = ref('blood_pressure')
+const selectedOutcome = computed(() =>
+  outcomeOptions.value.find(item => item.id === selectedOutcomeId.value)
+)
+const fileInputRef = ref(null)
+const selectedFile = ref(null)
+const hasFile = computed(() => Boolean(selectedFile.value))
+const uploadResult = ref(null)
+const analysisData = ref(null)
 const isAnalyzing = ref(false)
 const showDashboard = ref(false)
 
@@ -450,33 +540,128 @@ const toggleFilter = (status) => { activeFilter.value = activeFilter.value === s
 
 const handleModeChange = (mode) => {
   formData.value.mode = mode
-  showDashboard.value = false 
+  showDashboard.value = false
 }
 
-const simulateFileUpload = () => { hasFile.value = true }
+const formatNumber = (value) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '--'
+  return Number(value).toLocaleString('zh-CN')
+}
 
-const runAnalysis = () => {
-  if (formData.value.mode === 'batch' && !hasFile.value) {
-    alert("请先上传群体数据文件！")
+const formatFileSize = (bytes) => {
+  if (!bytes) return '0 KB'
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+}
+
+const openFilePicker = () => {
+  fileInputRef.value?.click()
+}
+
+const setSelectedFile = (file) => {
+  if (!file) return
+  const extension = file.name.split('.').pop()?.toLowerCase()
+  if (!['csv', 'xlsx', 'xls'].includes(extension)) {
+    ElMessage.error('仅支持 CSV、XLSX 或 XLS 文件')
     return
   }
+  if (file.size > 25 * 1024 * 1024) {
+    ElMessage.error('文件大小不能超过 25 MB')
+    return
+  }
+  selectedFile.value = file
+  uploadResult.value = null
+  analysisData.value = null
+  showDashboard.value = false
+  currentStep.value = 1
+}
+
+const handleFileChange = (event) => {
+  setSelectedFile(event.target.files?.[0])
+}
+
+const handleFileDrop = (event) => {
+  setSelectedFile(event.dataTransfer?.files?.[0])
+}
+
+const resetSelectedFile = () => {
+  selectedFile.value = null
+  uploadResult.value = null
+  analysisData.value = null
+  showDashboard.value = false
+  currentStep.value = 1
+  if (fileInputRef.value) fileInputRef.value.value = ''
+}
+
+const handleOutcomeChange = () => {
+  uploadResult.value = null
+  analysisData.value = null
+  showDashboard.value = false
+  currentStep.value = 1
+}
+
+const loadOutcomeConfigs = async () => {
+  const result = await getOutcomeConfigs()
+  if (result.success && Array.isArray(result.data) && result.data.length) {
+    outcomeOptions.value = result.data
+    if (!result.data.some(item => item.id === selectedOutcomeId.value)) {
+      selectedOutcomeId.value = result.data[0].id
+    }
+  }
+}
+
+const runAnalysis = async () => {
+  if (formData.value.mode === 'batch' && !hasFile.value) {
+    ElMessage.warning('请先上传群体数据文件')
+    return
+  }
+
+  if (formData.value.mode === 'batch') {
+    isAnalyzing.value = true
+    showDashboard.value = false
+    try {
+      const upload = await uploadBatchData(selectedFile.value, selectedOutcomeId.value)
+      if (!upload.success) {
+        const missing = upload.details?.missing_columns || []
+        const missingMessage = missing.length
+          ? `；缺少字段：${missing.join('、')}`
+          : ''
+        ElMessage.error(`${upload.error}${missingMessage}`)
+        return
+      }
+
+      uploadResult.value = upload.data
+      const analysis = await getDatasetAnalysis(upload.data.file_id)
+      if (!analysis.success) {
+        ElMessage.error(analysis.error || '统计分析结果获取失败')
+        return
+      }
+
+      analysisData.value = analysis.data
+      showDashboard.value = true
+      currentStep.value = 2
+      ElMessage.success(`已完成 ${formatNumber(upload.data.analysis_records)} 人的真实数据分析`)
+      await nextTick()
+      initBatchECharts()
+      window.scrollTo({ top: 800, behavior: 'smooth' })
+    } catch (error) {
+      console.error('群体数据分析失败:', error)
+      ElMessage.error('群体数据分析失败，请检查后端服务和上传文件')
+    } finally {
+      isAnalyzing.value = false
+    }
+    return
+  }
+
   isAnalyzing.value = true
   setTimeout(() => {
     isAnalyzing.value = false
     showDashboard.value = true
     currentStep.value = 2
-    
-    if (formData.value.mode === 'batch') {
-      nextTick(() => {
-        initBatchECharts()
-        window.scrollTo({ top: 800, behavior: 'smooth' })
-      })
-    } else {
-      nextTick(() => {
-        initSingleECharts()
-        window.scrollTo({ top: 800, behavior: 'smooth' })
-      })
-    }
+    nextTick(() => {
+      initSingleECharts()
+      window.scrollTo({ top: 800, behavior: 'smooth' })
+    })
   }, 1200)
 }
 
@@ -492,6 +677,11 @@ const goToHome = async () => {
 let batchCharts = []
 
 const initBatchECharts = () => {
+  batchCharts.forEach(chart => chart.dispose())
+  batchCharts = renderBatchAnalysisCharts(analysisData.value, echarts)
+}
+
+/* 已停用的静态群体图表实现（保留历史视觉参数，运行时不再执行）
   batchCharts.forEach(c => c.dispose())
   batchCharts = []
 
@@ -818,6 +1008,7 @@ const initBatchECharts = () => {
     batchCharts.push(chartIncome)
   }
 }
+*/
 
 /* ==============================================
    初始化单人模式科研 ECharts (纯 EDA 阶段)
@@ -989,10 +1180,19 @@ const initSingleECharts = () => {
 }
 
 onMounted(() => {
-  window.addEventListener('resize', () => { 
-    batchCharts.forEach(c => c.resize()) 
-    singleCharts.forEach(c => c.resize())
-  })
+  loadOutcomeConfigs()
+  window.addEventListener('resize', handleResize)
+})
+
+const handleResize = () => {
+  batchCharts.forEach(chart => chart.resize())
+  singleCharts.forEach(chart => chart.resize())
+}
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize)
+  batchCharts.forEach(chart => chart.dispose())
+  singleCharts.forEach(chart => chart.dispose())
 })
 </script>
 
@@ -1124,6 +1324,46 @@ $color-danger: #F87171;
   &:hover { border-color: $color-primary; background: $color-primary; color: #fff;} 
 }
 
+.outcome-config-panel {
+  border: 1px solid #DBEAFE;
+  background: #F8FAFF;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 18px;
+}
+.outcome-selector {
+  display: grid;
+  grid-template-columns: 100px minmax(260px, 360px) 1fr;
+  align-items: center;
+  gap: 14px;
+  .config-label { font-size: 0.95rem; font-weight: 800; color: $text-main; }
+  p { margin: 0; color: $text-muted; font-size: 0.85rem; line-height: 1.5; }
+}
+.field-role-summary { margin-top: 18px; padding-top: 16px; border-top: 1px dashed #CBD5E1; }
+.role-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 9px; }
+.role-title {
+  min-width: 72px;
+  padding: 5px 9px;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
+  &.exposure { background: #DBEAFE; color: #1D4ED8; }
+  &.confounder { background: #EDE9FE; color: #6D28D9; }
+}
+.field-chip {
+  padding: 5px 9px;
+  border: 1px solid #BFDBFE;
+  border-radius: 5px;
+  background: #fff;
+  color: #1E40AF;
+  font-size: 0.78rem;
+  font-weight: 700;
+  small { color: #64748B; font-weight: 500; margin-left: 3px; }
+  &.muted { border-color: #DDD6FE; color: #5B21B6; }
+}
+.hidden-file-input { display: none; }
+
 .upload-dragger { border: 2px dashed #CBD5E1; border-radius: 12px; padding: 60px; text-align: center; background: #F8FAFC; cursor: pointer; transition: all 0.3s; &:hover { border-color: $color-primary; background: #EFF6FF; } &.has-file { border-color: $color-safe; background: #ecfdf5; } .upload-icon { font-size: 2.5rem; color: #94A3B8; margin-bottom: 16px; } .upload-text { font-size: 1.1rem; font-weight: 700; color: $text-main; margin-bottom: 8px; } .upload-hint { font-size: 0.95rem; color: $text-muted; margin-bottom: 24px; &.success-text { color: #059669; } } .btn-upload { background: #fff; border: 1px solid $border-color; padding: 10px 24px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.95rem; color: $text-main; &.btn-reupload{ border-color: $color-safe; color: #059669;} } }
 
 .reference-sidebar {
@@ -1142,6 +1382,26 @@ $color-danger: #F87171;
 
 .visualization-dashboard { animation: slideUp 0.5s ease-out forwards; margin-top: 20px;}
 @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+
+.analysis-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -12px 0 24px;
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 10px;
+    border: 1px solid #DBEAFE;
+    border-radius: 6px;
+    background: #F8FAFF;
+    color: #475569;
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+  .el-icon { color: #3B82F6; flex-shrink: 0; }
+}
 
 .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px; }
 .kpi-card { 
@@ -1256,5 +1516,13 @@ $color-danger: #F87171;
 /* 底部操作条 */
 .bottom-action-bar { display: flex; justify-content: space-between; align-items: center; background: #FFFFFF; padding: 24px 32px; border-radius: 12px; border: 1px solid $border-color; box-shadow: 0 4px 20px -5px rgba(0,0,0,0.05); .tips { display: flex; align-items: center; gap: 8px; color: $text-muted; font-size: 1rem; .el-icon { color: $color-primary; font-size: 1.4rem; } strong { color: $text-main; } } .btn-next-step { background: $color-primary; color: #FFFFFF; border: none; padding: 16px 32px; border-radius: 8px; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(31, 119, 180, 0.3); &:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(31, 119, 180, 0.4); background: color.adjust($color-primary, $lightness: -5%); } } }
 
-@media (max-width: 1200px) { .batch-charts-grid { grid-template-columns: 1fr 1fr; } .kpi-row { grid-template-columns: 1fr 1fr; } .card-layout-grid { flex-direction: column; } .form-entry-area { border-right: none; border-bottom: 1px solid $border-color; } .clinical-input-grid { grid-template-columns: repeat(2, 1fr); } .bottom-action-bar { flex-direction: column; gap: 20px; align-items: stretch; .btn-next-step{ width: 100%; } } }
+@media (max-width: 1200px) {
+  .batch-charts-grid { grid-template-columns: 1fr 1fr; }
+  .kpi-row { grid-template-columns: 1fr 1fr; }
+  .card-layout-grid { flex-direction: column; }
+  .form-entry-area { border-right: none; border-bottom: 1px solid $border-color; }
+  .clinical-input-grid { grid-template-columns: repeat(2, 1fr); }
+  .outcome-selector { grid-template-columns: 100px 1fr; p { grid-column: 1 / -1; } }
+  .bottom-action-bar { flex-direction: column; gap: 20px; align-items: stretch; .btn-next-step{ width: 100%; } }
+}
 </style>

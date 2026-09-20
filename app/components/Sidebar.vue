@@ -15,7 +15,7 @@
         <div class="menu-group-title">DATA PIPELINE 数据管道</div>
         <el-sub-menu index="1">
           <template #title><el-icon><Coin /></el-icon><span>数据接入与特征工程</span></template>
-          <el-menu-item index="1-1" @click="navigateTo('/datainput')">职业暴露特征录入</el-menu-item>
+          <el-menu-item index="1-1" @click="goTo('/datainput')">职业暴露特征录入</el-menu-item>
           <el-menu-item index="1-2">外部 LIS 系统接口</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="2">
@@ -27,20 +27,20 @@
         <div class="menu-group-title">MODEL LAYER 模型层</div>
         <el-sub-menu index="3">
           <template #title><el-icon><TrendCharts /></el-icon><span>风险量化与预警</span></template>
-          <el-menu-item index="3-1" @click="navigateTo('/risk')">个体靶器官预警</el-menu-item>
+          <el-menu-item index="3-1" @click="goTo('/risk')">个体靶器官预警</el-menu-item>
           <el-menu-item index="3-2">群体风险热力图</el-menu-item>
         </el-sub-menu>
         
-        <el-menu-item index="4" @click="navigateTo('/causal')">
+        <el-menu-item index="4" @click="goTo('/causal')">
           <el-icon><Share /></el-icon><span>因果知识推理</span>
         </el-menu-item>
         
-        <el-menu-item index="5" @click="navigateTo('/plan')">
+        <el-menu-item index="5" @click="goTo('/plan')">
           <el-icon><DocumentChecked /></el-icon><span>智能干预策略推荐</span>
         </el-menu-item>
         
         <div class="menu-group-title">KNOWLEDGE BASE 知识库</div>
-        <el-menu-item index="6" @click="navigateTo('/agent')">
+        <el-menu-item index="6" @click="goTo('/agent')">
           <el-icon><ChatDotRound /></el-icon><span>AI 知识库助手</span>
         </el-menu-item>
       </el-menu>
@@ -49,7 +49,6 @@
 </template>
 
 <script setup>
-import { useRouter } from 'vue-router'
 import { 
   Coin, DataLine, TrendCharts, Share, DocumentChecked, ChatDotRound 
 } from '@element-plus/icons-vue'
@@ -65,9 +64,9 @@ defineProps({
 
 const router = useRouter()
 
-// 统一的路由跳转方法
-const navigateTo = (path) => { 
-  router.push(path) 
+// 统一的路由跳转方法（避免与 Nuxt 自动导入的 navigateTo 冲突）
+const goTo = (path) => {
+  router.push(path)
 }
 </script>
 

@@ -263,16 +263,14 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router' // ✨ 引入路由
 import { Warning, Monitor } from '@element-plus/icons-vue'
 
-const router = useRouter() // ✨ 初始化路由
 const isScrolled = ref(false)
 const waveDots = ref([])
 
 // ✨ 跳转到数据录入控制台
-const goToWorkspace = () => {
-  router.push('/datainput')
+const goToWorkspace = async () => {
+  await navigateTo('/datainput')
 }
 
 const handleScroll = () => {

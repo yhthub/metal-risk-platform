@@ -31,9 +31,21 @@
       <div class="page-container chat-page-container">
         
         <div class="model-selector-top-left">
-          <el-select v-model="currentModel" size="default" style="width: 240px;" @change="handleModelChange">
-            <el-option v-for="m in modelOptions" :key="m" :label="m" :value="m" />
+          <el-select v-model="currentModel" size="default" style="width: 280px;" @change="handleModelChange">
+            <el-option-group label="🤖 本地模型">
+              <el-option v-for="m in localModels" :key="m.name" :label="m.name" :value="m.name" />
+            </el-option-group>
+            <el-option-group label="📊 预训练模型">
+              <el-option label="XGBoost" value="XGBoost" />
+              <el-option label="DNN" value="DNN" />
+              <el-option label="LightGBM" value="LightGBM" />
+              <el-option label="Random Forest" value="Random Forest" />
+            </el-option-group>
           </el-select>
+          <div class="ollama-status" :class="{ 'connected': ollamaConnected }">
+            <span class="status-dot"></span>
+            <span class="status-text">{{ ollamaConnected ? '本地模型已连接' : '本地模型未连接' }}</span>
+          </div>
         </div>
 
         <div class="agent-hero-section" v-if="!hasStartedChat">
@@ -124,11 +136,18 @@
                       <div class="think-title">
                         <el-icon class="spin-icon" v-if="msg.loading"><Loading /></el-icon>
                         <el-icon v-else><CircleCheck /></el-icon>
-                        {{ msg.loading ? `正在从 ${currentKB} 检索与思考...` : `深度思考完成 (耗时 1.8s)` }}
+                        {{ msg.loading ? `正在使用 ${currentModel} 推理中...` : `推理完成` }}
                       </div>
                       <el-icon class="arrow-icon" :class="{'is-open': msg.thinkExpanded}"><ArrowDown /></el-icon>
                     </div>
-                    <div class="think-content" v-show="msg.thinkExpanded" v-html="msg.thinkProcess"></div>
+                    <div class="think-content" v-show="msg.thinkExpanded">
+                      <div v-for="(step, idx) in (msg.thinkSteps || msg.thinkProcess)" :key="idx" class="think-step">
+                        <span class="step-indicator" :class="{ 'active': idx === (msg.currentStep || 0), 'done': idx < (msg.currentStep || 0) }">
+                          {{ idx < (msg.currentStep || 0) ? '✓' : '>' }}
+                        </span>
+                        <span v-html="step"></span>
+                      </div>
+                    </div>
                   </div>
 
                   <div class="kb-citation" v-if="msg.cited && !msg.loading">
@@ -192,8 +211,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import {
   Position, Paperclip, MagicStick, ChromeFilled, Connection,
   Microphone, DataAnalysis, ScaleToOriginal, FolderOpened,
@@ -204,6 +222,24 @@ import {
 const router = useRouter()
 const navigateTo = (path) => { router.push(path) }
 const goToHome = () => { router.push('/') }
+
+// 获取 API composable
+const { ollamaChat, checkOllamaStatus } = useApi()
+
+// Ollama 服务状态
+const ollamaConnected = ref(false)
+
+// 检查 Ollama 连接状态
+const checkOllama = async () => {
+  const result = await checkOllamaStatus()
+  ollamaConnected.value = result.success && result.data?.status === 'connected'
+}
+
+// 页面加载时检查
+onMounted(() => {
+  checkOllama()
+  fetchLocalModels()
+})
 
 const hasStartedChat = ref(false)
 const inputFocused = ref(false)
@@ -219,15 +255,40 @@ const showToast = (msg) => {
   setTimeout(() => { toast.value.visible = false }, 2500)
 }
 
-const currentModel = ref('XGBoost')
-const modelOptions = [
-  'XGBoost', 'DNN', 'LightGBM', 'G-computation', 'BKMR',
-  'Random Forest', 'CatBoost', 'Elastic Net', 'Cox-PH', 'Weibull-AFT',
-  'Bayesian Network', 'GAM', 'SHAP-Integrated MLP', 'QG-Comp', 'TMLE',
-  'DeepSurv', 'AFT-NN', 'BKMR-CS', 'SuperLearner', 'Causal Forest'
-]
-const handleModelChange = (cmd) => {
-  showToast(`已切换至：${cmd}`)
+// 本地模型选项
+const currentModel = ref('deepseek-r1:latest')
+const localModels = ref([])
+const modelOptions = computed(() => {
+  // 本地模型 + 预训练模型
+  const local = localModels.value.map(m => ({
+    label: `🤖 ${m.name}`,
+    value: m.name,
+    type: 'local'
+  }))
+  const pretrained = [
+    { label: '📊 XGBoost', value: 'XGBoost', type: 'pretrained' },
+    { label: '📊 DNN', value: 'DNN', type: 'pretrained' },
+    { label: '📊 LightGBM', value: 'LightGBM', type: 'pretrained' },
+    { label: '📊 Random Forest', value: 'Random Forest', type: 'pretrained' },
+  ]
+  return [...local, ...pretrained]
+})
+
+// 获取本地模型列表
+const fetchLocalModels = async () => {
+  const { getOllamaModels } = useApi()
+  const result = await getOllamaModels()
+  if (result.success && result.data?.models) {
+    localModels.value = result.data.models
+    // 默认选择第一个本地模型
+    if (result.data.models.length > 0) {
+      currentModel.value = result.data.models[0].name
+    }
+  }
+}
+
+const handleModelChange = (model) => {
+  showToast(`已切换至：${model}`)
 }
 
 const kbList = [
@@ -401,34 +462,96 @@ const retrieveKnowledge = (query) => {
   }
 }
 
-const sendMessage = () => {
+// 生成动态推理过程
+const generateDynamicThinking = (query, model) => {
+  const steps = [
+    `正在解析用户意图：识别为对 "${query.substring(0, 15)}..." 的查询请求`,
+    `正在加载 <strong>${model}</strong> 推理模型...`,
+    `正在通过 RAG 向量引擎检索 <strong>${currentKBText.value}</strong> ...`,
+    `提取关键三元组：[暴露源] -> [病理机制] -> [靶器官疾病]`,
+    `融合知识图谱完毕，准备生成最终推演报告`
+  ]
+  return steps
+}
+
+const sendMessage = async () => {
   if (!userInput.value.trim() || isGenerating.value) return
 
   const query = userInput.value
   hasStartedChat.value = true
-  
+
   chatHistory.value.push({ role: 'user', content: query })
   userInput.value = ''
   scrollToBottom()
 
   isGenerating.value = true
-  const aiMessageIndex = chatHistory.value.push({ 
-    role: 'ai', 
-    content: '', 
-    loading: true, 
+
+  // 判断是否为本地模型
+  const isLocalModel = localModels.value.some(m => m.name === currentModel.value)
+
+  const aiMessageIndex = chatHistory.value.push({
+    role: 'ai',
+    content: '',
+    loading: true,
     cited: true,
-    thinkProcess: enableDeepThink.value ? generateThinkingProcess(query) : null,
-    thinkExpanded: enableDeepThink.value 
+    thinkProcess: enableDeepThink.value ? generateDynamicThinking(query, currentModel.value) : null,
+    thinkExpanded: enableDeepThink.value,
+    thinkSteps: enableDeepThink.value ? [] : null,
+    currentStep: 0
   }) - 1
   scrollToBottom()
 
-  setTimeout(() => {
+  // 动态更新推理步骤
+  if (enableDeepThink.value) {
+    const steps = generateDynamicThinking(query, currentModel.value)
+    for (let i = 0; i < steps.length; i++) {
+      await new Promise(resolve => setTimeout(resolve, 400))
+      chatHistory.value[aiMessageIndex].thinkSteps = steps.slice(0, i + 1)
+      chatHistory.value[aiMessageIndex].currentStep = i
+      scrollToBottom()
+    }
+  }
+
+  // 调用后端 Ollama API
+  if (ollamaConnected.value && isLocalModel) {
+    const systemPrompt = '你是一个专业的职业卫生与健康专家，擅长分析重金属暴露、职业病防治、毒理学机制等问题。请用专业但易懂的语言回答，必要时可以使用专业术语。'
+
+    const result = await ollamaChat(query, {
+      model: currentModel.value,
+      systemPrompt,
+      temperature: 0.7
+    })
+
+    if (result.success && result.data?.answer) {
+      // 清理回答中的 think 标签（DeepSeek-R1 模型会输出思考过程）
+      let answer = result.data.answer
+      // 移除 <think>...</think> 标签
+      answer = answer.replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+
+      chatHistory.value[aiMessageIndex].loading = false
+      chatHistory.value[aiMessageIndex].thinkExpanded = false
+      chatHistory.value[aiMessageIndex].content = `
+        <p>${answer.replace(/\n/g, '</p><p>')}</p>
+        <div class="kb-recommend">
+          <div class="kb-rec-title">🤖 本地模型回答 <span class="kb-rec-reason">模型: ${result.data.model || currentModel.value} | 耗时: ${result.data.generation_time || 0}s</span></div>
+        </div>
+      `
+    } else {
+      // API 调用失败，使用本地模拟
+      chatHistory.value[aiMessageIndex].loading = false
+      chatHistory.value[aiMessageIndex].thinkExpanded = false
+      chatHistory.value[aiMessageIndex].content = retrieveKnowledge(query)
+    }
+  } else {
+    // 预训练模型或 Ollama 未连接，使用本地模拟
+    await new Promise(resolve => setTimeout(resolve, 1500))
     chatHistory.value[aiMessageIndex].loading = false
-    chatHistory.value[aiMessageIndex].thinkExpanded = false 
+    chatHistory.value[aiMessageIndex].thinkExpanded = false
     chatHistory.value[aiMessageIndex].content = retrieveKnowledge(query)
-    isGenerating.value = false
-    scrollToBottom()
-  }, 2000) 
+  }
+
+  isGenerating.value = false
+  scrollToBottom()
 }
 </script>
 
@@ -480,6 +603,38 @@ $border-light: #E2E8F0;
 /* 左上角大模型选择器 */
 .model-selector-top-left {
   position: absolute; top: 24px; left: 32px; z-index: 20;
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+/* Ollama 状态指示器 */
+.ollama-status {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: 16px;
+  background: #FEF2F2; border: 1px solid #FECACA;
+  font-size: 0.75rem; font-weight: 600; color: #DC2626;
+
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #DC2626;
+  }
+
+  .status-text {
+    white-space: nowrap;
+  }
+
+  &.connected {
+    background: #F0FDF4; border-color: #BBF7D0; color: #16A34A;
+
+    .status-dot {
+      background: #16A34A;
+      animation: pulse 2s infinite;
+    }
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* 初始欢迎态 */
@@ -603,14 +758,25 @@ $border-light: #E2E8F0;
     
     .deep-think-box {
       background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden; max-width: 600px;
-      .think-header { 
+      .think-header {
         padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: #64748B; font-size: 0.9rem; font-weight: 600;
         &:hover { background: #F1F5F9; }
         .think-title { display: flex; align-items: center; gap: 6px; }
         .spin-icon { animation: spin 2s linear infinite; }
         .arrow-icon { transition: transform 0.3s; &.is-open { transform: rotate(180deg); } }
       }
-      .think-content { padding: 0 14px 14px 14px; border-top: 1px solid #E2E8F0; margin-top: 4px; padding-top: 10px; }
+      .think-content {
+        padding: 0 14px 14px 14px; border-top: 1px solid #E2E8F0; margin-top: 4px; padding-top: 10px;
+        .think-step {
+          display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; font-size: 0.85rem; color: #64748B;
+          .step-indicator {
+            width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+            background: #E5E7EB; color: #9CA3AF;
+            &.active { background: #3B82F6; color: #fff; animation: pulse 1s infinite; }
+            &.done { background: #10B981; color: #fff; }
+          }
+        }
+      }
     }
 
     .kb-citation { display: inline-flex; align-items: center; gap: 6px; background: #F0FDF4; border: 1px solid #BBF7D0; color: #059669; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; width: fit-content;}

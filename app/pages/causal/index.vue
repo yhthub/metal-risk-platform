@@ -361,7 +361,6 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick, onBeforeUnmount, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import { 
   ArrowLeft, TopRight, Select, TrendCharts, Warning, CircleCheck, Timer, ZoomIn, ZoomOut, ArrowRight, Refresh, Document, Clock
 } from '@element-plus/icons-vue'

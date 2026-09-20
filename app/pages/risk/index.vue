@@ -222,7 +222,6 @@
 
 <script setup>
 import { ref, onMounted, nextTick, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
 import { Coin, DataLine, TrendCharts, Share, DocumentChecked, ArrowLeft, ArrowDown, Document, Plus, Upload, FolderOpened, Link, WarningFilled, Download, Check } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 

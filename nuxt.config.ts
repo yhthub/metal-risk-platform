@@ -7,7 +7,6 @@ export default defineNuxtConfig({
   ],
 
   elementPlus: {
-    icon: 'ElIcon',
     importStyle: 'css',
   },
 
@@ -19,31 +18,14 @@ export default defineNuxtConfig({
     compatibilityVersion: 4,
   },
 
+  // 对所有路由禁用 SSR（纯 SPA 模式）
+  routeRules: {
+    '/**': { ssr: false },
+  },
+
   vite: {
-    ssr: {
-      noExternal: ['element-plus']
+    optimizeDeps: {
+      include: ['element-plus', 'dayjs', '@element-plus/icons-vue', 'echarts'],
     },
-    server: {
-      fs: {
-        allow: [
-          'D:/gradstu/gard1/vite+vue3/my-nuxt-app',
-          'D:/gradstu/gard1/vite+vue3/node_modules',
-        ]
-      }
-    }
   }
 })
-// https://nuxt.com/docs/api/configuration/nuxt-config
-// export default defineNuxtConfig({
-//   compatibilityDate: '2024-11-01',
-//   devtools: { enabled: true },
-//   modules: ['@nuxt/ui'],
-//   css: ['~/assets/css/app.css'],
-//   future: {
-//     compatibilityVersion: 4, // 开启 Nuxt 4 目录规范
-//   },
-//   ui: {
-//     fonts: false
-//   }
-// })
-

@@ -326,32 +326,6 @@ pm2 save
 pm2 startup
 ```
 
-#### 8. Docker 容器化部署（可选）
-
-前置要求：安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/)（Windows 需启用 WSL2 后端）。
-
-```bash
-# 方式一：使用 docker-compose（推荐）
-pnpm docker:up          # 构建并启动容器
-pnpm docker:down        # 停止并移除容器
-pnpm docker:logs        # 查看实时日志
-
-# 方式二：手动构建与运行
-pnpm docker:build       # 构建 Docker 镜像
-pnpm docker:run          # 运行容器（映射到 3000 端口）
-
-# 方式三：直接使用 docker 命令
-docker build -t nuxt-occupational-health .
-docker run -d -p 3000:3000 --name nuxt-app nuxt-occupational-health
-```
-
-构建完成后访问 http://localhost:3000。
-
-Docker 配置文件说明：
-- `Dockerfile`：多阶段构建，builder 阶段编译 + runner 阶段仅包含运行时产物，镜像体积最小化
-- `docker-compose.yml`：容器编排配置，含健康检查与自动重启策略
-- `.dockerignore`：排除 node_modules、.nuxt、.git 等非必要文件，加速构建
-
 ### 常见问题
 
 **Q: `element-plus/dist/index.css` 报错 outside of Vite serving allow list**

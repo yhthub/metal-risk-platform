@@ -1,6 +1,6 @@
 @import "tailwindcss";
-/* @import "@nuxt/ui"; *
-//* 解决图标被 Tailwind 4 无限放大的问题 */
+/* @import "@nuxt/ui"; */
+/* 解决图标被 Tailwind 4 无限放大的问题 */
 /* 只针对 Element Plus 的图标进行防御，不再误伤原生 svg 图表 */
 .el-icon svg {
   width: 1em;

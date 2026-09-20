@@ -317,7 +317,6 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { ArrowLeft, ArrowDown, ArrowRight, User, Clock, CircleCheck, Warning, Document, UserFilled, Check, Connection, Position, FirstAidKit } from '@element-plus/icons-vue'
 
 const router = useRouter()

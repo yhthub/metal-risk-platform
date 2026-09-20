@@ -178,7 +178,6 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
 import { ArrowLeft, CircleCheckFilled, Printer } from '@element-plus/icons-vue'
 
 const router = useRouter()
