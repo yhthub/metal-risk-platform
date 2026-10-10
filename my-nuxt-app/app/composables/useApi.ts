@@ -117,6 +117,39 @@ export const useApi = () => {
     return await request('/api/agent/quick-prompts')
   }
 
+  /**
+   * 发送智能问答消息给 Agent (集成双通路真实循证检索)
+   */
+  const agentChat = async (message: string, options: {
+    model?: string
+    knowledgeBases?: string[]
+    enableDeepThink?: boolean
+  } = {}) => {
+    return await request('/api/agent/chat', {
+      method: 'POST',
+      body: {
+        message,
+        model: options.model || 'XGBoost',
+        knowledge_bases: options.knowledgeBases || ['职业重金属复合暴露因果库', '职业病临床诊疗指南 (2025版)'],
+        knowledge_bases: options.knowledgeBases || [],
+        enable_deep_think: options.enableDeepThink !== false
+      }
+    })
+  }
+
+  /**
+   * 双通路循证检索 (每通路 Top-32，评分去 fu 指数)
+   */
+  const searchDualPathEvidence = async (query: string, topKPerChannel: number = 32) => {
+    return await request('/api/agent/evidence-search', {
+      method: 'POST',
+      body: {
+        query,
+        top_k_per_channel: topKPerChannel
+      }
+    })
+  }
+
   return {
     getOutcomeConfigs,
     uploadBatchData,
@@ -124,8 +157,11 @@ export const useApi = () => {
     checkOllamaStatus,
     getOllamaModels,
     ollamaChat,
+    agentChat,
+    searchDualPathEvidence,
     getKnowledgeBases,
     getModels,
     getQuickPrompts
   }
 }
+

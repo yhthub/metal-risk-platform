@@ -1,0 +1,13 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pandas==2.2.3
+openpyxl==3.1.5
+pydantic==2.10.4
+python-multipart==0.0.19
+aiofiles==24.1.0
+requests>=2.31.0
+exceptiongroup==1.2.2; python_version < "3.11"
+
+# 本地大语言模型相关（可选）
+ctransformers>=0.2.0
+huggingface_hub>=0.20.0
