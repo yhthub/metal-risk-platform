@@ -1,280 +1,357 @@
 <template>
   <div class="system-layout">
-   <Sidebar default-active="3-1" />
-
+    <Sidebar :default-active="isBatchMode ? '3-2' : '3-1'" />
     <main class="main-content">
       <header class="ep-header">
         <div class="nav-wrapper">
           <div class="back-link" @click="goBack">
             <el-icon class="back-icon"><ArrowLeft /></el-icon>
-            <span class="back-text">返回预警控制台</span>
+            <span class="back-text">返回预测控制台</span>
             <span class="divider">|</span>
-            <span class="page-title-top">全员风险评估深度报告</span>
+            <span class="page-title-top">健康指标估计深度报告</span>
           </div>
           <div class="ep-right-zone">
-            <div class="user-profile">
-              <div class="avatar">Dr.</div>
-              <span>职业卫生评估员</span>
-            </div>
+            <div class="user-profile"><div class="avatar">Dr.</div><span>职业卫生研究视图</span></div>
           </div>
         </div>
       </header>
 
       <div class="report-view-wrapper">
         <div class="report-paper">
-          <div class="report-watermark">RISK ASSESSMENT REPORT</div>
-          
+          <div class="report-watermark">RESEARCH ESTIMATION REPORT</div>
           <div class="report-header">
             <div class="rh-left">
               <svg class="report-logo-custom" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
               <div class="rh-text">
-                <h1>全员健康风险排查与预测报告</h1>
-                <p>提取文件：第一熔炼车间_全体环境与生物监测表.csv | 生成时间：2026-05-12 15:40</p>
+                <h1>{{ isBatchMode ? '全群健康指标估计与分布报告' : '健康指标条件估计与模型响应报告' }}</h1>
+                <p>数据来源：{{ sourceLabel }} | 报告查看时间：{{ viewedAt || '—' }}</p>
+                <p v-if="cohort" class="model-version">版本：{{ cohort.model_version }} · 全文件：{{ cohort.total_records }} 人 · 已完成全部记录处理</p>
+                <p v-else-if="result" class="model-version">版本：{{ result.model_version }} · 当前对象：{{ result.person_id || '未提供编号' }}</p>
               </div>
             </div>
-            <div class="rh-right">
-              <div class="risk-seal">
-                <span>综合级别</span>
-                <strong class="text-danger">WARNING</strong>
-              </div>
-            </div>
+            <div class="rh-right"><div class="risk-seal"><span>研究用途</span><strong>测试版本</strong></div></div>
           </div>
 
           <el-divider />
+          <p class="report-desc scope-note">{{ PREDICTION_SCOPE_NOTE }}</p>
+          <div v-if="!hasReport" class="empty-report">
+            <h2>暂无本次预测报告</h2>
+            <p>{{ isBatchMode ? cohortEmptyReason : '请先在预测控制台完成真实模型计算。本页不读取静态人员名单或模拟图；刷新或关闭会话后需要重新计算。' }}</p>
+            <el-button type="primary" plain @click="goBack">返回预测控制台</el-button>
+          </div>
 
+          <template v-if="isBatchMode && cohort">
+            <div class="report-section">
+              <h3 class="rs-title">一、 全文件处理范围与输入质量</h3>
+              <el-row :gutter="40">
+                <el-col :span="10"><div class="chart-box-report" ref="cohortCoverageRef"></div><p class="chart-caption">全文件有效输入覆盖率；不是高危比例</p></el-col>
+                <el-col :span="14">
+                  <div class="cohort-facts"><div><span>上传记录总数</span><strong>{{ cohort.total_records }} 人</strong></div><div><span>有效输入</span><strong>{{ cohort.processed_records }} 人</strong></div><div><span>输入不足跳过</span><strong>{{ cohort.skipped_records }} 人</strong></div><div><span>所选结局可估计</span><strong>{{ cohortView?.estimated_count || 0 }} 人</strong></div></div>
+                </el-col>
+              </el-row>
+              <p class="report-desc">全部 {{ cohort.total_records }} 条上传记录均已处理，非先取一页再逐人查看。输入不合格的记录保留跳过原因；符合输入要求但某结局验证不足的对象，不为该结局补造估计值。所有汇总均为本文件未加权描述，不代表 NHANES 总体或职业人群的患病率。</p>
+              <details v-if="cohortExcluded.length" class="cohort-excluded"><summary>查看 {{ cohortExcluded.length }} 条输入不足记录的原因</summary><ul><li v-for="row in cohortExcluded" :key="row.row_number">原始行 {{ row.row_number }} · {{ row.person_id }}：{{ row.reason || row.status }}</li></ul></details>
+            </div>
+
+            <div class="report-section highlight">
+              <h3 class="rs-title">二、 全群 12 项结局描述统计</h3>
+              <div class="cohort-table-wrap"><table class="cohort-statistics"><thead><tr><th>结局 / 单位</th><th>估计人数</th><th>暂不出值人数</th><th>均值</th><th>中位数</th><th>Q1</th><th>Q3</th><th>最小值</th><th>最大值</th></tr></thead><tbody><tr v-for="summary in cohort.summary" :key="summary.target"><td><strong>{{ summary.label_zh }}</strong><small>{{ summary.unit }}</small></td><td>{{ summary.estimated_count }}</td><td>{{ summary.withheld_count }}</td><td>{{ formatPredictionNumber(summary.statistics?.mean) }}</td><td>{{ formatPredictionNumber(summary.statistics?.median) }}</td><td>{{ formatPredictionNumber(summary.statistics?.q1) }}</td><td>{{ formatPredictionNumber(summary.statistics?.q3) }}</td><td>{{ formatPredictionNumber(summary.statistics?.min) }}</td><td>{{ formatPredictionNumber(summary.statistics?.max) }}</td></tr></tbody></table></div>
+              <p class="report-desc">每项结局在全文件内全部可提供估计值的对象中汇总，分母可能不同。未出值不计为 0；“—”表示没有可汇总的数值。Q1 / Q3 为第 25 / 75 百分位数，不是正常参考界限或置信区间。</p>
+            </div>
+
+            <div class="report-section">
+              <h3 class="rs-title">三、 综合相对预警与单项排名</h3>
+              <RiskCohortWarning :result="cohort" :threshold="cohortWarningThreshold" @update:threshold="cohortWarningThreshold = $event" />
+              <h4 class="chart-caption">所选结局单项数值排序 · Top 20 展示（不是综合预警榜）</h4>
+              <div class="cohort-target-control"><span>切换结局：</span><el-select v-model="selectedTarget" style="width: 240px"><el-option v-for="summary in cohort.summary" :key="summary.target" :value="summary.target" :label="summary.label_zh + ' / ' + summary.unit" /></el-select></div>
+              <div v-if="cohortRankOption" class="chart-box-report" ref="cohortRankRef" :style="{ height: Math.max(280, cohortTopRows.length * 24 + 80) + 'px' }"></div>
+              <div v-else class="chart-box-report report-empty">{{ cohortView?.reason || '所选结局暂无可排序的估计值' }}</div>
+              <div v-if="cohortTopRows.length" class="worker-table"><div class="wt-header"><span>全群排序 / 对象编号</span><span>原始行号</span><span>年龄 / 岁</span><span>{{ selectedLabel }}</span><span>单位</span></div><div class="wt-row" v-for="row in cohortTopRows" :key="row.row_number"><span class="w-name"><strong>{{ row.rank }} · {{ row.person_id }}</strong></span><span>{{ row.row_number }}</span><span>{{ formatPredictionNumber(row.age, 0) }}</span><span class="w-score">{{ formatPredictionNumber(row.prediction) }}</span><span>{{ cohortView?.unit }}</span></div></div>
+              <p class="report-desc">本图从全文件 {{ cohortView?.estimated_count || 0 }} 个有效估计中按数值降序排列，仅图表和表格截取前 20 人；完整排序 CSV 不截断。指标数值排序不是临床危险等级，HDL 等指标的高低方向也不同，不能统称为“高危人员”。</p>
+            </div>
+
+            <div class="report-section highlight">
+              <h3 class="rs-title">四、 {{ selectedLabel }}全群估计值分布</h3>
+              <div v-if="cohortDistributionOption" class="chart-box-report" ref="cohortDistributionRef" style="height: 300px;"></div>
+              <div v-else class="chart-box-report report-empty" style="height: 300px;">{{ cohortView?.reason || '本结局暂无完整可用的全群分布数据' }}</div>
+              <p class="report-desc">横轴保留指标原单位，纵轴为全文件相应估计区间中的人数。这是模型估计值分布，不是实测患病人数或未来发病率；未出值与输入不足的记录不混入数值分布。</p>
+            </div>
+
+            <div class="report-section">
+              <h3 class="rs-title">五、 {{ selectedLabel }}的性别与年龄分层</h3>
+              <el-row :gutter="40"><el-col :span="12"><div v-if="cohortGenderOption" class="chart-box-report" ref="cohortGenderRef"></div><div v-else class="chart-box-report report-empty">暂无可计算的性别分层</div><p class="chart-caption">按文件中的性别分组显示指标估计均值</p></el-col><el-col :span="12"><div v-if="cohortAgeOption" class="chart-box-report" ref="cohortAgeRef"></div><div v-else class="chart-box-report report-empty">暂无可计算的年龄分层</div><p class="chart-caption">按文件中的年龄组显示指标估计均值</p></el-col></el-row>
+              <p class="report-desc">分层均值来自全文件相应分组的有效估计，未调整混杂，不是年龄或性别的因果效应。当前没有全群 SHAP / 暴露干预分析，不以任意一人的局部贡献、敏感性曲线或联合响应替代群体结论。</p>
+            </div>
+            <div v-if="cohort.warnings?.length" class="report-section"><p class="report-desc"><strong>[全群适用性提示]：</strong><br /><span v-for="warning in cohort.warnings" :key="warning">{{ warning }}<br /></span></p></div>
+          </template>
+
+          <template v-else-if="!isBatchMode">
           <div class="report-section">
-            <h3 class="rs-title">一、 高危与中危预警人员排查清单</h3>
-            <p class="report-desc">系统基于输入的体检与监测数据，已过滤掉健康状态人员。以下为存在临床器质性病变风险的预警人员名单，按综合风险度降序排列：</p>
-            <div class="worker-table">
+            <h3 class="rs-title">一、 当前对象与当次指标估计</h3>
+            <p class="report-desc">保留输入记录与原始单位，展示{{ selectedLabel }}的模型估计；不筛选“高危人员”，不推断临床危险等级。一次单人输入不能推导人群患病率。</p>
+            <div v-if="hasReport" class="worker-table">
               <div class="wt-header">
-                <span>工号 / 姓名</span>
-                <span>所属部门</span>
-                <span>暴露工龄</span>
-                <span>风险驱动因子</span>
-                <span>综合危险指数</span>
+                <span>对象编号</span><span>年龄 / BMI</span><span>全血铅</span><span>全血镉 / 总汞</span><span>{{ selectedLabel }}</span>
               </div>
-              <div class="wt-row" v-for="worker in highRiskWorkers" :key="worker.id" :class="worker.level">
-                <span class="w-name"><strong>{{ worker.id }}</strong> ({{ worker.name }})</span>
-                <span>{{ worker.dept }}</span>
-                <span>{{ worker.years }} 年</span>
-                <span class="w-factors">{{ worker.factors }}</span>
-                <span class="w-score">{{ worker.score }}%</span>
+              <div class="wt-row" v-for="row in reportRows" :key="row.key">
+                <span class="w-name"><strong>{{ row.id }}</strong><small>{{ row.recordStatus }}</small></span>
+                <span>{{ row.age }} 岁<br />{{ row.bmi }} kg/m²</span>
+                <span>{{ row.pb }}</span>
+                <span>{{ row.cd }}<br />{{ row.hg }}</span>
+                <span class="w-score">{{ row.estimate }}<small>{{ row.reason }}</small></span>
               </div>
             </div>
+            <div v-else class="report-empty">尚无本次输入及估计记录</div>
           </div>
 
           <div class="report-section highlight">
-            <h3 class="rs-title">二、 首要高危人员 (SZ-284) 综合靶器官预测</h3>
+            <h3 class="rs-title">二、 当前对象 12 项健康指标估计</h3>
             <el-row :gutter="40">
               <el-col :span="10">
-                <div class="chart-box-report" ref="reportGaugeRef"></div>
+                <div v-if="hasReport" class="chart-box-report" ref="reportGaugeRef"></div>
+                <div v-else class="chart-box-report report-empty">待完成真实模型计算</div>
+                <p class="chart-caption">可提供数值的结局占比；不是患病概率</p>
               </el-col>
               <el-col :span="14">
-                <div class="disease-list">
-                  <div class="d-item" v-for="disease in diseaseRisks" :key="disease.name">
+                <div v-if="result && hasReport" class="disease-list">
+                  <div class="d-item" v-for="outcome in result.results" :key="outcome.target">
                     <div class="d-info">
-                      <span class="d-name">{{ disease.name }}</span>
-                      <span class="d-val" :class="disease.status">{{ disease.prob }}%</span>
+                      <span class="d-name">{{ outcome.label_zh }}</span>
+                      <span class="d-val" :class="predictionHasValue(outcome) ? 'estimate' : 'withheld'">{{ predictionHasValue(outcome) ? formatPredictionNumber(outcome.prediction) + ' ' + outcome.unit : '暂不出值' }}</span>
                     </div>
-                    <el-progress :percentage="disease.prob" :color="getDiseaseColor(disease.status)" :stroke-width="10" :show-text="false" class="custom-progress" />
+                    <el-progress :percentage="predictionHasValue(outcome) ? 100 : 0" color="#3B82F6" :stroke-width="3" :show-text="false" class="custom-progress" />
+                    <small class="outcome-note">{{ predictionHasValue(outcome) ? predictionIntervalLabel(outcome) : predictionReason(outcome) }}</small>
                   </div>
                 </div>
+                <div v-else class="report-empty">不以固定百分比填充结局</div>
+                <p class="chart-caption">蓝色条仅标记“已提供估计值”，不是风险概率，也不表示指标数值大小。</p>
               </el-col>
             </el-row>
-            <p class="report-desc"><strong>[系统洞察]：</strong> XGBoost 多靶器官概率推演显示，该员工因果风险增幅达 68.5%，已越过极度危险界限；同时慢性肾病与尿毒症并发概率亦达到 52%，亟待医学干预。</p>
+            <p class="report-desc"><strong>[结果说明]：</strong>{{ availableCount }} 项可提供探索性数值。其余项目保留暂不出值的原因；暂不出值既不表示正常，也不表示已经患病。{{ INTERVAL_NOTE }}</p>
           </div>
 
           <div class="report-section">
-            <h3 class="rs-title">三、 核心重金属暴露结构与特征归因</h3>
+            <h3 class="rs-title">三、 当前模型局部贡献结构与特征解释</h3>
             <el-row :gutter="40">
               <el-col :span="12">
-                <div class="chart-box-report" ref="reportRadarRef"></div>
+                <div v-if="hasReport && radarOption" class="chart-box-report" ref="reportRadarRef"></div>
+                <div v-else class="chart-box-report report-empty">{{ radarEmptyReason }}</div>
+                <p class="chart-caption">原六轴雷达：绝对 SHAP 贡献前 5 项与其他项合计的同尺度份额（%）；不是金属浓度、疾病概率或因果作用</p>
               </el-col>
               <el-col :span="12">
-                <div class="shap-chart" style="margin-top: 30px;">
-                  <div class="shap-row" v-for="shap in shapData" :key="shap.name">
-                    <span class="s-label">{{ shap.name }}</span>
-                    <div class="s-track">
-                      <div class="zero-line"></div>
-                      <div class="s-bar" :class="shap.val > 0 ? 'pos' : 'neg'" :style="{ width: Math.abs(shap.val) * 70 + '%' }">
-                        <span class="s-val">{{ shap.val > 0 ? '+' + shap.val : shap.val }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <div v-if="hasReport && shapOption" class="chart-box-report shap-chart" ref="reportShapRef"></div>
+                <div v-else class="chart-box-report report-empty">{{ chartReason(charts?.explanation, '当前对象尚无真实 SHAP 贡献结果') }}</div>
               </el-col>
             </el-row>
-            <p class="report-desc"><strong>[系统洞察]：</strong> 雷达图与 SHAP 归因模型交叉印证，<strong>铅(Pb) 和 砷(As)</strong> 是驱动本次高危预警的核心正向因子（贡献度分别为 +0.85 和 +0.60）。汞(Hg)等其他元素虽有检出，但对当前疾病图谱起负向或微弱影响。</p>
+            <p class="report-desc"><strong>[模型解释]：</strong>{{ explanationText }} 带符号的 SHAP 值只解释本次模型输出，包含缺失输入分支；不表示金属的因果效应或人体毒性强弱。</p>
+            <div class="report-supplement">
+              <h4 class="supplement-title">补充信息：全血原始输入与单位核对</h4>
+              <div v-if="hasReport" class="chart-box-report" ref="reportBloodRef"></div>
+              <div v-else class="chart-box-report report-empty">待录入全血铅、镉、总汞及原始单位</div>
+              <p class="chart-caption">三个独立数值轴，各保留录入单位；条长不可跨金属比较，不用于推断毒性强弱</p>
+            </div>
           </div>
 
           <div class="report-section highlight">
-            <h3 class="rs-title">四、 毒物剂量-致病突变曲线</h3>
-            <el-row :gutter="40">
-              <el-col :span="24">
-                <div class="chart-box-report" ref="reportDoseResponseRef" style="height: 300px;"></div>
-              </el-col>
-            </el-row>
-            <p class="report-desc"><strong>[系统洞察]：</strong> 以铅为例的 Sigmoid 剂量-反应曲线显示，当体内蓄积剂量突破 50 μg/L 爆发拐点后，患病概率呈非线性急剧攀升。该群体中已有多名工人的血铅浓度逼近或超越此拐点，属于高危预警状态。</p>
+            <h3 class="rs-title">四、 全血铅输入敏感性与模型响应</h3>
+            <el-row :gutter="40"><el-col :span="24">
+              <div v-if="hasReport && doseOption" class="chart-box-report" ref="reportDoseResponseRef" style="height: 300px;"></div>
+              <div v-else class="chart-box-report report-empty" style="height: 300px;">{{ chartReason(charts?.dose_response, '当前对象尚无铅输入敏感性计算') }}</div>
+            </el-col></el-row>
+            <p class="report-desc"><strong>[响应说明]：</strong>{{ charts?.dose_response.note || '固定当前对象其余模型输入，仅改变全血铅，查看当前所选指标的真实模型输出。' }} 横轴为全血铅浓度，纵轴为{{ selectedLabel }}估计值；不能据此认定致病阈值、未来发病率或干预效果。</p>
           </div>
 
           <div class="report-section">
-            <h3 class="rs-title">五、 双毒物协同放大效应</h3>
-            <el-row :gutter="40">
-              <el-col :span="24">
-                <div class="chart-box-report" ref="reportJointEffectRef" style="height: 300px;"></div>
-              </el-col>
-            </el-row>
-            <p class="report-desc"><strong>[系统洞察]：</strong> 热力图谱清晰揭示了铅(Pb)与砷(As)的协同致毒效应：当两种金属同时处于高浓度暴露时，致病概率呈倍增放大（右上角深红区域），远超单一金属的独立风险叠加。这一非线性交互效应是制定联合干预策略的核心依据。</p>
+            <h3 class="rs-title">五、 全血铅 × 镉联合输入响应</h3>
+            <el-row :gutter="40"><el-col :span="24">
+              <div v-if="hasReport && jointOption" class="chart-box-report" ref="reportJointEffectRef" style="height: 300px;"></div>
+              <div v-else class="chart-box-report report-empty" style="height: 300px;">{{ chartReason(charts?.joint_response, '当前对象尚无联合输入响应计算') }}</div>
+            </el-col></el-row>
+            <p class="report-desc"><strong>[联合响应说明]：</strong>{{ charts?.joint_response.note || '固定当前对象其余输入，枚举全血铅与镉的组合，以所选指标原单位显示模型估计。' }} 颜色深浅只表示模型输出大小，不能证明协同致毒、独立风险叠加或因果交互作用。</p>
           </div>
 
+          <div class="report-section" v-if="result?.warnings?.length">
+            <p class="report-desc"><strong>[输入与适用性提示]：</strong><br /><span v-for="warning in result.warnings" :key="warning">{{ warning }}<br /></span></p>
+          </div>
+          </template>
           <div class="report-footer">
             <div class="sign-area">
-              <p>系统算法流：<span class="sign-system">XGBoost + Bayesian DAG v4.1</span></p>
+              <p>系统算法流：<span class="sign-system">{{ algorithmLabel }}</span></p>
+              <p class="chart-caption">横断面同期指标估计 · 非诊断 · 未完成职业人群外部验证</p>
             </div>
             <div class="report-btns">
-              <el-button type="success" size="large" @click="handlePrint"><el-icon><Printer /></el-icon> 打印并存档报告</el-button>
+              <el-button :disabled="!hasReport" @click="exportJson">下载 JSON</el-button>
+              <el-button :disabled="!hasReport" @click="exportCsv">{{ isBatchMode ? '全人 × 12 结局 CSV' : '下载 CSV' }}</el-button>
+              <el-button v-if="cohort" @click="exportCompositeWarning">综合预警排序 CSV</el-button>
+              <el-button v-if="cohort" @click="exportCohortRanking">所选结局排序 CSV</el-button>
+              <el-button v-if="cohort" @click="exportCohortSummary">12 结局汇总 CSV</el-button>
+              <el-button type="success" size="large" :disabled="!hasReport" @click="handlePrint"><el-icon><Printer /></el-icon> 打印并存档报告</el-button>
             </div>
           </div>
         </div>
       </div>
-
     </main>
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted, nextTick, onBeforeUnmount } from 'vue'
+<script setup lang="ts">
+import { computed, ref, onMounted, onActivated, onDeactivated, nextTick, onBeforeUnmount, watch } from 'vue'
 import { ArrowLeft, Printer } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
+import { buildGaugeOption, buildRadarOption, buildShapOption, buildDoseOption, buildJointOption, chartReason, selectedOutcome } from '~/utils/riskDashboard'
+import { INTERVAL_NOTE, METAL_FIELDS, PREDICTION_SCOPE_NOTE, batchPredictionCsv, downloadPrediction, formatPredictionNumber, predictionCsv, predictionHasValue, predictionIntervalLabel, predictionJson, predictionReason } from '~/utils/riskPrediction'
+import type { PredictionRequest, PredictionOutcome } from '~/utils/riskPrediction'
+import { cohortResponseError, buildCohortView, buildCohortRankOption, buildCohortDistributionOption, buildCohortGroupOption, buildCohortCoverageOption, cohortSummaryCsv, cohortRankingCsv } from '~/utils/riskCohort'
+import type { CohortPredictionResponse } from '~/utils/riskCohort'
+import { buildCohortWarning, warningRankingCsv } from '~/utils/cohortWarning'
 
-const goBack = async () => {
-  await navigateTo('/risk')
+const route = useRoute()
+const { lastResult, lastRequest, dashboard, cohortResult, cohortWarningThreshold, batchIntake, selectedTarget } = usePredictionState()
+const isBatchMode = computed(() => route.query.mode === 'batch')
+const cohort = computed<CohortPredictionResponse | null>(() => isBatchMode.value && cohortResult.value?.complete === true && !cohortResponseError(cohortResult.value) ? cohortResult.value : null)
+const cohortEmptyReason = computed(() => cohortResult.value ? cohortResponseError(cohortResult.value) || '请先完成整份群体文件计算。' : '请在群体预测控制台完成整份上传文件的模型计算。本页不会以单人结果、当前分页或模拟数值替代全群体报告。')
+const result = computed(() => isBatchMode.value ? null : dashboard.value?.prediction || lastResult.value)
+const request = computed(() => isBatchMode.value ? null : dashboard.value?.input || lastRequest.value)
+const charts = computed(() => isBatchMode.value ? undefined : dashboard.value?.charts)
+const hasReport = computed(() => isBatchMode.value ? !!cohort.value : !!(result.value && request.value))
+const viewedAt = ref('')
+const currentTarget = computed(() => isBatchMode.value ? selectedTarget.value : charts.value?.target || selectedTarget.value)
+const cohortView = computed(() => cohort.value ? buildCohortView(cohort.value, currentTarget.value) : null)
+const compositeWarning = computed(() => cohort.value ? buildCohortWarning(cohort.value, cohortWarningThreshold.value) : null)
+const cohortTopRows = computed(() => cohortView.value?.rankings.slice(0, 20) || [])
+const cohortExcluded = computed(() => cohortView.value?.excluded || [])
+const cohortRankOption = computed(() => cohort.value ? buildCohortRankOption(cohort.value, currentTarget.value, 20) : null)
+const cohortDistributionOption = computed(() => cohort.value ? buildCohortDistributionOption(cohort.value, currentTarget.value) : null)
+const cohortGenderOption = computed(() => cohort.value ? buildCohortGroupOption(cohort.value, currentTarget.value, 'gender') : null)
+const cohortAgeOption = computed(() => cohort.value ? buildCohortGroupOption(cohort.value, currentTarget.value, 'age') : null)
+const selectedLabel = computed(() => isBatchMode.value ? cohortView.value?.label_zh || '所选指标' : charts.value?.label_zh || (result.value ? selectedOutcome(result.value, currentTarget.value)?.label_zh : null) || '所选指标')
+const sourceLabel = computed(() => isBatchMode.value ? cohort.value ? '全群导入 · ' + (batchIntake.value?.file_id === cohort.value.file_id ? batchIntake.value.filename || cohort.value.file_id : cohort.value.file_id) : '暂无完整群体结果' : hasReport.value ? '本次单人录入' : '暂无本次输入')
+const availableCount = computed(() => result.value?.results.filter(predictionHasValue).length || 0)
+const activeOutcome = computed(() => selectedOutcome(result.value, currentTarget.value))
+const modelChartAllowed = computed(() => !!activeOutcome.value && predictionHasValue(activeOutcome.value))
+const radarOption = computed(() => charts.value && modelChartAllowed.value ? buildRadarOption(charts.value) : null)
+const shapOption = computed(() => charts.value && modelChartAllowed.value ? buildShapOption(charts.value) : null)
+const doseOption = computed(() => charts.value && modelChartAllowed.value ? buildDoseOption(charts.value) : null)
+const jointOption = computed(() => charts.value && modelChartAllowed.value ? buildJointOption(charts.value) : null)
+const radarEmptyReason = computed(() => activeOutcome.value && !modelChartAllowed.value ? predictionReason(activeOutcome.value)
+  : charts.value?.explanation.status === 'AVAILABLE' ? '真实贡献组不足 5 项或总绝对贡献为零，无法形成六轴份额雷达；不补造维度。'
+    : chartReason(charts.value?.explanation, '当前对象尚无真实模型局部贡献结果'))
+const explanationText = computed(() => modelChartAllowed.value && charts.value?.explanation.status === 'AVAILABLE'
+  ? '当前所选指标：' + selectedLabel.value + '；贡献尺度：' + (charts.value.explanation.scale_label || '未提供') + '。' + (charts.value.explanation.note || '')
+  : activeOutcome.value && !modelChartAllowed.value ? predictionReason(activeOutcome.value) : chartReason(charts.value?.explanation, '本次尚无可用的模型解释结果。'))
+const algorithmLabel = computed(() => cohort.value ? 'NHANES 12 结局模型组 · ' + cohort.value.model_version + ' · 全文件计算' : result.value ? Array.from(new Set(result.value.results.flatMap(row => row.model_family))).join(' + ') + ' · ' + result.value.model_version : '等待真实模型响应')
+
+function metalLabel(input: PredictionRequest | undefined | null, key: 'pb' | 'cd' | 'hg'): string {
+  const value = input?.person[key]
+  const unit = input?.measurements[key]?.unit
+  return typeof value === 'number' && Number.isFinite(value) ? formatPredictionNumber(value, 3) + ' ' + (unit || '单位未提供').replace('ug', 'μg') : '未提供'
 }
-
-const handlePrint = () => {
-  setTimeout(() => { window.print() }, 500)
+function tableRow(id: string, input: PredictionRequest | null | undefined, outcome: PredictionOutcome | undefined, key: string, recordStatus: string, reason?: string) {
+  return { key, id: id || '未提供编号', age: formatPredictionNumber(input?.person.age, 0), bmi: formatPredictionNumber(input?.person.bmi),
+    pb: metalLabel(input, 'pb'), cd: metalLabel(input, 'cd'), hg: metalLabel(input, 'hg'), recordStatus,
+    estimate: outcome && predictionHasValue(outcome) ? formatPredictionNumber(outcome.prediction) + ' ' + outcome.unit : '暂不出值',
+    reason: outcome ? (predictionHasValue(outcome) ? '' : predictionReason(outcome)) : reason || '缺少可用估计结果' }
 }
-
-const highRiskWorkers = ref([
-  { id: 'SZ-284', name: '张建国', dept: '第一熔炼车间', years: 18, factors: 'Pb, As', score: 68.5, level: 'danger' },
-  { id: 'SZ-105', name: '刘伟', dept: '第一熔炼车间', years: 15, factors: 'Pb, Cd', score: 62.1, level: 'danger' },
-  { id: 'SZ-032', name: '王强', dept: '第一熔炼车间', years: 14, factors: 'As, Ni', score: 55.4, level: 'danger' },
-  { id: 'SZ-142', name: '李明', dept: '原矿粉碎区', years: 12, factors: 'Pb, Hg', score: 48.2, level: 'danger' },
-  { id: 'SZ-089', name: '赵铁柱', dept: '原矿粉碎区', years: 11, factors: 'Cd, Cr', score: 41.5, level: 'warn' },
-  { id: 'SZ-311', name: '陈刚', dept: '第一熔炼车间', years: 9, factors: 'Pb, As', score: 36.8, level: 'warn' },
-  { id: 'SZ-402', name: '孙磊', dept: '尾气处理组', years: 8, factors: 'As, Ni', score: 32.1, level: 'warn' },
-  { id: 'SZ-175', name: '周波', dept: '第一熔炼车间', years: 7, factors: 'Pb', score: 28.5, level: 'warn' },
-  { id: 'SZ-219', name: '吴涛', dept: '原矿粉碎区', years: 6, factors: 'Cd, Hg', score: 24.2, level: 'warn' },
-  { id: 'SZ-056', name: '郑凯', dept: '尾气处理组', years: 5, factors: 'Cr', score: 18.6, level: 'warn' }
-])
-
-const diseaseRisks = ref([
-  { name: '退行性中枢神经系统疾病', prob: 65, status: 'danger' },
-  { name: '慢性肾病与尿毒症', prob: 52, status: 'warn' },
-  { name: '骨质疏松与骨折', prob: 34, status: 'safe' },
-  { name: '心脑血管病', prob: 22, status: 'safe' }
-])
-
-const getDiseaseColor = (status) => {
-  if (status === 'danger') return '#EF4444' 
-  if (status === 'warn') return '#F59E0B'   
-  return '#10B981'                          
-}
-
-const shapData = ref([
-  { name: 'Pb (铅)', val: 0.85 },
-  { name: 'As (砷)', val: 0.60 },
-  { name: 'Cd (镉)', val: 0.40 },
-  { name: 'Ni (镍)', val: 0.15 },
-  { name: 'Cr (铬)', val: 0.08 },
-  { name: 'Co (钴)', val: 0.02 },
-  { name: 'Th (钍)', val: 0.01 },
-  { name: 'Li (锂)', val: -0.05 },
-  { name: 'Rn (氡)', val: -0.08 },
-  { name: 'Hg (汞)', val: -0.15 }
-])
-
-/* ================== ECharts 渲染逻辑 ================== */
-const reportGaugeRef = ref(null); const reportRadarRef = ref(null);
-const reportDoseResponseRef = ref(null); const reportJointEffectRef = ref(null);
-let chartsInstances = []
-
-const clearCharts = () => { chartsInstances.forEach(c => c.dispose()); chartsInstances = [] }
-
-const getGaugeOption = () => ({ series: [{ type: 'gauge', startAngle: 180, endAngle: 0, center: ['50%', '75%'], radius: '100%', axisLine: { lineStyle: { width: 15, color: [[0.5, '#10B981'], [0.8, '#F59E0B'], [1, '#EF4444']] } }, pointer: { show: false }, axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false }, detail: { fontSize: 36, fontWeight: 'bold', formatter: '{value}%', color: '#EF4444', offsetCenter: [0, '-10%'] }, data: [{ value: 68.5 }] }] })
-const getRadarOption = () => ({ radar: { indicator: [ { name: 'Pb', max: 150 }, { name: 'As', max: 150 }, { name: 'Cd', max: 150 }, { name: 'Hg', max: 150 }, { name: 'Cr', max: 150 }, { name: 'Ni', max: 150 } ], axisName: { color: '#64748B', fontWeight: 'bold' } }, series: [{ type: 'radar', data: [{ value: [98, 82, 56, 18, 28, 42], areaStyle: { color: 'rgba(239, 68, 68, 0.3)' }, lineStyle: { color: '#EF4444' }, itemStyle: { color: '#EF4444' } }] }] })
-
-const getDoseResponseOption = () => {
-  const data = Array.from({length: 50}, (_, i) => {
-    const x = i * 2;
-    const y = 100 / (1 + Math.exp(-0.15 * (x - 60)));
-    return [x, y];
-  });
-  return {
-    tooltip: { trigger: 'axis' },
-    grid: { left: '10%', right: '5%', top: '10%', bottom: '15%' },
-    xAxis: { type: 'value', name: '体内蓄积剂量 (μg/L)', nameLocation: 'middle', nameGap: 25, splitLine: { show: false } },
-    yAxis: { type: 'value', name: '患病概率 (%)', max: 100 },
-    series: [{
-      name: '致病风险', type: 'line', data: data, smooth: true, symbol: 'none',
-      lineStyle: { color: '#EF4444', width: 3 },
-      areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(239, 68, 68, 0.4)' }, { offset: 1, color: 'rgba(239, 68, 68, 0)' }]) },
-      markLine: {
-        silent: true, symbol: 'none',
-        lineStyle: { color: '#F59E0B', type: 'dashed', width: 2 },
-        label: { formatter: '爆发拐点', position: 'insideStartTop' },
-        data: [{ xAxis: 50 }]
-      }
-    }]
-  }
-}
-
-const getJointEffectOption = () => {
-  const heatmapData = [];
-  const yLabels = ['低', '较低', '中等', '高', '极高(As)'];
-  const xLabels = ['低', '较低', '中等', '高', '极高(Pb)'];
-  for (let i = 0; i < 5; i++) {
-    for (let j = 0; j < 5; j++) {
-      let risk = (i + 1) * (j + 1) * 3.5 + Math.random() * 5;
-      heatmapData.push([j, i, risk.toFixed(1)]);
-    }
-  }
-  return {
-    tooltip: { position: 'top', formatter: (p) => `联合致病概率: ${p.data[2]}%` },
-    grid: { left: '15%', right: '5%', top: '5%', bottom: '15%' },
-    xAxis: { type: 'category', data: xLabels, name: '铅浓度', nameLocation: 'middle', nameGap: 25, axisTick: {show: false} },
-    yAxis: { type: 'category', data: yLabels, name: '砷浓度', axisTick: {show: false} },
-    visualMap: {
-      min: 0, max: 100, calculable: true, orient: 'horizontal', left: 'center', bottom: '0%', show: false,
-      inRange: { color: ['#F0FDF4', '#FDE047', '#EF4444'] }
-    },
-    series: [{
-      name: '风险概率', type: 'heatmap', data: heatmapData,
-      label: { show: true, color: '#111827', fontWeight: 'bold' },
-      itemStyle: { borderWidth: 2, borderColor: '#fff', borderRadius: 4 }
-    }]
-  }
-}
-
-const initReportCharts = () => {
-  clearCharts()
-  if(reportGaugeRef.value) { const c = echarts.init(reportGaugeRef.value); c.setOption(getGaugeOption()); chartsInstances.push(c) }
-  if(reportRadarRef.value) { const c = echarts.init(reportRadarRef.value); c.setOption(getRadarOption()); chartsInstances.push(c) }
-  if(reportDoseResponseRef.value) { const c = echarts.init(reportDoseResponseRef.value); c.setOption(getDoseResponseOption()); chartsInstances.push(c) }
-  if(reportJointEffectRef.value) { const c = echarts.init(reportJointEffectRef.value); c.setOption(getJointEffectOption()); chartsInstances.push(c) }
-}
-
-const resizeCharts = () => { chartsInstances.forEach(c => c.resize()) }
-onMounted(() => { 
-  nextTick(() => { initReportCharts() })
-  window.addEventListener('resize', resizeCharts) 
+const reportRows = computed(() => {
+  if (!result.value || !request.value) return []
+  return [tableRow(result.value.person_id, request.value, selectedOutcome(result.value, currentTarget.value), 'current', '本次对象')]
 })
-onBeforeUnmount(() => { 
-  window.removeEventListener('resize', resizeCharts)
+const goBack = async () => { await navigateTo({ path: '/risk', query: { mode: isBatchMode.value ? 'batch' : 'individual' } }) }
+const handlePrint = () => { if (typeof window !== 'undefined' && hasReport.value) setTimeout(() => window.print(), 500) }
+const exportJson = () => {
+  if (isBatchMode.value) {
+    if (cohort.value) downloadPrediction(JSON.stringify({ exported_at: new Date().toISOString(), selected_target: currentTarget.value, cohort: cohort.value, composite_warning: compositeWarning.value, provenance: cohort.value.provenance, notes: [PREDICTION_SCOPE_NOTE, '全文件全部记录与全部12项结局；按本文件未加权描述，不是群体患病风险或因果作用。'] }, null, 2), 'json', 'NHANES_cohort_complete')
+    return
+  }
+  if (!result.value || !request.value) return
+  const content = { ...JSON.parse(predictionJson(request.value, result.value)), dashboard: dashboard.value }
+  downloadPrediction(JSON.stringify(content, null, 2), 'json')
+}
+const exportCsv = () => {
+  if (isBatchMode.value) { if (cohort.value) downloadPrediction(batchPredictionCsv(cohort.value), 'csv', 'NHANES_cohort_all_outcomes'); return }
+  if (result.value) downloadPrediction(predictionCsv(result.value), 'csv')
+}
+const exportCohortRanking = () => { if (cohort.value) downloadPrediction(cohortRankingCsv(cohort.value, currentTarget.value), 'csv', 'NHANES_cohort_ranking_' + currentTarget.value) }
+const exportCompositeWarning = () => { if (compositeWarning.value) downloadPrediction(warningRankingCsv(compositeWarning.value), 'csv', 'NHANES_cohort_composite_warning') }
+const exportCohortSummary = () => { if (cohort.value) downloadPrediction(cohortSummaryCsv(cohort.value), 'csv', 'NHANES_cohort_summary') }
+
+// Separate independent axes: Pb/Cd/Hg retain their original units, not a mixed-unit radar.
+function buildBloodInputOption(input: PredictionRequest): echarts.EChartsOption {
+  return {
+    grid: METAL_FIELDS.map((_, index) => ({ left: 86, right: 60, top: 20 + index * 78, height: 31 })),
+    xAxis: METAL_FIELDS.map((metal, index) => ({ type: 'value' as const, gridIndex: index, min: 0, splitNumber: 2,
+      name: input.measurements[metal.key].unit.replace('ug', 'μg'), nameTextStyle: { fontSize: 10 }, axisLabel: { fontSize: 9 }, splitLine: { lineStyle: { type: 'dashed' as const } } })),
+    yAxis: METAL_FIELDS.map((metal, index) => ({ type: 'category' as const, gridIndex: index, data: [metal.label], axisTick: { show: false }, axisLine: { show: false }, axisLabel: { fontSize: 10 } })),
+    series: METAL_FIELDS.map((metal, index) => ({ type: 'bar' as const, xAxisIndex: index, yAxisIndex: index,
+      data: [input.person[metal.key]], barMaxWidth: 18, itemStyle: { color: '#3B82F6', borderRadius: [0, 3, 3, 0] }, label: { show: true, position: 'right' as const, formatter: () => formatPredictionNumber(input.person[metal.key], 3), fontSize: 10 } }))
+  }
+}
+const reportGaugeRef = ref<HTMLElement | null>(null)
+const reportRadarRef = ref<HTMLElement | null>(null)
+const reportBloodRef = ref<HTMLElement | null>(null)
+const reportShapRef = ref<HTMLElement | null>(null)
+const reportDoseResponseRef = ref<HTMLElement | null>(null)
+const reportJointEffectRef = ref<HTMLElement | null>(null)
+const cohortCoverageRef = ref<HTMLElement | null>(null)
+const cohortRankRef = ref<HTMLElement | null>(null)
+const cohortDistributionRef = ref<HTMLElement | null>(null)
+const cohortGenderRef = ref<HTMLElement | null>(null)
+const cohortAgeRef = ref<HTMLElement | null>(null)
+let chartsInstances: echarts.ECharts[] = []
+let mounted = false
+let active = false
+let resizeListening = false
+const clearCharts = () => { chartsInstances.forEach(chart => chart.dispose()); chartsInstances = [] }
+function initReportCharts() {
   clearCharts()
-})
+  if (!hasReport.value || !mounted || !active) return
+  let candidates: Array<[HTMLElement | null, unknown]>
+  if (isBatchMode.value && cohort.value) candidates = [
+    [cohortCoverageRef.value, buildCohortCoverageOption(cohort.value)],
+    [cohortRankRef.value, cohortRankOption.value],
+    [cohortDistributionRef.value, cohortDistributionOption.value],
+    [cohortGenderRef.value, cohortGenderOption.value],
+    [cohortAgeRef.value, cohortAgeOption.value]
+  ]
+  else if (!isBatchMode.value && result.value && request.value) candidates = [
+    [reportGaugeRef.value, buildGaugeOption(result.value)],
+    [reportRadarRef.value, radarOption.value],
+    [reportBloodRef.value, buildBloodInputOption(request.value)],
+    [reportShapRef.value, shapOption.value],
+    [reportDoseResponseRef.value, doseOption.value],
+    [reportJointEffectRef.value, jointOption.value]
+  ]
+  else return
+  for (const [element, option] of candidates) if (element && option) {
+    const chart = echarts.init(element); chart.setOption(option as echarts.EChartsOption); chartsInstances.push(chart)
+  }
+}
+const resizeCharts = () => { chartsInstances.forEach(chart => chart.resize()) }
+watch([dashboard, lastResult, lastRequest, cohortResult, selectedTarget, isBatchMode], async () => {
+  if (!mounted || !active) return
+  viewedAt.value = new Date().toLocaleString('zh-CN', { hour12: false })
+  await nextTick(); initReportCharts()
+}, { deep: true })
+async function resumeReport() {
+  if (!mounted || active) return
+  active = true
+  viewedAt.value = new Date().toLocaleString('zh-CN', { hour12: false })
+  await nextTick()
+  if (!mounted || !active) return
+  initReportCharts(); resizeCharts()
+  if (!resizeListening) { window.addEventListener('resize', resizeCharts); resizeListening = true }
+}
+function pauseReport() {
+  active = false
+  if (resizeListening) { window.removeEventListener('resize', resizeCharts); resizeListening = false }
+  clearCharts()
+}
+onMounted(() => { mounted = true; void resumeReport() })
+onActivated(() => { void resumeReport() })
+onDeactivated(pauseReport)
+onBeforeUnmount(() => { mounted = false; pauseReport() })
 </script>
 
 <style lang="scss" scoped>
@@ -356,4 +433,30 @@ $color-safe: #10B981; $color-warn: #F59E0B; $color-danger: #EF4444;
 @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
 @media print { .sidebar, .ep-header, .report-btns { display: none !important; } .main-content { height: auto; overflow: visible; } .report-paper { box-shadow: none; padding: 40px; } }
+
+/* Keep the original paper/report visual system, with true-result and empty states. */
+.report-paper { max-width: calc(100% - 64px); overflow: hidden; }
+.report-header .model-version { margin-top: 8px; font-size: 11px; overflow-wrap: anywhere; }
+.scope-note { font-size: 13px; line-height: 1.8; color: #64748B; }
+.empty-report { padding: 28px; text-align: center; background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 8px; h2 { font-size: 19px; } p { font-size: 13px; line-height: 1.8; color: #64748B; } }
+.report-empty { display: flex; justify-content: center; align-items: center; padding: 24px; color: #94A3B8; font-size: 13px; line-height: 1.8; text-align: center; border: 1px dashed #E2E8F0; border-radius: 6px; min-height: 80px; }
+.worker-table .wt-header, .worker-table .wt-row { gap: 10px; }
+.worker-table small { display: block; color: #64748B; font-size: 10px; line-height: 1.6; margin-top: 5px; font-weight: normal; }
+.worker-table .w-score { color: #2563EB; font-weight: 600; overflow-wrap: anywhere; }
+.chart-caption, .outcome-note { font-size: 10px; line-height: 1.7; color: #64748B; }
+.chart-caption { margin: 8px 0 0; }
+.report-supplement { margin-top: 24px; padding-top: 16px; border-top: 1px dashed #E2E8F0; }
+.supplement-title { margin: 0 0 12px; font-size: 13px; color: #64748B; }
+.cohort-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 18px; padding-top: 35px; span { display: block; color: #64748B; font-size: 12px; margin-bottom: 10px; } strong { color: #2563EB; font-size: 20px; } }
+.cohort-table-wrap { overflow-x: auto; border: 1px solid #E2E8F0; border-radius: 6px; }
+.cohort-statistics { width: 100%; border-collapse: collapse; font-size: 11px; th, td { padding: 11px 8px; text-align: right; border-bottom: 1px solid #E2E8F0; white-space: nowrap; } th { background: #EFF6FF; color: #475569; } th:first-child, td:first-child { text-align: left; } small { display: block; margin-top: 5px; color: #64748B; } }
+.cohort-target-control { margin-bottom: 16px; color: #64748B; font-size: 12px; display: flex; align-items: center; gap: 10px; }
+.cohort-excluded { margin-top: 18px; color: #64748B; font-size: 12px; line-height: 1.8; summary { cursor: pointer; } ul { max-height: 280px; overflow: auto; padding-left: 22px; } }
+.outcome-note { display: block; }
+.d-info { gap: 10px; .estimate { color: #2563EB; white-space: nowrap; } .withheld { color: #94A3B8; white-space: nowrap; } }
+.report-footer { gap: 16px; flex-wrap: wrap; }
+.report-btns { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.report-btns :deep(.el-button + .el-button) { margin-left: 0; }
+@media print { .system-layout { display: block; height: auto; overflow: visible; background: #fff; } .report-view-wrapper { display: block; padding: 0; } .report-paper { max-width: none; width: 100%; } .report-section, .wt-row { break-inside: avoid; } .report-watermark { position: fixed; } }
+
 </style>

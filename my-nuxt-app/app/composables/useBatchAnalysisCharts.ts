@@ -154,7 +154,8 @@ export const renderBatchAnalysisCharts = (analysis: any, echarts: any) => {
       {
         name: '分布范围',
         type: 'boxplot',
-        data: boxplot.values,
+        data: boxplot.values.map((row: any[]) =>
+          row.every(value => typeof value === 'number' && Number.isFinite(value)) ? row : '-'),
         itemStyle: { color: '#EFF6FF', borderColor: '#3B82F6', borderWidth: 2 },
         emphasis: { itemStyle: { borderColor: '#1D4ED8', borderWidth: 3 } }
       },
@@ -256,7 +257,7 @@ export const renderBatchAnalysisCharts = (analysis: any, echarts: any) => {
     grid: { left: '15%', right: '5%', bottom: '15%', top: '20%' },
     xAxis: {
       type: 'category',
-      data: density.series[0]?.x || [],
+      data: density.series.find((item: any) => item.x?.length)?.x || [],
       name: '标准化浓度（σ）',
       axisLabel: { interval: 4 }
     },
@@ -322,7 +323,9 @@ export const renderBatchAnalysisCharts = (analysis: any, echarts: any) => {
       type: 'scatter',
       name: group,
       data: bubble.points
-        .filter((point: any) => point.group === group)
+        .filter((point: any) => point.group === group &&
+          [point.age, point.mean_sbp, point.mean_dbp, point.exposure_percentile]
+            .every((value: any) => typeof value === 'number' && Number.isFinite(value)))
         .map((point: any) => [
           point.age,
           point.mean_sbp,

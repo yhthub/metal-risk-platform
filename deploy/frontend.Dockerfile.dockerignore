@@ -1,0 +1,14 @@
+**
+!my-nuxt-app/
+!my-nuxt-app/package.json
+!my-nuxt-app/pnpm-lock.yaml
+!my-nuxt-app/nuxt.config.ts
+!my-nuxt-app/tsconfig.json
+!my-nuxt-app/app/
+!my-nuxt-app/app/**
+!my-nuxt-app/public/
+!my-nuxt-app/public/**
+!deploy/
+!deploy/frontend.Dockerfile
+!deploy/nginx/
+!deploy/nginx/default.conf.template

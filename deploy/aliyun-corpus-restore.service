@@ -1,0 +1,45 @@
+# One bounded migration only. Do not enable or create a recurring timer.
+# Install only after checking the new data mount and the reviewed restore script.
+[Unit]
+Description=Zhiwei one-time verified closed retrieval corpus restore
+RequiresMountsFor=/data/zhiwei
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/data/zhiwei/releases/site_20261011_001/scripts
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+ExecStart=/data/zhiwei/runtime/venv/bin/python /data/zhiwei/releases/site_20261011_001/scripts/aliyun_restore_closed_corpus.py --wait 21600
+TimeoutStartSec=8h
+TimeoutStopSec=30s
+Restart=no
+RemainAfterExit=yes
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+PrivateNetwork=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/data/zhiwei/corpus
+ReadOnlyPaths=/data/zhiwei/corpus/transfer /data/zhiwei/private /data/zhiwei/runtime /data/zhiwei/releases
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX
+SystemCallArchitectures=native
+LockPersonality=true
+CapabilityBoundingSet=
+MemoryMax=256M
+MemorySwapMax=0
+CPUQuota=50%
+IOSchedulingClass=idle
+IOReadBandwidthMax=/dev/nvme1n1 40M
+IOWriteBandwidthMax=/dev/nvme1n1 20M
+TasksMax=8
+LimitNOFILE=128
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zhiwei-corpus-restore

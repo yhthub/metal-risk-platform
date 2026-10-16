@@ -1,1939 +1,385 @@
 <template>
   <div class="system-layout">
-    
-    <transition name="toast-fade">
-      <div v-if="toast.visible" class="custom-toast">
-        <el-icon class="toast-icon"><Select /></el-icon>
-        <span>{{ toast.message }}</span>
-      </div>
-    </transition>
-
-  <Sidebar default-active="6" />
-
+    <Sidebar default-active="6" />
     <main class="main-content">
-      <header class="ep-header">
-        <div class="nav-wrapper">
-          <div class="back-link" @click="goToHome">
-            <el-icon class="back-icon"><ArrowLeft /></el-icon>
-            <span class="back-text">首页</span>
-            <span class="divider">|</span>
-            <span class="page-title-top">智能知识问答与决策溯源助手 (RAG Agent)</span>
-          </div>
-          <div class="ep-right-zone">
-            <div class="user-profile">
-              <div class="avatar">Dr.</div>
-              <span>职业卫生评估员</span>
-            </div>
-          </div>
-        </div>
+      <header class="page-header">
+        <NuxtLink to="/" class="home-link"><el-icon><ArrowLeft /></el-icon> 首页</NuxtLink>
+        <span class="header-divider">/</span><h1>医学检索问答 · 本地 RAG</h1>
+        <el-tag effect="plain">辅助研究，不替代诊疗判断</el-tag>
       </header>
 
-      <div class="page-container chat-page-container">
-        
-        <div class="model-selector-top-left">
-          <el-select v-model="currentModel" size="default" style="width: 280px;" @change="handleModelChange">
-            <el-option-group label="🤖 本地模型">
-              <el-option v-for="m in localModels" :key="m.name" :label="m.name" :value="m.name" />
-            </el-option-group>
-            <el-option-group label="📊 预训练模型">
-              <el-option label="XGBoost" value="XGBoost" />
-              <el-option label="DNN" value="DNN" />
-              <el-option label="LightGBM" value="LightGBM" />
-              <el-option label="Random Forest" value="Random Forest" />
-            </el-option-group>
-          </el-select>
-          <div class="ollama-status" :class="{ 'connected': ollamaConnected }">
-            <span class="status-dot"></span>
-            <span class="status-text">{{ ollamaConnected ? '本地模型已连接' : '本地模型未连接' }}</span>
+      <div class="page-container">
+        <section class="runtime-panel" aria-label="检索与模型状态">
+          <div class="runtime-heading">
+            <div><span class="eyebrow">LOCAL RETRIEVAL · LOCAL GENERATION</span><h2>优先参考检索原文，信息不足时明确提示</h2></div>
+            <el-button :loading="checkingStatus" :disabled="isGenerating" @click="refreshStatus"><el-icon><RefreshRight /></el-icon> 刷新状态</el-button>
           </div>
-        </div>
+          <div class="runtime-grid">
+            <div class="runtime-item">
+              <span class="runtime-label">检索库</span><strong>{{ corpusName }}</strong>
+              <span :class="['state-label', { ready: corpusReady }]">{{ corpusReady ? '预检通过' : '未就绪' }}</span>
+              <small v-if="corpusCount !== null">{{ corpusCount.toLocaleString() }} 个切块（后端报告）</small>
+              <small>预检不等于全文检索或问答验收；以实际请求结果为准。</small>
+            </div>
+            <div class="runtime-item">
+              <span class="runtime-label">本地生成模型</span>
+              <el-select v-model="currentModel" :disabled="isGenerating || !localModels.length" placeholder="暂无可用模型" aria-label="本地生成模型">
+                <el-option v-for="model in localModels" :key="model.name" :label="`${model.name}${model.ready ? '' : '（未就绪）'}`" :value="model.name" :disabled="!model.ready" />
+              </el-select>
+              <span :class="['state-label', { ready: modelReady }]">{{ modelReady ? '服务就绪' : '服务未就绪' }}</span>
+            </div>
+            <div class="runtime-item">
+              <span class="runtime-label">检索预检</span><strong>{{ retrievalState.label }}</strong>
+              <span :class="['state-label', { ready: retrievalReady }]">{{ retrievalReady ? '检索依赖就绪' : '检索依赖未就绪' }}</span>
+              <small>以每次回答返回的执行信息为准，不模拟稠密检索。</small>
+            </div>
+          </div>
+          <div class="channel-status-grid">
+            <div><strong>BM25 词法通路</strong><span :class="{ 'channel-ready': retrievalState.bm25.ready === true }">{{ channelStatusLabel(retrievalState.bm25.ready) }}</span><small>{{ retrievalState.bm25.scope || '范围由实际请求报告' }}</small></div>
+            <div><strong>MedCPT 向量通路</strong><span :class="{ 'channel-ready': retrievalState.medcpt.ready === true }">{{ channelStatusLabel(retrievalState.medcpt.ready) }}</span><small>{{ retrievalState.medcpt.scope || '独立召回范围尚未提供' }}</small></div>
+          </div>
+          <el-alert v-if="retrievalState.warning && runtimeStatus" :title="retrievalState.warning" type="warning" :closable="false" show-icon />
+          <div v-if="!publicDemo" class="access-key-row">
+            <label for="rag-access-key">服务器访问密钥</label>
+            <el-input id="rag-access-key" v-model="accessKey" type="password" autocomplete="off" placeholder="仅存于本次浏览器内存；本地未设密钥可留空" :disabled="isGenerating || checkingStatus" @keydown.enter.prevent="applyAccessKey" />
+            <el-button :disabled="isGenerating || checkingStatus" @click="applyAccessKey">应用并检查</el-button>
+            <el-button text :disabled="isGenerating || checkingStatus" @click="clearAccessKey">清除</el-button>
+          </div>
+          <el-alert v-if="statusError" :title="statusError" type="error" :closable="false" show-icon />
+          <el-alert v-else-if="!canSend && !checkingStatus && !isGenerating" title="模型服务或问答接口未就绪。请检查后端配置并刷新状态；系统不会提供模拟答案。" type="warning" :closable="false" show-icon />
+          <el-alert v-else-if="canSend && (!corpusReady || !retrievalReady)" title="模型可用，检索依赖尚未全部就绪。仍可提问；未获得足够检索信息时，回答将明确标为模型一般知识，而不是检索文献支持的结论。" type="warning" :closable="false" show-icon />
+          <div v-if="statusWarnings.length" class="warning-list" role="status"><p v-for="(warning, index) in statusWarnings" :key="index"><el-icon><Warning /></el-icon>{{ warning }}</p></div>
+        </section>
 
-        <div class="agent-hero-section" v-if="!hasStartedChat">
-          <div class="hero-title">
-            职业环境健康的难题，交给我试试看吧 ~ 🤗
-          </div>
-          
-          <div class="ai-group-badge">
-            <img src="https://api.iconify.design/lucide:bot.svg?color=%231f77b4" alt="bot" />
-            <span>{{ currentKBDisplay }} 已挂载</span>
-          </div>
+        <section v-if="!chatHistory.length" class="welcome-panel">
+          <el-icon class="welcome-icon"><Reading /></el-icon><h2>从问题到原文，保留每一步的边界</h2>
+          <p>优先使用检索到的切块回答；检索信息不足或中文概念未匹配时，仍由真实模型回答，并明确标注未获检索文献支持。只有实际返回的文献才展示出处。</p>
+          <div class="quick-prompts"><button v-for="prompt in quickPrompts" :key="prompt" :disabled="isGenerating" @click="usePrompt(prompt)">{{ prompt }} <span>↗</span></button></div>
+        </section>
 
-          <div class="hero-input-wrapper" :class="{ 'is-focused': inputFocused }">
-            <el-popover placement="bottom-start" :width="320" trigger="click">
-              <template #reference>
-                <div class="kb-selector-btn">
-                  <el-icon><FolderOpened /></el-icon>
-                  <span class="truncate-text">{{ currentKBDisplay }}</span>
-                  <el-icon><ArrowDown /></el-icon>
-                </div>
+        <section v-else ref="messageListRef" class="message-list" aria-label="问答记录" aria-live="polite">
+          <article v-for="msg in chatHistory" :key="msg.id" :class="['message', msg.role]">
+            <div class="message-avatar"><el-icon v-if="msg.role === 'assistant'"><Monitor /></el-icon><el-icon v-else><User /></el-icon></div>
+            <div class="message-body">
+              <div class="message-label">{{ msg.role === 'user' ? '我的问题' : '本地检索问答' }}</div>
+              <div v-if="msg.loading" class="loading-line" role="status"><el-icon class="is-loading"><Loading /></el-icon> 等待后端检索与生成结果；尚未确认任何执行阶段。</div>
+              <el-alert v-else-if="msg.error" :title="msg.error" description="此次请求失败，未生成有效回答。可以检查状态后重新提交；系统没有使用模板内容兜底。" type="error" :closable="false" show-icon />
+              <template v-else>
+                <el-alert v-if="msg.role === 'assistant' && isGeneralKnowledgeAnswer(msg)" class="general-answer-notice" :title="generalKnowledgeNotice" type="warning" :closable="false" show-icon />
+                <!-- 文本插值：模型、语料及用户输入均不直接执行 HTML。 -->
+                <div class="answer-text">{{ msg.content }}</div>
+                <template v-if="msg.role === 'assistant'">
+                  <el-alert v-if="msg.status === 'insufficient_evidence'" title="当前检索结果不足以支持回答。请补充实体、结局或问题范围；这不表示不存在相关证据。" type="warning" :closable="false" show-icon />
+                  <div class="execution-meta">
+                    <span>模型：{{ msg.model?.name || '后端未提供' }}</span><span>后端：{{ msg.model?.backend || '后端未提供' }}</span>
+                    <span>回答方式：{{ isGeneralKnowledgeAnswer(msg) ? '模型一般知识（未获检索支持）' : '检索问答' }}</span>
+                    <span>检索：{{ messageRetrieval(msg).label }}</span><span v-if="!isGeneralKnowledgeAnswer(msg)">切块来源：{{ msg.corpusName }}</span>
+                    <span v-if="msg.timings?.total_ms !== undefined">耗时：{{ Number(msg.timings.total_ms).toLocaleString() }} ms</span>
+                  </div>
+                  <el-alert v-if="messageRetrieval(msg).warning" :title="messageRetrieval(msg).warning" type="warning" :closable="false" show-icon />
+                  <div class="channel-execution">
+                    <span>BM25：{{ channelStatusLabel(messageRetrieval(msg).bm25.ready) }} · 返回 {{ msg.sparseHits.length }} 条</span>
+                    <span>MedCPT：{{ channelStatusLabel(messageRetrieval(msg).medcpt.ready) }} · 返回 {{ msg.denseHits.length }} 条</span>
+                    <small v-if="messageRetrieval(msg).medcpt.scope">MedCPT 范围：{{ messageRetrieval(msg).medcpt.scope }}</small>
+                  </div>
+                  <div v-if="msg.warnings.length" class="warning-list"><p v-for="(warning, warningIndex) in msg.warnings" :key="warningIndex"><el-icon><Warning /></el-icon>{{ warning }}</p></div>
+                  <div v-if="!isGeneralKnowledgeAnswer(msg)" class="evidence-overview">
+                    <div><strong>融合后上下文切块 {{ msg.evidenceCards.length }}</strong><span>正文标记引用 {{ citedCards(msg).length }} · BM25 原始候选 {{ msg.sparseHits.length }} · MedCPT 原始候选 {{ msg.denseHits.length }}</span><small v-if="msg.retrieval?.candidate_count !== undefined">两路去重候选总数：{{ msg.retrieval.candidate_count }}（不是两路数量相加，也不是论文数）</small></div>
+                    <el-button v-if="msg.evidenceCards.length || msg.sparseHits.length || msg.denseHits.length || msg.boundaries.length" plain @click="openEvidenceDrawer(msg)"><el-icon><Collection /></el-icon> 查看原文与出处</el-button>
+                  </div>
+                  <div v-else-if="msg.sparseHits.length || msg.denseHits.length || msg.boundaries.length" class="evidence-overview">
+                    <div><strong>候选材料未用于支持本次回答</strong><span>不展示正文引用，不将候选材料算作已引用文献。</span></div>
+                    <el-button plain @click="openEvidenceDrawer(msg)"><el-icon><Collection /></el-icon> 查看检索候选</el-button>
+                  </div>
+                  <p v-if="!isGeneralKnowledgeAnswer(msg)" class="evidence-disclaimer">“正文标记引用”仅表示模型在回答中使用了该编号；未进行人工评价、引用蕴含验证或临床有效性确认。RRF 是基于排名的融合分数，不是概率、医学证据等级或结论可信度。</p>
+                  <div v-if="msg.evidenceCards.length" class="inline-evidence">
+                    <button v-for="(card, index) in msg.evidenceCards.slice(0, 3)" :key="`${card.chunk_id}-${index}`" class="evidence-preview" @click="openChunkDetail(card)"><span :class="['citation-badge', { cited: card.is_cited }]">{{ card.citation_id || '候选' }}</span><span>{{ card.title || '标题未提供' }}</span><small>{{ card.is_cited ? '正文标记引用 · 未核验' : '检索候选 · 未被正文引用' }}</small></button>
+                  </div>
+                  <el-button class="copy-answer" text :disabled="!msg.content" @click="copyText(msg.content)"><el-icon><DocumentCopy /></el-icon> 复制回答</el-button>
+                </template>
               </template>
-              <div class="kb-popover-list">
-                <div v-for="(kb, idx) in kbList" :key="idx"
-                     :class="['kb-item', { 'active': selectedKBs.includes(kb) }]"
-                     @click="toggleKB(kb)">
-                  <el-checkbox :model-value="selectedKBs.includes(kb)" @click.stop @change="toggleKB(kb)" />
-                  <span>{{ kb }}</span>
-                </div>
-                <div class="kb-divider"></div>
-                <div class="kb-item"><el-icon><Upload /></el-icon> 上传本地私有知识库 (.pdf/.md)</div>
-              </div>
-            </el-popover>
-
-            <textarea 
-              class="hero-textarea" 
-              placeholder="请输入重金属名称（如：铅、镉）、机制或疾病进行查询，或要求生成风险预警报告..."
-              v-model="userInput"
-              @focus="inputFocused = true"
-              @blur="inputFocused = false"
-              @keydown.enter.prevent="sendMessage"
-            ></textarea>
-
-            <div class="hero-input-actions">
-              <div class="actions-left">
-                <el-button circle class="action-btn"><el-icon><Paperclip /></el-icon></el-button>
-                <el-button round class="action-btn" :class="{'is-active': enableDeepThink}" @click="toggleDeepThink">
-                  <el-icon><MagicStick /></el-icon> 深度思考 {{ enableDeepThink ? 'ON' : '' }}
-                </el-button>
-                <el-button round class="action-btn"><el-icon><ChromeFilled /></el-icon> 联网检索</el-button>
-              </div>
-              <div class="actions-right">
-                <span class="agent-tag"><el-icon><Connection /></el-icon> RAG Agent</span>
-                <el-button type="primary" circle class="send-btn" :disabled="!userInput.trim()" @click="sendMessage">
-                  <el-icon><Position /></el-icon>
-                </el-button>
-              </div>
             </div>
+          </article>
+        </section>
+
+        <section class="composer" aria-label="输入问题">
+          <textarea v-model="userInput" placeholder="职业铅暴露与高血压的关系有哪些人群研究证据？" :disabled="isGenerating" :maxlength="2000" rows="3" aria-label="医学检索问题" @keydown="handleInputKeydown" />
+          <div class="composer-actions">
+            <div class="composer-tools"><el-switch v-model="enableDeepThink" :disabled="isGenerating" active-text="扩展检索" /><small>按后端支持启用，不展示模拟思考过程。</small></div>
+            <div class="send-actions"><small>{{ userInput.length }}/2000 · Enter 发送 · Shift + Enter 换行</small><el-button type="primary" :loading="isGenerating" :disabled="!userInput.trim() || !canSend" @click="sendMessage"><el-icon><Position /></el-icon> {{ isGenerating ? '处理中' : '发送' }}</el-button></div>
           </div>
-
-          <div class="quick-prompts">
-            <div class="prompt-chip" @click="quickSend('详细解析一下铅(Pb)的致病机制与靶器官')">
-              <el-icon><Microphone /></el-icon> 解析铅(Pb)的致病机制
-            </div>
-            <div class="prompt-chip" @click="quickSend('重金属暴露导致的慢性肾病(CKD)有哪些前兆标志物？')">
-              <el-icon><DataAnalysis /></el-icon> 重金属与慢性肾病关系
-            </div>
-            <div class="prompt-chip" @click="quickSend('对比砷(As)和镉(Cd)的暴露来源与致癌性差异')">
-              <el-icon><ScaleToOriginal /></el-icon> 对比砷(As)和镉(Cd)
-            </div>
-          </div>
-        </div>
-
-        <div class="chat-thread-section" v-else>
-          <div class="message-list" ref="messageListRef">
-            <div v-for="(msg, index) in chatHistory" :key="index" :class="['message-wrapper', msg.role]">
-              
-              <div v-if="msg.role === 'user'" class="message user-message">
-                <div class="msg-content">{{ msg.content }}</div>
-                <div class="msg-avatar">User</div>
-              </div>
-              
-              <div v-if="msg.role === 'ai'" class="message ai-message">
-                <div class="msg-avatar ai-avatar"><el-icon><Monitor /></el-icon></div>
-                <div class="msg-body">
-                  
-                  <div class="deep-think-box" v-if="msg.thinkProcess">
-                    <div class="think-header" @click="msg.thinkExpanded = !msg.thinkExpanded">
-                      <div class="think-title">
-                        <el-icon class="spin-icon" v-if="msg.loading"><Loading /></el-icon>
-                        <el-icon v-else><CircleCheck /></el-icon>
-                        {{ msg.loading ? `正在使用 ${currentModel} 推理中...` : `推理完成` }}
-                      </div>
-                      <el-icon class="arrow-icon" :class="{'is-open': msg.thinkExpanded}"><ArrowDown /></el-icon>
-                    </div>
-                    <div class="think-content" v-show="msg.thinkExpanded">
-                      <div v-for="(step, idx) in (msg.thinkSteps || msg.thinkProcess)" :key="idx" class="think-step">
-                        <span class="step-indicator" :class="{ 'active': idx === (msg.currentStep || 0), 'done': idx < (msg.currentStep || 0) }">
-                          {{ idx < (msg.currentStep || 0) ? '✓' : '>' }}
-                        </span>
-                        <span v-html="step"></span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="kb-citation" v-if="msg.cited && !msg.loading">
-                    <el-icon><Reading /></el-icon> 已结合检索源: <strong>{{ currentKBText }}</strong>
-                    <span v-if="msg.dualPathSummary" class="dual-path-badge">
-                      <el-icon><Collection /></el-icon> 双通路协同检索 {{ msg.dualPathSummary.total_retrieved }} 条切块 + 法定红线 {{ msg.p0_p1_boundaries?.length || 10 }} 条 (循证医学研判)
-                      <el-icon><Collection /></el-icon> 双通路切块已召回 {{ msg.dualPathSummary.total_retrieved }} 条 (去 fu 循证评分)
-                    </span>
-                  </div>
-
-                  <!-- 核心专家研判答案正文（主要核心内容，置顶优先展示） -->
-                  <!-- P0/P1 国家标准与法律红线边界 (独立通道，不参与 DocScore 排序) -->
-                  <div class="normative-boundary-panel" v-if="msg.p0_p1_boundaries && msg.p0_p1_boundaries.length && !msg.loading">
-                    <div class="boundary-title-bar">
-                      <div class="title-left">
-                        <span class="icon-scale">⚖️</span>
-                        <span class="title-main">我国现行法律法规与国家强制性标准红线 (P0/P1 法定边界 · 不参与排序)</span>
-                      </div>
-                      <span class="boundary-badge">现行强制底线</span>
-                    </div>
-                    <div class="boundary-items-grid">
-                      <div v-for="bItem in msg.p0_p1_boundaries" :key="bItem.chunk_id" class="boundary-item-card" @click="openBoundaryDetail(bItem)">
-                        <div class="item-head">
-                          <span class="std-no">{{ bItem.standard_no }}</span>
-                          <span class="std-badge">{{ bItem.priority_label }}</span>
-                          <span class="sec-title">{{ bItem.section_title }}</span>
-                        </div>
-                        <div class="item-content">“{{ bItem.text }}”</div>
-                        <div class="item-foot">
-                          <span class="issuer">{{ bItem.issuer || '国家卫生健康委' }}</span>
-                          <span class="view-link">查看法定义务条文 →</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div v-if="!msg.loading" class="msg-content markdown-body" v-html="msg.content"></div>
-
-                  <!-- 循证依据轻量胶囊栏（置于回答底部，轻盈不拥挤，支持一键滑出右侧全景抽屉） -->
-                  <div class="evidence-summary-capsule" v-if="!msg.loading && (msg.p0_p1_boundaries?.length || msg.evidenceCards?.length)">
-                    <div class="capsule-main">
-                      <div class="capsule-info">
-                        <span class="shield-badge">🛡️ 权威循证核验</span>
-                        <span class="capsule-text">
-                          已核验 <strong>{{ msg.p0_p1_boundaries?.length || 10 }}</strong> 项国家法定红线与 <strong>{{ msg.evidenceCards?.length || 128 }}</strong> 篇前沿科学切块
-                        </span>
-                  <!-- 真实双通路证据切块溯源面板 (稠密 Top-32 + 稀疏 Top-32 + 细排 Top-12) -->
-                  <div class="dual-path-panel" v-if="(msg.evidenceCards?.length || msg.sparseHits?.length || msg.denseHits?.length) && !msg.loading">
-                    <div class="dual-path-header" @click="msg.evidenceExpanded = !msg.evidenceExpanded">
-                      <div class="header-left">
-                        <el-icon><Collection /></el-icon>
-                        <span class="panel-title">双通路循证切块溯源与细排全景 (稠密 Top-32 + 稀疏 Top-32)</span>
-                        <el-tag size="small" type="primary" effect="light">稠密向量 {{ msg.denseHits?.length || 32 }} 条</el-tag>
-                        <el-tag size="small" type="success" effect="light">稀疏倒排 {{ msg.sparseHits?.length || 32 }} 条</el-tag>
-                        <el-tag size="small" type="warning" effect="dark">DocScore 重排 Top-12</el-tag>
-                      </div>
-                      <el-button 
-                        size="small" 
-                        type="primary" 
-                        plain 
-                        round 
-                        class="open-drawer-btn" 
-                        @click="openEvidenceDrawer(msg, 'boundary')"
-                      >
-                        <el-icon><Reading /></el-icon> 查看支撑依据与切块全景 ({{ (msg.p0_p1_boundaries?.length || 10) + (msg.evidenceCards?.length || 128) }} 项) →
-                      </el-button>
-                      <el-icon class="arrow-icon" :class="{'is-open': msg.evidenceExpanded}"><ArrowDown /></el-icon>
-                    </div>
-
-                    <!-- 核心依据快捷药丸标签 -->
-                    <div class="capsule-pills">
-                      <span 
-                        class="pill-item boundary-pill" 
-                        v-for="(b, bIdx) in (msg.p0_p1_boundaries || []).slice(0, 3)" 
-                        :key="'b-pill-' + bIdx"
-                        @click="openEvidenceDrawer(msg, 'boundary', b)"
-                        :title="b.title"
-                      >
-                        ⚖️ {{ b.standard_no }} ({{ b.priority_label || '法定红线' }})
-                      </span>
-                      <span 
-                        class="pill-item sci-pill" 
-                        v-for="(c, cIdx) in (msg.evidenceCards || []).slice(0, 2)" 
-                        :key="'c-pill-' + cIdx"
-                        @click="openEvidenceDrawer(msg, 'ranked', c)"
-                        :title="c.title"
-                      >
-                        📄 {{ c.standard_no_or_doi }}
-                      </span>
-                      <span class="pill-item more-pill" @click="openEvidenceDrawer(msg, 'ranked')">
-                        + 查阅全部 {{ (msg.evidenceCards?.length || 128) }} 篇科学切块与评分 →
-                      </span>
-                    <div class="dual-path-content" v-show="msg.evidenceExpanded">
-                      <el-tabs v-model="msg.activeTab" class="evidence-tabs">
-                        <el-tab-pane label="🏆 综合细排科学证据 (DocScore)" name="ranked">
-                          <div class="evidence-cards-grid">
-                            <div v-for="(card, cIdx) in (msg.evidenceCards || [])" 
-                                 :key="card.chunk_id" 
-                                 class="evidence-item-card ranked"
-                                 @click="openChunkDetail(card)">
-                              <div class="card-top">
-                                <span class="card-rank">#{{ cIdx + 1 }}</span>
-                                <span class="card-id">{{ card.standard_no_or_doi }}</span>
-                                <span class="card-badge p-sci">{{ card.priority_label }}</span>
-                              </div>
-                              <div class="card-section">{{ card.title }} · {{ card.section_title }}</div>
-                              <div class="card-snippet">{{ card.text }}</div>
-                              <div class="card-formula-breakdown" v-if="card.score_factors">
-                                <span class="formula-item">Sem: <b>{{ card.score_factors.Sem }}</b></span>
-                                <span class="formula-item">G意图: <b>{{ card.score_factors.G_intent }}</b></span>
-                                <span class="formula-item">H层级: <b>{{ card.score_factors.H_prior }}</b></span>
-                                <span class="formula-item">M方法: <b>{{ card.score_factors.M_quality }}</b></span>
-                                <span class="formula-item">A人群: <b>{{ card.score_factors.A_applicability }}</b></span>
-                              </div>
-                              <div class="card-footer">
-                                <span class="card-score">DocScore: {{ Math.round((card.score || 0) * 100) }}%</span>
-                                <span class="view-more">查看切块溯源 →</span>
-                              </div>
-                            </div>
-                          </div>
-                        </el-tab-pane>
-
-                        <el-tab-pane label="🔬 稠密语义检索通道 (Dense Top-32)" name="dense">
-                          <div class="evidence-cards-grid">
-                            <div v-for="(card, cIdx) in (msg.denseHits || [])" 
-                                 :key="'dense-' + card.chunk_id + cIdx" 
-                                 class="evidence-item-card dense"
-                                 @click="openChunkDetail(card)">
-                              <div class="card-top">
-                                <span class="card-rank">#{{ card.dense_rank || (cIdx + 1) }}</span>
-                                <span class="card-id">{{ card.standard_no_or_doi }}</span>
-                                <span class="card-badge dense-tag">余弦相似: {{ card.dense_score }}</span>
-                              </div>
-                              <div class="card-section">{{ card.title }}</div>
-                              <div class="card-snippet">{{ card.text }}</div>
-                              <div class="card-footer">
-                                <span class="card-channel-tip">BGE-small 稠密向量</span>
-                                <span class="view-more">查看切块详情 →</span>
-                              </div>
-                            </div>
-                          </div>
-                        </el-tab-pane>
-
-                        <el-tab-pane label="📑 稀疏词法检索通道 (Sparse Top-32)" name="sparse">
-                          <div class="evidence-cards-grid">
-                            <div v-for="(card, cIdx) in (msg.sparseHits || [])" 
-                                 :key="'sparse-' + card.chunk_id + cIdx" 
-                                 class="evidence-item-card sparse"
-                                 @click="openChunkDetail(card)">
-                              <div class="card-top">
-                                <span class="card-rank">#{{ card.sparse_rank || (cIdx + 1) }}</span>
-                                <span class="card-id">{{ card.standard_no_or_doi }}</span>
-                                <span class="card-badge sparse-tag">BM25 倒排召回</span>
-                              </div>
-                              <div class="card-section">{{ card.title }}</div>
-                              <div class="card-snippet">{{ card.text }}</div>
-                              <div class="card-footer">
-                                <span class="card-channel-tip">FTS5 / BM25 稀疏检索</span>
-                                <span class="view-more">查看切块详情 →</span>
-                              </div>
-                            </div>
-                          </div>
-                        </el-tab-pane>
-                      </el-tabs>
-                    </div>
-                  </div>
-
-                  <div class="msg-actions" v-if="!msg.loading">
-                    <div class="action-item" title="复制回答" @click="showToast('✅ 内容已复制到剪贴板')"><el-icon><DocumentCopy /></el-icon></div>
-                    <div class="action-item" title="重新生成"><el-icon><RefreshRight /></el-icon></div>
-                    <div class="action-item" title="赞"><el-icon><Pointer /></el-icon></div>
-                    <div class="action-item" title="踩"><el-icon><Bottom /></el-icon></div>
-                  </div>
-
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="sticky-input-container">
-            <div class="hero-input-wrapper is-chatting">
-              <textarea 
-                class="hero-textarea" 
-                placeholder="继续提问，或输入 / 唤起工具..."
-                v-model="userInput"
-                @keydown.enter.prevent="sendMessage"
-              ></textarea>
-              <div class="hero-input-actions">
-                <div class="actions-left">
-                  <el-button circle class="action-btn"><el-icon><Paperclip /></el-icon></el-button>
-                  <el-popover placement="top-start" :width="320" trigger="hover">
-                    <template #reference>
-                      <el-button round class="action-btn kb-mini-btn">
-                        <el-icon><FolderOpened /></el-icon> <span class="truncate-text ax-w-25">{{ currentKBDisplay }}</span>
-                      </el-button>
-                    </template>
-                    <div class="kb-popover-list mini">
-                      <div v-for="(kb, idx) in kbList" :key="idx"
-                           :class="['kb-item', { 'active': selectedKBs.includes(kb) }]"
-                           @click="toggleKB(kb)">
-                        <el-checkbox :model-value="selectedKBs.includes(kb)" @click.stop @change="toggleKB(kb)" />
-                        <span>{{ kb }}</span>
-                      </div>
-                    </div>
-                  </el-popover>
-                </div>
-                <div class="actions-right">
-                  <el-button type="primary" circle class="send-btn" :disabled="!userInput.trim() || isGenerating" @click="sendMessage">
-                    <el-icon><Position /></el-icon>
-                  </el-button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 专属循证研判支撑证据全景抽屉 (解决消息流拥挤问题) -->
-        <el-drawer
-          v-model="evidenceDrawerVisible"
-          title="📚 循证研判支撑证据全景与原文溯源"
-          size="760px"
-          direction="rtl"
-          destroy-on-close
-          class="evidence-full-drawer"
-        >
-          <div class="drawer-inner-content" v-if="activeDrawerMsg">
-            <!-- 统计全景头条 -->
-            <div class="drawer-header-summary">
-              <div class="summary-top">
-                <span class="summary-title">🛡️ 循证医学与法规双通路质控体系</span>
-                <el-tag size="small" type="success" effect="plain">全部通过交叉核验</el-tag>
-              </div>
-              <div class="summary-stat-chips">
-                <span class="stat-chip red" @click="drawerActiveTab = 'boundary'">⚖️ 法定强制红线: {{ activeDrawerMsg.p0_p1_boundaries?.length || 10 }} 项</span>
-                <span class="stat-chip gold" @click="drawerActiveTab = 'ranked'">🏆 科学重排精选: {{ activeDrawerMsg.evidenceCards?.length || 128 }} 篇</span>
-                <span class="stat-chip blue" @click="drawerActiveTab = 'dense'">🔬 稠密向量召回: {{ activeDrawerMsg.denseHits?.length || 256 }} 条</span>
-                <span class="stat-chip green" @click="drawerActiveTab = 'sparse'">📑 稀疏倒排召回: {{ activeDrawerMsg.sparseHits?.length || 256 }} 条</span>
-              </div>
-              <p class="summary-tip">
-                说明：法定红线（P0/P1 国家职业卫生标准与行政法规）作为强制性法律底线独立说明；科学文献切块由稠密与稀疏双通路协同召回，经多维循证医学质量评分重排精选前 128 篇。点击卡片可查阅切块全文与溯源信息。
-              </p>
-            </div>
-
-            <!-- 分类选项卡 -->
-            <el-tabs v-model="drawerActiveTab" class="drawer-tabs">
-              <!-- Tab 1: 法定红线 (P0/P1) -->
-              <el-tab-pane name="boundary">
-                <template #label>
-                  <span class="tab-badge-title">⚖️ 法定强制红线 ({{ activeDrawerMsg.p0_p1_boundaries?.length || 10 }})</span>
-                </template>
-                <div class="drawer-cards-grid">
-                  <div 
-                    v-for="bItem in activeDrawerMsg.p0_p1_boundaries" 
-                    :key="bItem.chunk_id" 
-                    class="drawer-item-card boundary-card"
-                    @click="openBoundaryDetail(bItem)"
-                  >
-                    <div class="card-head">
-                      <span class="std-no">{{ bItem.standard_no }}</span>
-                      <span class="std-badge danger">{{ bItem.priority_label }} · 强制底线</span>
-                    </div>
-                    <div class="card-title">{{ bItem.title }} · {{ bItem.section_title }}</div>
-                    <div class="card-snippet quote">“{{ bItem.text }}”</div>
-                    <div class="card-foot">
-                      <span class="issuer">{{ bItem.issuer || '国家卫生健康委' }}</span>
-                      <span class="action-text">查阅法定义务条文 →</span>
-                    </div>
-                  </div>
-                </div>
-              </el-tab-pane>
-
-              <!-- Tab 2: 循证重排科学证据 (Top-128) -->
-              <el-tab-pane name="ranked">
-                <template #label>
-                  <span class="tab-badge-title">🏆 科学循证切块 ({{ activeDrawerMsg.evidenceCards?.length || 128 }})</span>
-                </template>
-                <div class="drawer-cards-grid">
-                  <div 
-                    v-for="(card, cIdx) in (activeDrawerMsg.evidenceCards || [])" 
-                    :key="card.chunk_id" 
-                    class="drawer-item-card ranked-card"
-                    @click="openChunkDetail(card)"
-                  >
-                    <div class="card-head">
-                      <span class="card-rank">#{{ cIdx + 1 }}</span>
-                      <span class="card-id">{{ card.standard_no_or_doi }}</span>
-                      <span class="card-badge p-sci">循证评分: {{ Math.round((card.score || 0) * 100) }}%</span>
-                    </div>
-                    <div class="card-title">{{ card.title }} · {{ card.section_title }}</div>
-                    <div class="card-snippet">{{ card.text }}</div>
-                    <div class="card-formula-breakdown" v-if="card.score_factors">
-                      <span class="formula-item">语义匹配: <b>{{ card.score_factors.Sem }}</b></span>
-                      <span class="formula-item">意图适配: <b>{{ card.score_factors.G_intent }}</b></span>
-                      <span class="formula-item">证据等级: <b>{{ card.score_factors.H_prior }}</b></span>
-                      <span class="formula-item">研究方法: <b>{{ card.score_factors.M_quality }}</b></span>
-                      <span class="formula-item">人群相关: <b>{{ card.score_factors.A_applicability }}</b></span>
-                    </div>
-                    <div class="card-foot">
-                      <span class="priority-tag">{{ card.priority_label }}</span>
-                      <span class="action-text">查阅切块溯源 →</span>
-                    </div>
-                  </div>
-                </div>
-              </el-tab-pane>
-
-              <!-- Tab 3: 稠密语义检索通道 (Top-256) -->
-              <el-tab-pane name="dense">
-                <template #label>
-                  <span class="tab-badge-title">🔬 稠密语义通道 ({{ activeDrawerMsg.denseHits?.length || 256 }})</span>
-                </template>
-                <div class="drawer-cards-grid">
-                  <div 
-                    v-for="(card, cIdx) in (activeDrawerMsg.denseHits || [])" 
-                    :key="'dense-' + card.chunk_id + cIdx" 
-                    class="drawer-item-card dense-card"
-                    @click="openChunkDetail(card)"
-                  >
-                    <div class="card-head">
-                      <span class="card-rank">#{{ card.dense_rank || (cIdx + 1) }}</span>
-                      <span class="card-id">{{ card.standard_no_or_doi }}</span>
-                      <span class="card-badge dense-tag">余弦相似: {{ card.dense_score }}</span>
-                    </div>
-                    <div class="card-title">{{ card.title }}</div>
-                    <div class="card-snippet">{{ card.text }}</div>
-                    <div class="card-foot">
-                      <span class="channel-tag">BGE 稠密向量</span>
-                      <span class="action-text">查看切块详情 →</span>
-                    </div>
-                  </div>
-                </div>
-              </el-tab-pane>
-
-              <!-- Tab 4: 稀疏词法检索通道 (Top-256) -->
-              <el-tab-pane name="sparse">
-                <template #label>
-                  <span class="tab-badge-title">📑 稀疏倒排通道 ({{ activeDrawerMsg.sparseHits?.length || 256 }})</span>
-                </template>
-                <div class="drawer-cards-grid">
-                  <div 
-                    v-for="(card, cIdx) in (activeDrawerMsg.sparseHits || [])" 
-                    :key="'sparse-' + card.chunk_id + cIdx" 
-                    class="drawer-item-card sparse-card"
-                    @click="openChunkDetail(card)"
-                  >
-                    <div class="card-head">
-                      <span class="card-rank">#{{ card.sparse_rank || (cIdx + 1) }}</span>
-                      <span class="card-id">{{ card.standard_no_or_doi }}</span>
-                      <span class="card-badge sparse-tag">BM25 倒排匹配</span>
-                    </div>
-                    <div class="card-title">{{ card.title }}</div>
-                    <div class="card-snippet">{{ card.text }}</div>
-                    <div class="card-foot">
-                      <span class="channel-tag">FTS5 词法倒排</span>
-                      <span class="action-text">查看切块详情 →</span>
-                    </div>
-                  </div>
-                </div>
-              </el-tab-pane>
-            </el-tabs>
-          </div>
-        </el-drawer>
-
-        <!-- 循证切块原文详情弹窗 -->
-        <el-dialog v-model="chunkDetailVisible" title="📜 循证切块原文详情 (Evidence Chunk Detail)" width="780px" append-to-body>
-          <div v-if="selectedChunk" class="chunk-detail-modal">
-            <!-- 法律红线特别说明提示条 -->
-            <div v-if="selectedChunk.is_boundary" class="boundary-alert-bar">
-              <span class="alert-icon">⚖️</span>
-              <div>
-                <strong>【我国现行法律法规与国家强制性标准红线】</strong><br/>
-                此条款属于我国现行强制性国家职业卫生标准（如 GBZ 强制性接触限值与监护要求），属于用人单位必须履行的法定义务与合规硬约束，<strong>严格作为法律底线独立说明，不参与任何浮动 DocScore 排序计算</strong>。
-              </div>
-            </div>
-
-            <div class="chunk-meta-grid">
-              <div class="meta-item"><span class="meta-lbl">切块编号:</span> <code>{{ selectedChunk.chunk_id }}</code></div>
-              <div class="meta-item"><span class="meta-lbl">所属标准/文献:</span> <strong>{{ selectedChunk.standard_no_or_doi }}</strong></div>
-              <div class="meta-item">
-                <span class="meta-lbl">证据等级:</span> 
-                <el-tag size="small" :type="selectedChunk.is_boundary ? 'danger' : 'success'">
-                  {{ selectedChunk.evidence_priority }} ({{ selectedChunk.priority_label }})
-                </el-tag>
-              </div>
-              <div class="meta-item"><span class="meta-lbl">发布机构/期刊:</span> <span>{{ selectedChunk.issuer || '国家卫生健康委 / 权威学术期刊' }}</span></div>
-              <div class="meta-item"><span class="meta-lbl">章节条款路径:</span> <span>{{ selectedChunk.section_title }}</span></div>
-              <div class="meta-item" v-if="!selectedChunk.is_boundary && selectedChunk.score !== null">
-                <span class="meta-lbl">综合循证得分:</span> 
-                <strong style="color: #2563EB;">{{ Math.round((selectedChunk.score || 0) * 100) }}%</strong> 
-                <span style="font-size: 0.75rem; color: #64748B;">(Sem × G意图 × H层级 × M方法 × A适用性，已去除 fu 指数)</span>
-              </div>
-            </div>
-            <div class="chunk-full-text-box">
-              <div class="text-label">📜 切块原文正文：</div>
-              <div class="text-content-scroll">{{ selectedChunk.text }}</div>
-            </div>
-          </div>
-          <template #footer>
-            <div class="dialog-footer">
-              <el-button @click="chunkDetailVisible = false">关闭</el-button>
-              <el-button type="primary" @click="copyChunkText">复制切块原文</el-button>
-            </div>
-          </template>
-        </el-dialog>
-
+          <p class="privacy-note">当前不提供联网检索、附件上传或私有知识库创建。请勿输入姓名、证件号等可识别个人身份的信息。</p>
+        </section>
       </div>
+
+      <el-drawer v-model="evidenceDrawerVisible" title="检索切块 · 原文与出处" size="min(780px, 100vw)" destroy-on-close>
+        <template v-if="activeDrawerMsg">
+          <p v-if="isGeneralKnowledgeAnswer(activeDrawerMsg)" class="drawer-note">本次回答未获得足够检索信息。以下仅为检索候选，不是本次回答的引用文献，也不表示支持该回答。</p>
+          <p v-else class="drawer-note">BM25 与 MedCPT 标签展示各路真实原始候选；融合后上下文切块才用于模型输入。候选材料不等同于支持结论，正文引用未经过人工核验。原文是本地切块，并非完整论文。</p>
+          <el-alert v-if="messageRetrieval(activeDrawerMsg).warning" :title="messageRetrieval(activeDrawerMsg).warning" type="warning" :closable="false" show-icon />
+          <el-tabs v-model="drawerActiveTab">
+            <el-tab-pane v-if="!isGeneralKnowledgeAnswer(activeDrawerMsg)" :label="`融合上下文 (${activeDrawerMsg.evidenceCards.length})`" name="candidates" /><el-tab-pane v-if="!isGeneralKnowledgeAnswer(activeDrawerMsg)" :label="`正文标记引用 (${citedCards(activeDrawerMsg).length})`" name="cited" />
+            <el-tab-pane :label="`BM25 原始候选 (${activeDrawerMsg.sparseHits.length})`" name="sparse" /><el-tab-pane :label="`MedCPT 原始候选 (${activeDrawerMsg.denseHits.length})`" name="dense" />
+            <el-tab-pane v-if="activeDrawerMsg.boundaries.length" :label="`规范条款候选 (${activeDrawerMsg.boundaries.length})`" name="boundaries" />
+          </el-tabs>
+          <el-empty v-if="!drawerCards.length" description="此分类没有返回切块，不使用预设数量或替代材料。" />
+          <button v-for="(card, index) in drawerCards" :key="`${card.chunk_id}-${index}`" class="evidence-card" @click="openChunkDetail(card)">
+            <div class="card-heading"><span :class="['citation-badge', { cited: card.is_cited }]">{{ card.citation_id || `候选 ${index + 1}` }}</span><span>{{ card.is_cited ? '正文标记引用 · 未核验' : '检索候选' }}</span></div>
+            <h3>{{ card.title || '标题未提供' }}</h3><p class="card-source">{{ sourceLabel(card) }} · {{ card.standard_no_or_doi || card.doi || (card.pmid ? `PMID ${card.pmid}` : '文献编号未提供') }}</p><p class="card-text">{{ card.text }}</p>
+            <div class="card-footer"><span>{{ retrievalChannelLabel(card) }}</span><span v-if="isRank(card.bm25_rank)">BM25 排名 {{ card.bm25_rank }}</span><span v-if="isRank(card.dense_rank)">MedCPT 排名 {{ card.dense_rank }}</span><span v-if="isFiniteScore(card.rrf_score)">RRF 融合分 {{ formatScore(card.rrf_score) }}</span><span>查看切块详情 →</span></div>
+          </button>
+        </template>
+      </el-drawer>
+
+      <el-dialog v-model="chunkDetailVisible" title="检索切块原文" width="min(780px, 95vw)" append-to-body>
+        <template v-if="selectedChunk">
+          <el-alert :title="selectedChunk.is_cited ? '模型正文标记引用；未进行人工核验或结论支持性确认。' : '检索候选材料；不能据此认定支持回答。'" type="info" :closable="false" show-icon />
+          <dl class="chunk-metadata">
+            <dt>标题</dt><dd>{{ selectedChunk.title || '未提供' }}</dd><dt>来源</dt><dd>{{ sourceLabel(selectedChunk) }}</dd><dt>切块编号</dt><dd>{{ selectedChunk.chunk_id || '未提供' }}</dd>
+            <dt>文献标识</dt><dd>{{ selectedChunk.standard_no_or_doi || selectedChunk.doi || (selectedChunk.pmid ? `PMID ${selectedChunk.pmid}` : '未提供，不生成占位编号') }}</dd><dt>人工评价</dt><dd>{{ selectedChunk.priority_label || '未人工评价' }}</dd>
+            <dt v-if="selectedChunk.section_title">章节</dt><dd v-if="selectedChunk.section_title">{{ selectedChunk.section_title }}</dd>
+            <dt>召回通路</dt><dd>{{ retrievalChannelLabel(selectedChunk) }}</dd>
+            <dt v-if="isRank(selectedChunk.bm25_rank)">BM25 排名</dt><dd v-if="isRank(selectedChunk.bm25_rank)">{{ selectedChunk.bm25_rank }}</dd>
+            <dt v-if="isRank(selectedChunk.dense_rank)">MedCPT 排名</dt><dd v-if="isRank(selectedChunk.dense_rank)">{{ selectedChunk.dense_rank }}</dd>
+            <dt v-if="isFiniteScore(selectedChunk.rrf_score)">RRF 融合分</dt><dd v-if="isFiniteScore(selectedChunk.rrf_score)">{{ formatScore(selectedChunk.rrf_score) }}（不是概率或证据可信度）</dd>
+          </dl>
+          <a v-if="sourceUrl(selectedChunk)" :href="sourceUrl(selectedChunk)" target="_blank" rel="noopener noreferrer" class="source-link">打开来源链接（外部网站） ↗</a>
+          <h3 class="original-label">语料中的切块原文</h3><div class="original-text">{{ selectedChunk.text || '本次响应未提供原文。' }}</div>
+          <template v-if="selectedChunk.context_excerpt"><h3 class="original-label">实际模型上下文节选{{ selectedChunk.excerpt_truncated ? '（已截断）' : '' }}</h3><div class="original-text">{{ selectedChunk.context_excerpt }}</div></template>
+        </template>
+        <template #footer><el-button @click="chunkDetailVisible = false">关闭</el-button><el-button type="primary" :disabled="!selectedChunk?.text" @click="copyText(selectedChunk?.text || '')">复制原文</el-button></template>
+      </el-dialog>
     </main>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, nextTick, onMounted } from 'vue'
-import {
-  Position, Paperclip, MagicStick, ChromeFilled, Connection,
-  Microphone, DataAnalysis, ScaleToOriginal, FolderOpened,
-  Document, Upload, Monitor, Reading, Loading, CircleCheck,
-  DocumentCopy, RefreshRight, Pointer, Bottom, Collection
-} from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { ArrowLeft, Collection, DocumentCopy, Loading, Monitor, Position, Reading, RefreshRight, User, Warning } from '@element-plus/icons-vue'
+import { plainAnswer, sourceLabel, sourceUrl, retrievalPresentation, retrievalChannelLabel, chatAvailability, isGeneralKnowledgeAnswer, generalKnowledgeNotice, responseEvidence } from '~/utils/ragPresentation'
+import type { EvidenceCard, RagMessage } from '~/utils/ragPresentation'
 
-const router = useRouter()
-const navigateTo = (path) => { router.push(path) }
-const goToHome = () => { router.push('/') }
-
-// 获取 API composable
-const { agentChat, ollamaChat, checkOllamaStatus } = useApi()
-
-// 切块详情弹窗状态
-const chunkDetailVisible = ref(false)
-const selectedChunk = ref(null)
-
-// 专属循证切块全景抽屉状态
-const evidenceDrawerVisible = ref(false)
-const activeDrawerMsg = ref(null)
-const drawerActiveTab = ref('boundary')
-
-const openEvidenceDrawer = (msg, tab = 'boundary', targetChunk = null) => {
-  activeDrawerMsg.value = msg
-  drawerActiveTab.value = tab
-  evidenceDrawerVisible.value = true
-  if (targetChunk) {
-    if (tab === 'boundary') {
-      openBoundaryDetail(targetChunk)
-    } else {
-      openChunkDetail(targetChunk)
-    }
-  }
-}
-
-const openChunkDetail = (chunk) => {
-  selectedChunk.value = {
-    ...chunk,
-    is_boundary: false
-  }
-  chunkDetailVisible.value = true
-}
-
-const openBoundaryDetail = (boundaryItem) => {
-  selectedChunk.value = {
-    chunk_id: boundaryItem.chunk_id,
-    standard_no_or_doi: boundaryItem.standard_no,
-    title: boundaryItem.title,
-    issuer: boundaryItem.issuer,
-    evidence_priority: boundaryItem.priority,
-    priority_label: boundaryItem.priority_label,
-    section_title: boundaryItem.section_title,
-    text: boundaryItem.text,
-    is_boundary: true,
-    score: null
-  }
-  chunkDetailVisible.value = true
-}
-
-const copyChunkText = () => {
-  if (selectedChunk.value?.text) {
-    navigator.clipboard.writeText(selectedChunk.value.text)
-    showToast('✅ 切块原文已复制到剪贴板')
-  }
-}
-
-const getChannelCards = (cards, channel) => {
-  if (!cards || !Array.isArray(cards)) return []
-  return cards.filter(c => c.channel === channel)
-}
-
-// Ollama 服务状态
-const ollamaConnected = ref(false)
-
-// 检查 Ollama 连接状态
-const checkOllama = async () => {
-  const result = await checkOllamaStatus()
-  ollamaConnected.value = result.success && result.data?.status === 'connected'
-}
-
-// 页面加载时检查
-onMounted(() => {
-  checkOllama()
-  fetchLocalModels()
-})
-
-const hasStartedChat = ref(false)
-const inputFocused = ref(false)
+const { agentChat, getAgentStatus, getModels, setApiKey } = useApi()
+const publicDemo = String(useRuntimeConfig().public.publicDemo) === 'true'
+const accessKey = ref('')
+const runtimeStatus = ref<Record<string, any> | null>(null)
+const statusError = ref('')
+const checkingStatus = ref(false)
+const localModels = ref<{ name: string; ready: boolean }[]>([])
+const currentModel = ref('Llama-3.1-8B')
 const userInput = ref('')
-const isGenerating = ref(false)
-const messageListRef = ref(null)
 const enableDeepThink = ref(true)
+const isGenerating = ref(false)
+const chatHistory = ref<RagMessage[]>([])
+const messageListRef = ref<HTMLElement | null>(null)
+const evidenceDrawerVisible = ref(false)
+const activeDrawerMsg = ref<RagMessage | null>(null)
+const drawerActiveTab = ref('candidates')
+const chunkDetailVisible = ref(false)
+const selectedChunk = ref<EvidenceCard | null>(null)
+let nextMessageId = 0
 
-const toast = ref({ visible: false, message: '' })
-const showToast = (msg) => {
-  toast.value.message = msg
-  toast.value.visible = true
-  setTimeout(() => { toast.value.visible = false }, 2500)
-}
-
-// 本地模型选项
-const currentModel = ref('deepseek-r1:latest')
-const localModels = ref([])
-const modelOptions = computed(() => {
-  // 本地模型 + 预训练模型
-  const local = localModels.value.map(m => ({
-    label: `🤖 ${m.name}`,
-    value: m.name,
-    type: 'local'
-  }))
-  const pretrained = [
-    { label: '📊 XGBoost', value: 'XGBoost', type: 'pretrained' },
-    { label: '📊 DNN', value: 'DNN', type: 'pretrained' },
-    { label: '📊 LightGBM', value: 'LightGBM', type: 'pretrained' },
-    { label: '📊 Random Forest', value: 'Random Forest', type: 'pretrained' },
-  ]
-  return [...local, ...pretrained]
+// 常用医学问题示例；未知中文概念也允许提交，不暗示已成功翻译或检索。
+const quickPrompts = ['职业铅暴露与高血压的关系有哪些人群研究证据？', '镉暴露与肾损伤有哪些人体研究证据？', '砷与镉暴露有哪些人体研究证据？']
+const corpusReady = computed(() => runtimeStatus.value?.corpus?.ready === true)
+const modelReady = computed(() => runtimeStatus.value?.model?.ready === true && localModels.value.some(model => model.name === currentModel.value && model.ready))
+const retrievalState = computed(() => retrievalPresentation(runtimeStatus.value?.retrieval))
+const retrievalReady = computed(() => retrievalState.value.ready)
+const canSend = computed(() => chatAvailability(runtimeStatus.value, modelReady.value, retrievalReady.value) && !checkingStatus.value && !isGenerating.value)
+const corpusName = computed(() => runtimeStatus.value?.corpus?.name || runtimeStatus.value?.corpus?.corpus_name || '本地检索库（名称未提供）')
+const corpusCount = computed(() => { const count = runtimeStatus.value?.corpus?.chunk_count ?? runtimeStatus.value?.corpus?.total_chunks; return typeof count === 'number' && Number.isFinite(count) ? count : null })
+const statusWarnings = computed(() => {
+  const warnings = [...(runtimeStatus.value?.warnings || [])]
+  if (runtimeStatus.value?.model?.error) warnings.push(runtimeStatus.value.model.error)
+  if (runtimeStatus.value?.corpus?.error) warnings.push(runtimeStatus.value.corpus.error)
+  if (retrievalState.value.bm25.error) warnings.push(retrievalState.value.bm25.error)
+  if (retrievalState.value.medcpt.error) warnings.push(retrievalState.value.medcpt.error)
+  return warnings.map(String)
 })
-
-// 获取本地模型列表
-const fetchLocalModels = async () => {
-  const { getOllamaModels } = useApi()
-  const result = await getOllamaModels()
-  if (result.success && result.data?.models) {
-    localModels.value = result.data.models
-    // 默认选择第一个本地模型
-    if (result.data.models.length > 0) {
-      currentModel.value = result.data.models[0].name
-    }
-  }
-}
-
-const handleModelChange = (model) => {
-  showToast(`已切换至：${model}`)
-}
-
-const kbList = [
-  '职业重金属复合暴露因果库',
-  'IARC 致癌物风险评级报告',
-  'WHO 化学品安全与毒理库 (IPCS)',
-  'ToxNet 毒理学数据网络',
-  'NHANES 营养与健康调查库',
-  'CTD 比较毒理基因组学数据库',
-  'EPA/ATSDR 毒物学概况库',
-  '职业病临床诊疗指南 (2025版)',
-  'PubMed 职业流行病学文献库'
-]
-const selectedKBs = ref([kbList[0], kbList[1]])
-
-const toggleKB = (kb) => {
-  const idx = selectedKBs.value.indexOf(kb)
-  if (idx >= 0) {
-    if (selectedKBs.value.length <= 1) { showToast('至少需要挂载一个知识库'); return }
-    selectedKBs.value.splice(idx, 1)
-  } else {
-    selectedKBs.value.push(kb)
-  }
-}
-
-const currentKBDisplay = computed(() => {
-  if (selectedKBs.value.length === kbList.length) return '全部知识库'
-  if (selectedKBs.value.length === 1) return selectedKBs.value[0]
-  return `已选 ${selectedKBs.value.length} 个知识库`
+const channelStatusLabel = (ready: boolean | null) => ready === true ? '可用（后端报告）' : ready === false ? '不可用' : '未报告'
+const messageRetrieval = (msg: RagMessage) => retrievalPresentation(msg.retrieval, { bm25: msg.sparseHits.length, medcpt: msg.denseHits.length })
+const citedCards = (msg: RagMessage) => msg.evidenceCards.filter(card => card.is_cited)
+const drawerCards = computed(() => {
+  const msg = activeDrawerMsg.value
+  if (!msg) return []
+  if (drawerActiveTab.value === 'cited') return citedCards(msg)
+  if (drawerActiveTab.value === 'sparse') return msg.sparseHits
+  if (drawerActiveTab.value === 'dense') return msg.denseHits
+  if (drawerActiveTab.value === 'boundaries') return msg.boundaries
+  return msg.evidenceCards
 })
+const isFiniteScore = (score: unknown) => typeof score === 'number' && Number.isFinite(score)
+const isRank = (rank: unknown) => typeof rank === 'number' && Number.isInteger(rank) && rank > 0
+const formatScore = (score: number | undefined) => typeof score === 'number' ? score.toFixed(6) : '未提供'
 
-const currentKBText = computed(() => selectedKBs.value.map(k => `《${k}》`).join('、'))
-
-const toggleDeepThink = () => {
-  enableDeepThink.value = !enableDeepThink.value
-  showToast(enableDeepThink.value ? '已开启 R1 深度思考模式' : '已关闭深度思考')
-}
-
-const chatHistory = ref([])
-
-const mockKnowledgeBase = {
-  '铅': {
-    name: '铅 (Pb)',
-    source: '冶炼、废旧电池、含铅管道、含铅涂料、烟草烟雾等',
-    mechanism: 'Pb²⁺可替代Ca²⁺干扰细胞信号通路，诱导<strong>氧化应激</strong>和<strong>表观遗传变化</strong>；与硫醇(-SH)结合损伤蛋白质。',
-    disease: '神经系统(认知发育迟缓、共济失调)、肾脏损伤(慢性肾病)、高血压、血液(贫血)',
-    biomarker: '血铅浓度、δ-氨基酯酶(ALAD)活性↓、ROS生成↑、尿β₂-微球蛋白↑',
-    evidence: '高（系统综述与队列研究证实低剂量可致血压升高和肾功能下降，IARC 2A类致癌）'
-  },
-  '砷': {
-    name: '砷 (As)',
-    source: '地下水污染、农用化学品、工业废气、含砷农产品',
-    mechanism: '在肝脏中甲基化代谢产生有毒形式，产生<strong>氧化应激</strong>、抑制DNA修复并改变DNA甲基化。',
-    disease: '皮肤(色素异常、皮肤癌)、肺(肺癌)、膀胱(膀胱癌)、心血管(动脉硬化)',
-    biomarker: '尿总砷及其代谢物(MMA/DMA)、血砷、DNA甲基化变化',
-    evidence: '高（无机砷为IARC 1类致癌物，慢性低剂量暴露可导致皮肤损伤、癌症）'
-  },
-  '镉': {
-    name: '镉 (Cd)',
-    source: '烟草烟雾、电镀/电池工业废气、矿山和冶炼尘埃',
-    mechanism: '镉在肝脏结合金属硫蛋白(MT)后累积于肾脏，长期释放产生<strong>氧化应激</strong>、线粒体损伤和DNA损伤。',
-    disease: '肾小管(蛋白尿、慢性肾功能衰竭)、骨骼(骨质疏松、“痛痛病”)、呼吸(肺纤维化)',
-    biomarker: '尿镉、血镉、肾功能指标(肌酐、尿蛋白)、骨密度',
-    evidence: '高（IARC 1类致肺癌，广泛流行病学证据表明慢性暴露显著损伤肾脏和骨骼）'
-  },
-  '汞': {
-    name: '汞 (Hg)',
-    source: '海产品甲基汞、工业矿井和燃烧排放、水银采矿',
-    mechanism: 'Hg⁰/MeHg与硫醇(-SH)强烈结合，跨越血脑屏障导致<strong>神经毒性</strong>和<strong>氧化应激</strong>。',
-    disease: '中枢神经系统(神经发育损伤、感觉障碍)；肾脏(蛋白尿)、免疫系统',
-    biomarker: '血/尿总汞和有机汞浓度、神经行为测试',
-    evidence: '中（孕期甲基汞神经发育毒性证据充分；高剂量致肾癌）'
-  }
-}
-
-const quickSend = (text) => {
-  userInput.value = text
-  sendMessage()
-}
-
-// ✨ 修复：增大延迟确保内容撑开高度后再滚动
-const scrollToBottom = () => {
-  nextTick(() => {
-    setTimeout(() => {
-      if (messageListRef.value) {
-        messageListRef.value.scrollTo({ top: messageListRef.value.scrollHeight, behavior: 'smooth' })
-      }
-    }, 100) 
-  })
-}
-
-const generateThinkingProcess = (query) => {
-  return `
-    <div style="color: #64748B; font-size: 0.9rem; line-height: 1.6;">
-      <p>> 正在解析用户意图：意图识别为对 "${query.substring(0, 10)}..." 的机制/评估请求...</p>
-      <p>> 正在调用 <strong>${currentModel.value}</strong> 推理模型...</p>
-      <p>> 正在通过 RAG 向量引擎检索 <strong>${currentKBText.value}</strong> ...</p>
-      <p>> 提取关键三元组：[暴露源] -> [病理机制] -> [靶器官疾病]</p>
-      <p>> 融合知识图谱完毕，准备生成最终推演报告。</p>
-    </div>
-  `
-}
-
-const getRecommendedKBs = (query) => {
-  const rules = [
-    { keywords: ['铅', 'Pb', '铅中毒', '驱铅', 'EDTA'], kbs: ['职业重金属复合暴露因果库', '职业病临床诊疗指南 (2025版)', 'EPA/ATSDR 毒物学概况库'], reason: '铅暴露因果机制与临床驱铅方案' },
-    { keywords: ['砷', 'As', '砷中毒', '皮肤癌'], kbs: ['IARC 致癌物风险评级报告', 'CTD 比较毒理基因组学数据库', 'PubMed 职业流行病学文献库'], reason: '砷致癌性评估与基因组毒理学' },
-    { keywords: ['镉', 'Cd', '肾病', '骨质疏松', '痛痛病'], kbs: ['WHO 化学品安全与毒理库 (IPCS)', 'NHANES 营养与健康调查库', 'ToxNet 毒理学数据网络'], reason: '镉的肾毒性与骨骼损伤机制' },
-    { keywords: ['汞', 'Hg', '甲基汞', '神经毒性'], kbs: ['ToxNet 毒理学数据网络', 'WHO 化学品安全与毒理库 (IPCS)', 'PubMed 职业流行病学文献库'], reason: '汞的神经毒理学与甲基汞代谢' },
-    { keywords: ['癌症', '致癌', '肿瘤', 'IARC'], kbs: ['IARC 致癌物风险评级报告', 'CTD 比较毒理基因组学数据库', 'PubMed 职业流行病学文献库'], reason: '致癌物分级与流行病学证据' },
-    { keywords: ['肾', '肾脏', 'CKD', '肾衰竭', '蛋白尿'], kbs: ['NHANES 营养与健康调查库', '职业病临床诊疗指南 (2025版)', 'EPA/ATSDR 毒物学概况库'], reason: '慢性肾病的营养流行病学与临床管理' },
-    { keywords: ['神经', '认知', '脑', '帕金森', '阿尔茨海默'], kbs: ['PubMed 职业流行病学文献库', '职业重金属复合暴露因果库', 'IARC 致癌物风险评级报告'], reason: '神经退行性病变的职业暴露流行病学' },
-    { keywords: ['干预', '治疗', '防护', '方案', '策略'], kbs: ['职业病临床诊疗指南 (2025版)', 'EPA/ATSDR 毒物学概况库', '职业重金属复合暴露因果库'], reason: '临床干预方案与毒物防护指南' },
-    { keywords: ['暴露', '监测', '生物标志', '筛查'], kbs: ['NHANES 营养与健康调查库', 'ToxNet 毒理学数据网络', 'CTD 比较毒理基因组学数据库'], reason: '暴露生物标志物与健康监测数据' }
-  ]
-
-  const matched = rules.find(r => r.keywords.some(k => query.includes(k) || query.toLowerCase().includes(k.toLowerCase())))
-  if (matched) {
-    const recommended = matched.kbs.filter(kb => !selectedKBs.value.includes(kb))
-    if (recommended.length > 0) return { kbs: recommended, reason: matched.reason }
-  }
-
-  const fallback = kbList.filter(kb => !selectedKBs.value.includes(kb)).slice(0, 2)
-  return fallback.length > 0 ? { kbs: fallback, reason: '扩展检索以补充更多维度的毒理学证据' } : null
-}
-
-const buildRecommendedHTML = (query) => {
-  const rec = getRecommendedKBs(query)
-  if (!rec) return ''
-  return `
-    <div class="kb-recommend">
-      <div class="kb-rec-title">📚 推荐追加知识库 <span class="kb-rec-reason">${rec.reason}</span></div>
-      <div class="kb-rec-tags">${rec.kbs.map(kb => `<span class="kb-rec-tag">${kb}</span>`).join('')}</div>
-    </div>
-  `
-}
-
-const retrieveKnowledge = (query) => {
-  let matchedMetal = null
-  for (let key in mockKnowledgeBase) {
-    if (query.includes(key) || query.toLowerCase().includes(mockKnowledgeBase[key].name.split(' ')[1].toLowerCase())) {
-      matchedMetal = mockKnowledgeBase[key]
-      break
-    }
-  }
-
-  const recommendedHTML = buildRecommendedHTML(query)
-
-  if (matchedMetal) {
-    return `
-      <p>为您从 ${currentKBText.value} 中提取到关于 <span class="highlight-blue">${matchedMetal.name}</span> 的因果分析图谱结构化数据：</p>
-      <div class="kb-card">
-        <div class="kb-row"><span class="kb-label">📍 核心暴露来源</span> <span class="kb-val">${matchedMetal.source}</span></div>
-        <div class="kb-row"><span class="kb-label">🧬 关键分子机制</span> <span class="kb-val">${matchedMetal.mechanism}</span></div>
-        <div class="kb-row"><span class="kb-label">🩸 关键生物标志物</span> <span class="kb-val">${matchedMetal.biomarker}</span></div>
-        <div class="kb-row"><span class="kb-label">🏥 主要靶器官/疾病</span> <span class="kb-val text-red-600 font-bold">${matchedMetal.disease}</span></div>
-        <div class="kb-row"><span class="kb-label">⚖️ 循证证据等级</span> <span class="kb-val text-emerald-600 font-bold">${matchedMetal.evidence}</span></div>
-      </div>
-      <p style="margin-top: 10px;"><strong>💡 智能干预建议：</strong>建议在图谱沙盘中将 ${matchedMetal.name.split(' ')[1]} 的环境特征参数下调 30%，即可在因果图神经网络中观察其对 <em>氧化应激</em> 与 <em>靶器官</em> 风险的涟漪阻断效应。</p>
-      ${recommendedHTML}
-    `
-  } else {
-    return `
-      <p>在当前已挂载的知识库中未匹配到单一重金属特征。系统目前已挂载 <strong>铅(Pb)、砷(As)、镉(Cd)、汞(Hg)</strong> 等常见金属的毒理机制库。</p>
-      <p>您可以尝试修改提问：<br/>
-      👉 "深度解析一下镉(Cd)的靶器官衰竭路径是什么？"<br/>
-      👉 "重金属诱导的氧化应激会导致哪些慢性疾病？"
-      </p>
-      ${recommendedHTML}
-    `
-  }
-}
-
-// 生成动态推理过程
-const generateDynamicThinking = (query, model) => {
-  const steps = [
-    `正在解析用户意图：识别为对 "${query.substring(0, 15)}..." 的查询请求`,
-    `正在加载 <strong>${model}</strong> 推理模型...`,
-    `正在通过 RAG 向量引擎检索 <strong>${currentKBText.value}</strong> ...`,
-    `提取关键三元组：[暴露源] -> [病理机制] -> [靶器官疾病]`,
-    `融合知识图谱完毕，准备生成最终推演报告`
-  ]
-  return steps
-}
-
-const sendMessage = async () => {
-  if (!userInput.value.trim() || isGenerating.value) return
-
-  const query = userInput.value
-  hasStartedChat.value = true
-
-  chatHistory.value.push({ role: 'user', content: query })
-  userInput.value = ''
-  scrollToBottom()
-
-  isGenerating.value = true
-
-  const steps = [
-    `🔍 正在解析提问中的职业暴露因素与检测体征指标...`,
-    `⚖️ 正在检索对标国家强制性卫生标准与职业病诊断规范...`,
-    `🔬 正在调取人群前瞻流行病学队列与毒理学循证证据...`,
-    `💡 正在综合分析酶学代谢损伤、靶器官风险与法定义务...`,
-    `📋 正在组织生成完整规范的专家研判与处置建议...`
-    `🔍 正在提取问题任务意图与目标金属实体（意图将进入重排公式 G(d,q)）...`,
-    `⚖️ 独立提取 P0/P1 国家法律与强制性国家标准红线（硬约束 · 不参与 DocScore 竞争）...`,
-    `🔬 正在执行双通路之一：BGE 语义向量稠密检索 (Dense Retrieval Top-32)...`,
-    `📑 正在执行双通路之二：FTS5 / BM25 词法倒排稀疏检索 (Sparse Retrieval Top-32)...`,
-    `⚡ 执行 RRF 融合语义 Sem 与 Med-R² 循证重排 (DocScore = Sem×G×H×M×A，已去除 fu 指数)...`,
-    `🛡️ 提炼置信度最高证据链，生成双通路溯源报告...`
-  ]
-
-  const aiMessageIndex = chatHistory.value.push({
-    role: 'ai',
-    content: '',
-    loading: true,
-    cited: true,
-    thinkProcess: enableDeepThink.value ? steps : null,
-    thinkExpanded: enableDeepThink.value,
-    thinkSteps: enableDeepThink.value ? [] : null,
-    currentStep: 0,
-    activeTab: 'ranked',
-    evidenceExpanded: true,
-    p0_p1_boundaries: [],
-    evidenceCards: [],
-    sparseHits: [],
-    denseHits: [],
-    dualPathSummary: null
-  }) - 1
-  scrollToBottom()
-
-  // 动态更新推理步骤
-  if (enableDeepThink.value) {
-    for (let i = 0; i < steps.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 200))
-      chatHistory.value[aiMessageIndex].thinkSteps = steps.slice(0, i + 1)
-      chatHistory.value[aiMessageIndex].currentStep = i
-      scrollToBottom()
-    }
-  }
-
+const refreshStatus = async () => {
+  if (checkingStatus.value || isGenerating.value) return
+  checkingStatus.value = true
+  statusError.value = ''
   try {
-    // 调用后端真实 RAG Agent 接口 (双通路 32+32，P0/P1 独立法律边界)
-    const result = await agentChat(query, {
-      model: currentModel.value,
-      knowledgeBases: selectedKBs.value,
-      enableDeepThink: enableDeepThink.value
-    })
-
-    if (result && result.success && result.data) {
-      chatHistory.value[aiMessageIndex].loading = false
-      chatHistory.value[aiMessageIndex].thinkExpanded = false
-      chatHistory.value[aiMessageIndex].content = result.data.message
-      chatHistory.value[aiMessageIndex].p0_p1_boundaries = result.data.p0_p1_boundaries || []
-      chatHistory.value[aiMessageIndex].evidenceCards = result.data.evidence_cards || []
-      chatHistory.value[aiMessageIndex].sparseHits = result.data.sparse_hits || []
-      chatHistory.value[aiMessageIndex].denseHits = result.data.dense_hits || []
-      chatHistory.value[aiMessageIndex].dualPathSummary = result.data.dual_path_summary
-      chatHistory.value[aiMessageIndex].evidenceExpanded = true
-      chatHistory.value[aiMessageIndex].activeTab = 'ranked'
-    } else {
-      // 降级使用本地模拟
-      chatHistory.value[aiMessageIndex].loading = false
-      chatHistory.value[aiMessageIndex].thinkExpanded = false
-      chatHistory.value[aiMessageIndex].content = retrieveKnowledge(query)
-    }
-  } catch (e) {
-    console.error('Agent chat error:', e)
-    chatHistory.value[aiMessageIndex].loading = false
-    chatHistory.value[aiMessageIndex].thinkExpanded = false
-    chatHistory.value[aiMessageIndex].content = retrieveKnowledge(query)
-  }
-
-  isGenerating.value = false
-  scrollToBottom()
+    const [statusResult, modelResult] = await Promise.all([getAgentStatus(), getModels()])
+    if (!statusResult.success || !statusResult.data) throw new Error(statusResult.error || '无法获取 RAG 服务状态')
+    runtimeStatus.value = statusResult.data as Record<string, any>
+    if (!modelResult.success || !modelResult.data) throw new Error(modelResult.error || '无法获取模型列表')
+    const payload = modelResult.data as Record<string, any>
+    localModels.value = (Array.isArray(payload.models) ? payload.models : []).filter((model: any) => model && typeof model.name === 'string').map((model: any) => ({ name: model.name, ready: model.ready === true }))
+    if (!localModels.value.some(model => model.name === currentModel.value)) currentModel.value = payload.default || localModels.value[0]?.name || ''
+  } catch (error: any) {
+    runtimeStatus.value = null
+    localModels.value = []
+    statusError.value = error?.message || '获取服务状态失败'
+  } finally { checkingStatus.value = false }
 }
+const applyAccessKey = () => { if (publicDemo) return; setApiKey(accessKey.value); accessKey.value = ''; refreshStatus() }
+const clearAccessKey = () => { if (publicDemo) return; setApiKey(''); accessKey.value = ''; refreshStatus() }
+const scrollToBottom = async () => { await nextTick(); messageListRef.value?.scrollTo({ top: messageListRef.value.scrollHeight, behavior: 'smooth' }) }
+const usePrompt = (prompt: string) => { userInput.value = prompt }
+const handleInputKeydown = (event: KeyboardEvent) => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); sendMessage() } }
+const openEvidenceDrawer = (msg: RagMessage) => { activeDrawerMsg.value = msg; drawerActiveTab.value = isGeneralKnowledgeAnswer(msg) ? (msg.sparseHits.length ? 'sparse' : msg.denseHits.length ? 'dense' : 'boundaries') : 'candidates'; evidenceDrawerVisible.value = true }
+const openChunkDetail = (card: EvidenceCard) => { selectedChunk.value = card; chunkDetailVisible.value = true }
+const copyText = async (content: string) => {
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error('浏览器未开放剪贴板权限，请使用 HTTPS 或手动选择文字复制。')
+    await navigator.clipboard.writeText(content)
+    ElMessage.success('已复制到剪贴板')
+  } catch (error: any) { ElMessage.error(error?.message || '复制失败，请手动选择文字复制。') }
+}
+const makeMessage = (role: 'user' | 'assistant', content: string): RagMessage => ({ id: ++nextMessageId, role, content, loading: false, error: '', status: '', answerMode: '', evidenceSupport: '', evidenceCards: [], boundaries: [], sparseHits: [], denseHits: [], warnings: [], corpusName: corpusName.value, model: {}, retrieval: {}, dualPathSummary: {}, timings: {} })
+const sendMessage = async () => {
+  const question = userInput.value.trim()
+  if (!question || isGenerating.value) return
+  if (question.length > 2000) { ElMessage.warning('问题超过 2000 字符，请缩短后提交。'); return }
+  if (!canSend.value) { ElMessage.warning('模型服务或问答接口未就绪，请先刷新服务状态。'); return }
+  // 仅发送成功完成的往轮，排除失败提示、UI 元信息及当前问题。
+  const history: { role: 'user' | 'assistant'; content: string }[] = []
+  for (let index = 0; index < chatHistory.value.length - 1; index++) {
+    const user = chatHistory.value[index]
+    const assistant = chatHistory.value[index + 1]
+    if (user?.role === 'user' && assistant?.role === 'assistant' && !assistant.error && !assistant.loading && assistant.content) history.push({ role: 'user', content: user.content }, { role: 'assistant', content: assistant.content })
+  }
+  chatHistory.value.push(makeMessage('user', question))
+  const responseMessage = makeMessage('assistant', '')
+  responseMessage.loading = true
+  chatHistory.value.push(responseMessage)
+  const messageIndex = chatHistory.value.length - 1
+  userInput.value = ''
+  isGenerating.value = true
+  scrollToBottom()
+  try {
+    const result = await agentChat(question, { model: currentModel.value, history: history.slice(-12), enableDeepThink: enableDeepThink.value })
+    if (!result.success || !result.data) throw new Error(result.error || '问答请求失败')
+    const data = result.data as Record<string, any>
+    const content = plainAnswer(data)
+    if (!content && data.status !== 'insufficient_evidence') throw new Error('后端未返回回答内容，不能判定生成成功。')
+    const msg = chatHistory.value[messageIndex]!
+    msg.content = content || '检索结果不足以生成有依据的回答。'
+    msg.status = String(data.status || 'answered')
+    msg.answerMode = String(data.answer_mode || '')
+    msg.evidenceSupport = String(data.evidence_support || '')
+    Object.assign(msg, responseEvidence(data))
+    msg.warnings = Array.isArray(data.warnings) ? data.warnings.map(String) : []
+    msg.model = data.model && typeof data.model === 'object' ? data.model : {}
+    msg.retrieval = data.retrieval && typeof data.retrieval === 'object' ? data.retrieval : {}
+    msg.dualPathSummary = data.dual_path_summary && typeof data.dual_path_summary === 'object' ? data.dual_path_summary : {}
+    msg.timings = data.timings && typeof data.timings === 'object' ? data.timings : {}
+    msg.corpusName = data.corpus?.name || corpusName.value
+  } catch (error: any) { chatHistory.value[messageIndex]!.error = error?.message || '问答请求失败' }
+  finally { chatHistory.value[messageIndex]!.loading = false; isGenerating.value = false; scrollToBottom() }
+}
+onMounted(refreshStatus)
 </script>
 
-<style lang="scss" scoped>
-$c-primary: #1f77b4;
-$c-primary-light: #EFF6FF;
-$bg-main: #F8FAFC;
-$text-dark: #111827;
-$text-muted: #6B7280;
-$border-light: #E2E8F0;
-
-* { box-sizing: border-box; }
-
-.system-layout { display: flex; height: 100vh; background-color: $bg-main; font-family: 'Inter', -apple-system, sans-serif; overflow: hidden; }
-
-.custom-toast {
-  position: fixed; top: 24px; left: 50%; transform: translateX(-50%); z-index: 9999;
-  background: rgba(31, 41, 55, 0.9); backdrop-filter: blur(10px); color: #fff;
-  padding: 12px 24px; border-radius: 30px; font-size: 0.95rem; font-weight: 600;
-  display: flex; align-items: center; gap: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-  .toast-icon { color: #10B981; font-size: 1.2rem; }
-}
-.toast-fade-enter-active, .toast-fade-leave-active { transition: all 0.3s ease; }
-.toast-fade-enter-from, .toast-fade-leave-to { opacity: 0; transform: translate(-50%, -20px); }
-
-/* 侧边栏与顶栏 */
-.sidebar { width: 280px; background-color: #fff; border-right: 1px solid $border-light; display: flex; flex-direction: column; z-index: 10; flex-shrink: 0; box-shadow: 2px 0 15px rgba(0,0,0,0.03); }
-.brand-logo { 
-  height: 70px; display: flex; align-items: center; gap: 14px; padding: 0 24px; border-bottom: 1px solid $border-light; 
-  svg { width: 30px; height: 30px; color: #2563EB; flex-shrink: 0; } 
-  .brand-text { display: flex; flex-direction: column; } 
-  .title-en { font-size: 1.1rem; font-weight: 900; color: #111827; letter-spacing: -0.5px;} 
-  .title-cn { font-size: 0.8rem; font-weight: 600; color: #64748B; letter-spacing: 1px; margin-top: 2px;} 
-}
-.menu-container { overflow-y: auto; flex: 1; padding: 16px 0; :deep(.custom-el-menu) { border-right: none; .menu-group-title { font-size: 0.85rem; font-weight: 800; color: #94A3B8; padding: 24px 24px 10px 24px; letter-spacing: 1px;} .el-menu-item { font-weight: 600; color: #475569; font-size: 1.05rem; margin: 6px 12px; border-radius: 8px; height: 50px; } .el-menu-item:hover { background-color: #F8FAFC; color: $c-primary; } .el-menu-item.is-active { background-color: $c-primary-light; color: $c-primary; font-weight: 700;} } }
-
-.main-content { flex: 1; display: flex; flex-direction: column; background: $bg-main; }
-.ep-header { height: 64px; background: rgba(255,255,255,0.9); backdrop-filter: blur(8px); border-bottom: 1px solid $border-light; display: flex; justify-content: center; flex-shrink: 0; z-index: 40;}
-.nav-wrapper { width: 100%; padding: 0 32px; display: flex; justify-content: space-between; align-items: center; height: 100%; }
-.back-link { display: flex; align-items: center; gap: 12px; cursor: pointer; color: $text-dark; &:hover { color: $c-primary; } .back-text { font-size: 1.05rem; font-weight: 700;} .divider { color: #D1D5DB; margin: 0 8px; } .page-title-top { font-size: 1.1rem; font-weight: 800; color: $text-dark; } }
-.user-profile { display: flex; align-items: center; gap: 12px; font-weight: 600; color: $text-dark; font-size: 0.95rem; .avatar { width: 32px; height: 32px; border-radius: 50%; background: $c-primary-light; color: $c-primary; display: flex; justify-content: center; align-items: center; font-weight: 700; font-size: 0.9rem;} }
-
-/* 页面区容器 */
-.chat-page-container {
-  flex: 1; display: flex; flex-direction: column; align-items: center; padding: 0; max-width: 100%; overflow: hidden;
-  position: relative; 
-}
-
-/* 左上角大模型选择器 */
-.model-selector-top-left {
-  position: absolute; top: 24px; left: 32px; z-index: 20;
-  display: flex; flex-direction: column; gap: 8px;
-}
-
-/* Ollama 状态指示器 */
-.ollama-status {
-  display: flex; align-items: center; gap: 6px;
-  padding: 4px 12px; border-radius: 16px;
-  background: #FEF2F2; border: 1px solid #FECACA;
-  font-size: 0.75rem; font-weight: 600; color: #DC2626;
-
-  .status-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: #DC2626;
-  }
-
-  .status-text {
-    white-space: nowrap;
-  }
-
-  &.connected {
-    background: #F0FDF4; border-color: #BBF7D0; color: #16A34A;
-
-    .status-dot {
-      background: #16A34A;
-      animation: pulse 2s infinite;
-    }
-  }
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-/* 初始欢迎态 */
-.agent-hero-section {
-  width: 100%; max-width: 850px; margin: auto; padding: 40px 20px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  animation: fadeIn 0.6s ease-out; position: relative;
-}
-@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-.hero-title {
-  font-size: 2rem; font-weight: 800; color: #1F2937; margin-bottom: 40px; letter-spacing: 0.5px;
-}
-.ai-group-badge {
-  position: absolute; right: 0; top: 0; transform: rotate(5deg) translateY(-20px);
-  background: linear-gradient(135deg, #1f77b4, #0369a1); color: #fff;
-  padding: 8px 16px; border-radius: 12px; font-size: 0.8rem; font-weight: 700;
-  display: flex; align-items: center; gap: 8px; box-shadow: 0 10px 25px rgba(31,119,180,0.3);
-  img { width: 16px; height: 16px; filter: brightness(0) invert(1);}
-}
-
-/* 下拉列表 */
-.kb-popover-list {
-  display: flex; flex-direction: column; gap: 4px; max-height: 350px; overflow-y: auto;
-  &.mini { max-height: 250px; }
-  &::-webkit-scrollbar { width: 6px; }
-  &::-webkit-scrollbar-thumb { background-color: #E5E7EB; border-radius: 4px; }
-  .kb-item { 
-    padding: 10px 12px; font-size: 0.9rem; color: #4B5563; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 500;
-    &:hover { background: #F3F4F6; color: #111827; }
-    &.active { background: #EFF6FF; color: #1f77b4; font-weight: 700; }
-  }
-  .kb-divider { height: 1px; background: #E5E7EB; margin: 4px 0; }
-}
-
-.hero-input-wrapper {
-  width: 100%; background: #fff; border: 1px solid #E5E7EB; border-radius: 16px;
-  padding: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); transition: all 0.3s ease;
-  position: relative;
-  &.is-focused { border-color: #93C5FD; box-shadow: 0 8px 30px rgba(59,130,246,0.12); }
-  
-  .kb-selector-btn {
-    display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; max-width: 250px;
-    background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;
-    font-size: 0.85rem; font-weight: 600; color: #475569; cursor: pointer; transition: 0.2s;
-    margin-bottom: 12px;
-    &:hover { background: #EFF6FF; color: #1f77b4; border-color: #BFDBFE; }
-  }
-
-  .truncate-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-  .hero-textarea {
-    width: 100%; min-height: 80px; border: none; outline: none; resize: none;
-    font-size: 1.05rem; line-height: 1.6; color: #1F2937; background: transparent;
-    &::placeholder { color: #9CA3AF; }
-  }
-
-  .hero-input-actions {
-    display: flex; justify-content: space-between; align-items: center; margin-top: 10px;
-    .actions-left { display: flex; gap: 8px; }
-    .action-btn { 
-      border: none; background: #F3F4F6; color: #4B5563; font-weight: 600; font-size: 0.85rem; padding: 8px 16px; transition: 0.2s;
-      &:hover { background: #E5E7EB; color: #1F2937; }
-      &.is-active { background: #EFF6FF; color: #1f77b4; border: 1px solid #BFDBFE; }
-      &.kb-mini-btn { padding: 8px 12px; }
-    }
-    .actions-right {
-      display: flex; align-items: center; gap: 16px;
-      .agent-tag { font-size: 0.85rem; font-weight: 700; color: #1f77b4; display: flex; align-items: center; gap: 4px;}
-      .send-btn { background: #1f77b4; border: none; font-size: 1.2rem; width: 44px; height: 44px; transition: 0.3s; &:disabled{ background: #9CA3AF; cursor: not-allowed; opacity: 0.5;} }
-    }
-  }
-
-  &.is-chatting {
-    border-radius: 24px; padding: 12px 20px; box-shadow: 0 -10px 30px rgba(0,0,0,0.05);
-    .hero-textarea { min-height: 50px; font-size: 1rem; }
-    .hero-input-actions { margin-top: 4px; }
-  }
-}
-
-.quick-prompts {
-  display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 30px;
-  .prompt-chip {
-    padding: 10px 16px; background: #fff; border: 1px solid #E5E7EB; border-radius: 20px;
-    font-size: 0.9rem; font-weight: 500; color: #4B5563; cursor: pointer; transition: 0.2s;
-    display: flex; align-items: center; gap: 6px;
-    &:hover { border-color: #1f77b4; color: #1f77b4; background: #EFF6FF; transform: translateY(-2px);}
-  }
-}
-
-/* 对话流态 */
-.chat-thread-section {
-  width: 100%; height: 100%; display: flex; flex-direction: column; position: relative;
-}
-
-.message-list {
-  flex: 1; width: 100%; max-width: 900px; margin: 0 auto; 
-  /* ✨ 核心修复：加大底部的 padding-bottom 到 220px，保证能完整露出操作图标 */
-  padding: 60px 20px 220px 20px; 
-  overflow-y: auto; display: flex; flex-direction: column; gap: 30px; scroll-behavior: smooth;
-  &::-webkit-scrollbar { width: 0; }
-}
-
-.message-wrapper {
-  display: flex; flex-direction: column; max-width: 85%;
-  &.user { align-self: flex-end; align-items: flex-end; }
-  &.ai { align-self: flex-start; align-items: flex-start; }
-}
-
-.message {
-  display: flex; gap: 16px;
-  &.user-message {
-    flex-direction: row-reverse;
-    .msg-content { background: #1f77b4; color: #fff; border-radius: 16px 16px 0 16px; padding: 14px 20px; font-size: 1rem; line-height: 1.5; box-shadow: 0 4px 15px rgba(31,119,180,0.2);}
-    .msg-avatar { background: #E5E7EB; color: #4B5563; width: 36px; height: 36px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;}
-  }
-  
-  &.ai-message {
-    .msg-avatar { background: #1f77b4; color: #fff; width: 36px; height: 36px; border-radius: 8px; display: flex; justify-content: center; align-items: center; font-size: 1.2rem; flex-shrink: 0;}
-    .msg-body { display: flex; flex-direction: column; gap: 10px; width: 100%;}
-    
-    .deep-think-box {
-      background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden; max-width: 600px;
-      .think-header {
-        padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; color: #64748B; font-size: 0.9rem; font-weight: 600;
-        &:hover { background: #F1F5F9; }
-        .think-title { display: flex; align-items: center; gap: 6px; }
-        .spin-icon { animation: spin 2s linear infinite; }
-        .arrow-icon { transition: transform 0.3s; &.is-open { transform: rotate(180deg); } }
-      }
-      .think-content {
-        padding: 0 14px 14px 14px; border-top: 1px solid #E2E8F0; margin-top: 4px; padding-top: 10px;
-        .think-step {
-          display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; font-size: 0.85rem; color: #64748B;
-          .step-indicator {
-            width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
-            background: #E5E7EB; color: #9CA3AF;
-            &.active { background: #3B82F6; color: #fff; animation: pulse 1s infinite; }
-            &.done { background: #10B981; color: #fff; }
-          }
-        }
-      }
-    }
-
-    .kb-citation { display: inline-flex; align-items: center; gap: 6px; background: #F0FDF4; border: 1px solid #BBF7D0; color: #059669; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; width: fit-content;}
-    
-    .msg-content { background: #fff; border: 1px solid #E5E7EB; color: #1F2937; border-radius: 0 16px 16px 16px; padding: 20px; font-size: 1rem; line-height: 1.7; box-shadow: 0 4px 15px rgba(0,0,0,0.03);}
-    
-    /* 操作图标悬浮栏 */
-    .msg-actions { 
-      display: flex; gap: 10px; opacity: 0.5; transition: opacity 0.2s; margin-top: -4px;
-      .action-item { cursor: pointer; padding: 6px; border-radius: 6px; color: #64748B; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; transition: 0.2s; &:hover { background: #E5E7EB; color: #111827; } }
-    }
-    &:hover .msg-actions { opacity: 1; }
-  }
-}
-@keyframes spin { 100% { transform: rotate(360deg); } }
-
-:deep(.kb-card) {
-  background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px; margin: 12px 0;
-  .kb-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed #E2E8F0; &:last-child { border: none; margin-bottom: 0; padding-bottom: 0;} }
-  .kb-label { font-weight: 800; color: #475569; font-size: 0.9rem;}
-  .kb-val { color: #1F2937; font-size: 0.95rem; line-height: 1.5;}
-  .highlight-blue { color: #1f77b4; font-weight: 800; }
-}
-
-/* 推荐知识库 */
-:deep(.kb-recommend) {
-  margin-top: 16px; padding: 14px 16px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px;
-  .kb-rec-title { font-size: 0.9rem; font-weight: 700; color: #1E40AF; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
-    .kb-rec-reason { font-size: 0.8rem; font-weight: 500; color: #64748B; }
-  }
-  .kb-rec-tags { display: flex; flex-wrap: wrap; gap: 8px; }
-  .kb-rec-tag { display: inline-flex; align-items: center; padding: 5px 12px; background: #fff; border: 1px solid #93C5FD; border-radius: 6px; font-size: 0.82rem; font-weight: 600; color: #1D4ED8; cursor: pointer; transition: all 0.2s;
-    &:hover { background: #1D4ED8; color: #fff; border-color: #1D4ED8; }
-  }
-}
-
-.typing-indicator {
-  display: flex; gap: 6px; padding: 10px 16px; background: #fff; border: 1px solid #E5E7EB; border-radius: 0 16px 16px 16px; width: fit-content;
-  span { width: 8px; height: 8px; background: #9CA3AF; border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
-  span:nth-child(1) { animation-delay: -0.32s; }
-  span:nth-child(2) { animation-delay: -0.16s; }
-}
-@keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
-
-.sticky-input-container {
-  position: absolute; bottom: 0; left: 0; width: 100%; padding: 20px 0 30px;
-  background: linear-gradient(to top, #F8FAFC 80%, transparent);
-  display: flex; justify-content: center; z-index: 30;
-  .hero-input-wrapper { width: 100%; max-width: 850px; }
-}
-
-/* 循证医学依据轻量胶囊栏 (消息气泡下方，紧凑清爽) */
-.evidence-summary-capsule {
-  margin-top: 14px;
-  background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%);
-  border: 1px solid #DBEAFE;
-/* P0/P1 法定红线面板 */
-.normative-boundary-panel {
-  background: #FFF5F5;
-  border: 1px solid #FECACA;
-  border-left: 4px solid #EF4444;
-  border-radius: 12px;
-  padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.04);
-  padding: 14px 16px;
-  margin: 10px 0;
-  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.05);
-
-  .capsule-main {
-  .boundary-title-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 12px;
-
-    .capsule-info {
-    .title-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      gap: 8px;
-      font-weight: 700;
-      color: #991B1B;
-      font-size: 0.95rem;
-
-      .shield-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        background: #FEF2F2;
-        color: #DC2626;
-        border: 1px solid #FECACA;
-        border-radius: 6px;
-        padding: 3px 8px;
-        font-size: 0.78rem;
-        font-weight: 700;
-      .icon-scale {
-        font-size: 1.1rem;
-      }
-
-      .capsule-text {
-        font-size: 0.86rem;
-        color: #475569;
-        strong {
-          color: #1E40AF;
-          font-weight: 700;
-        }
-      }
-    }
-
-    .open-drawer-btn {
-    .boundary-badge {
-      background: #FEE2E2;
-      color: #DC2626;
-      font-size: 0.75rem;
-      font-weight: 700;
-      font-size: 0.82rem;
-      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
-      transition: all 0.2s;
-      &:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
-      }
-      padding: 2px 8px;
-      border-radius: 4px;
-      border: 1px solid #FCA5A5;
-    }
-  }
-
-  .capsule-pills {
-  .boundary-items-grid {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    padding-top: 8px;
-    border-top: 1px dashed #DBEAFE;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-    .pill-item {
-      display: inline-flex;
-  .boundary-item-card {
-    background: #fff;
-    border: 1px solid #FEE2E2;
-    border-radius: 8px;
-    padding: 12px 14px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-
-    &:hover {
-      border-color: #EF4444;
-      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12);
-      transform: translateY(-1px);
-    }
-
-    .item-head {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 0.78rem;
-      font-weight: 600;
-      padding: 3px 10px;
-      border-radius: 20px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      white-space: nowrap;
-      gap: 8px;
-      margin-bottom: 6px;
-
-      &.boundary-pill {
-        background: #FFF1F2;
-        color: #BE123C;
-        border: 1px solid #FECDD3;
-        &:hover {
-          background: #FFE4E6;
-          border-color: #FB7185;
-          transform: translateY(-1px);
-        }
-      .std-no {
-        font-weight: 800;
-        color: #1E293B;
-        font-size: 0.9rem;
-      }
-
-      &.sci-pill {
-        background: #F0FDF4;
-        color: #047857;
-        border: 1px solid #BBF7D0;
-        &:hover {
-          background: #DCFCE7;
-          border-color: #86EFAC;
-          transform: translateY(-1px);
-        }
-      .std-badge {
-        background: #FEE2E2;
-        color: #B91C1C;
-        font-size: 0.72rem;
-        padding: 1px 6px;
-        border-radius: 4px;
-        font-weight: 700;
-      }
-
-      &.more-pill {
-        background: #EFF6FF;
-        color: #2563EB;
-        border: 1px solid #BFDBFE;
-        font-weight: 700;
-        &:hover {
-          background: #DBEAFE;
-          transform: translateY(-1px);
-        }
-      .sec-title {
-        color: #64748B;
-        font-size: 0.8rem;
-      }
-    }
-  }
-}
-
-/* 循证全景右侧抽屉样式 */
-:deep(.evidence-full-drawer) {
-  .el-drawer__header {
-    margin-bottom: 0;
-    padding: 16px 20px;
-    border-bottom: 1px solid #E2E8F0;
-    font-weight: 800;
-    font-size: 1.05rem;
-    color: #0F172A;
-  }
-    .item-content {
-      font-size: 0.88rem;
-      color: #334155;
-      line-height: 1.5;
-      margin-bottom: 8px;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-  .el-drawer__body {
-    padding: 0;
-    background: #F8FAFC;
-    overflow-y: auto;
-  }
-}
-
-.drawer-inner-content {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-
-  .drawer-header-summary {
-    background: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    border-radius: 12px;
-    padding: 16px 18px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-
-    .summary-top {
-    .item-foot {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-      font-size: 0.78rem;
-
-      .summary-title {
-        font-size: 1rem;
-        font-weight: 800;
-        color: #1E293B;
-      .issuer {
-        color: #94A3B8;
-      }
-
-      .view-link {
-        color: #DC2626;
-        font-weight: 600;
-      }
-    }
-  }
-}
-
-    .summary-stat-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 12px;
-/* 双通路面板与切块网格 */
-.dual-path-panel {
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  overflow: hidden;
-  margin-top: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-
-      .stat-chip {
-        padding: 5px 12px;
-        border-radius: 6px;
-        font-size: 0.82rem;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.2s;
-  .dual-path-header {
-    padding: 12px 16px;
-    background: #F1F5F9;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    border-bottom: 1px solid #E2E8F0;
-    transition: background 0.2s;
-
-        &.red {
-          background: #FEF2F2;
-          color: #DC2626;
-          border: 1px solid #FECACA;
-          &:hover { background: #FEE2E2; }
-        }
-    &:hover {
-      background: #E2E8F0;
-    }
-
-        &.gold {
-          background: #FEFCE8;
-          color: #CA8A04;
-          border: 1px solid #FEF08A;
-          &:hover { background: #FEF9C3; }
-        }
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 700;
-      color: #1E293B;
-      font-size: 0.92rem;
-    }
-
-        &.blue {
-          background: #EFF6FF;
-          color: #2563EB;
-          border: 1px solid #BFDBFE;
-          &:hover { background: #DBEAFE; }
-        }
-
-        &.green {
-          background: #F0FDF4;
-          color: #16A34A;
-          border: 1px solid #BBF7D0;
-          &:hover { background: #DCFCE7; }
-        }
-    .arrow-icon {
-      transition: transform 0.3s;
-      &.is-open {
-        transform: rotate(180deg);
-      }
-    }
-
-    .summary-tip {
-      font-size: 0.82rem;
-      color: #64748B;
-      line-height: 1.6;
-      margin: 0;
-      background: #F8FAFC;
-      padding: 8px 12px;
-      border-radius: 6px;
-      border-left: 3px solid #3B82F6;
-    }
-  }
-
-  .drawer-tabs {
-    .tab-badge-title {
-      font-weight: 700;
-      font-size: 0.88rem;
-    }
-  .dual-path-content {
-    padding: 14px;
-
-    :deep(.el-tabs__header) {
-      margin-bottom: 16px;
-      margin-bottom: 14px;
-    }
-  }
-}
-
-  .drawer-cards-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    max-height: calc(100vh - 280px);
-    overflow-y: auto;
-    padding-right: 4px;
-    padding-bottom: 20px;
-.evidence-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-  gap: 12px;
-  max-height: 480px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-    &::-webkit-scrollbar {
-      width: 6px;
-    }
-    &::-webkit-scrollbar-thumb {
-      background-color: #CBD5E1;
-      border-radius: 4px;
-    }
-.evidence-item-card {
-  background: #fff;
-  border: 1px solid #E2E8F0;
-  border-radius: 8px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  cursor: pointer;
-  transition: all 0.2s;
-
-  &:hover {
-    border-color: #3B82F6;
-    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.12);
-    transform: translateY(-2px);
-  }
-
-  .drawer-item-card {
-    background: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    border-radius: 10px;
-    padding: 14px 16px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    flex-direction: column;
-  &.ranked {
-    border-top: 3px solid #3B82F6;
-  }
-
-    &:hover {
-      border-color: #3B82F6;
-      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.1);
-      transform: translateY(-1px);
-    }
-  &.dense {
-    border-top: 3px solid #8B5CF6;
-  }
-
-    &.boundary-card {
-      border-left: 4px solid #EF4444;
-      &:hover { border-color: #EF4444; }
-    }
-  &.sparse {
-    border-top: 3px solid #10B981;
-  }
-
-    &.ranked-card {
-      border-left: 4px solid #F59E0B;
-    }
-  .card-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 6px;
-
-    &.dense-card {
-      border-left: 4px solid #3B82F6;
-    .card-rank {
-      font-weight: 900;
-      color: #3B82F6;
-      font-size: 0.85rem;
-    }
-
-    &.sparse-card {
-      border-left: 4px solid #10B981;
-    .card-id {
-      font-weight: 700;
-      font-size: 0.82rem;
-      color: #1E293B;
-      max-width: 140px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .card-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    .card-badge {
-      font-size: 0.7rem;
-      font-weight: 600;
-      padding: 1px 6px;
-      border-radius: 4px;
-
-      .card-rank {
-        font-weight: 900;
-        color: #F59E0B;
-        font-size: 0.9rem;
-        margin-right: 8px;
-      &.p-sci {
-        background: #ECFDF5;
-        color: #059669;
-      }
-
-      .card-id, .std-no {
-        font-weight: 800;
-        font-size: 0.88rem;
-        color: #1E293B;
-        max-width: 480px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      &.dense-tag {
-        background: #F3E8FF;
-        color: #7C3AED;
-      }
-
-      .card-badge, .std-badge {
-        font-size: 0.72rem;
-        font-weight: 700;
-        padding: 2px 8px;
-        border-radius: 4px;
-
-        &.danger {
-          background: #FEE2E2;
-          color: #DC2626;
-        }
-        &.p-sci {
-          background: #FEF3C7;
-          color: #D97706;
-        }
-        &.dense-tag {
-          background: #EFF6FF;
-          color: #2563EB;
-        }
-        &.sparse-tag {
-          background: #ECFDF5;
-          color: #059669;
-        }
-      &.sparse-tag {
-        background: #ECFDF5;
-        color: #047857;
-      }
-    }
-  }
-
-    .card-title {
-      font-weight: 700;
-      font-size: 0.92rem;
-      color: #0F172A;
-      margin-bottom: 6px;
-      line-height: 1.4;
-    }
-  .card-section {
-    font-size: 0.8rem;
-    color: #64748B;
-    margin-bottom: 6px;
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-    .card-snippet {
-      font-size: 0.86rem;
-      color: #475569;
-      line-height: 1.55;
-      margin-bottom: 10px;
-      display: -webkit-box;
-      -webkit-line-clamp: 3;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-  .card-snippet {
-    font-size: 0.84rem;
-    color: #334155;
-    line-height: 1.45;
-    margin-bottom: 8px;
-    flex: 1;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-      &.quote {
-        font-style: italic;
-        color: #334155;
-        background: #FFF5F5;
-        padding: 8px 12px;
-        border-radius: 6px;
-        border-left: 3px solid #F87171;
-  .card-formula-breakdown {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-bottom: 8px;
-    background: #F8FAFC;
-    padding: 4px 6px;
-    border-radius: 4px;
-
-    .formula-item {
-      font-size: 0.68rem;
-      color: #64748B;
-      b {
-        color: #1E40AF;
-      }
-    }
-  }
-
-    .card-formula-breakdown {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      background: #F8FAFC;
-      border: 1px solid #E2E8F0;
-      padding: 6px 10px;
-      border-radius: 6px;
-      margin-bottom: 10px;
-  .card-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-top: 1px dashed #E2E8F0;
-    padding-top: 8px;
-    font-size: 0.78rem;
-
-      .formula-item {
-        font-size: 0.74rem;
-        color: #64748B;
-        b {
-          color: #1E40AF;
-        }
-      }
-    .card-score {
-      color: #2563EB;
-      font-weight: 800;
-    }
-
-    .card-foot {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.8rem;
-      padding-top: 8px;
-      border-top: 1px dashed #E2E8F0;
-    .card-channel-tip {
-      color: #94A3B8;
-    }
-
-      .issuer, .priority-tag, .channel-tag {
-        color: #64748B;
-        font-weight: 600;
-      }
-
-      .action-text {
-        color: #3B82F6;
-        font-weight: 700;
-      }
-    .view-more {
-      color: #3B82F6;
-      font-weight: 600;
-    }
-  }
-}
-
-/* 详情弹窗 */
-.chunk-detail-modal {
-  .boundary-alert-bar {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    background: #FEF2F2;
-    border: 1px solid #FECACA;
-    border-radius: 8px;
-    padding: 10px 14px;
-    color: #991B1B;
-    font-size: 0.86rem;
-    line-height: 1.5;
-    margin-bottom: 14px;
-
-    .alert-icon {
-      font-size: 1.2rem;
-    }
-  }
-
-  .chunk-meta-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    background: #F8FAFC;
-    border: 1px solid #E2E8F0;
-    border-radius: 8px;
-    padding: 12px 14px;
-    margin-bottom: 14px;
-
-    .meta-item {
-      font-size: 0.86rem;
-      color: #334155;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-
-      .meta-lbl {
-        color: #64748B;
-        font-weight: 600;
-      }
-    }
-  }
-
-  .chunk-full-text-box {
-    .text-label {
-      font-weight: 700;
-      color: #1E293B;
-      margin-bottom: 6px;
-      font-size: 0.9rem;
-    }
-
-    .text-content-scroll {
-      background: #F8FAFC;
-      border: 1px solid #CBD5E1;
-      border-radius: 8px;
-      padding: 14px;
-      font-size: 0.9rem;
-      line-height: 1.7;
-      color: #1E293B;
-      max-height: 360px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
-  }
-}
+<style scoped>
+.system-layout { display: flex; min-height: 100vh; background: #f5f8fc; color: #172b45; }
+.main-content { flex: 1; min-width: 0; }
+.system-layout :deep(.sidebar) { position: sticky; top: 0; height: 100vh; }
+.page-header { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; min-height: 80px; padding: 18px 36px; border-bottom: 1px solid #e2e8f0; background: white; }
+.page-header h1 { margin: 0; flex: 1; font-size: 20px; font-weight: 650; }
+.home-link { display: flex; gap: 6px; align-items: center; text-decoration: none; color: #1f77b4; }
+.header-divider { color: #cbd5e1; }
+.page-container { max-width: 1160px; margin: 0 auto; padding: 28px 32px 40px; }
+.runtime-panel { background: white; border: 1px solid #dce6f1; border-radius: 18px; padding: 24px; box-shadow: 0 6px 24px #173d6710; }
+.runtime-heading { display: flex; justify-content: space-between; gap: 20px; align-items: center; }
+.eyebrow { color: #4780af; font-size: 10px; letter-spacing: 1.8px; font-weight: 700; }
+.runtime-heading h2 { margin: 8px 0 0; font-size: 20px; }
+.runtime-grid { display: grid; grid-template-columns: 1fr 1.1fr 1fr; gap: 20px; margin: 24px 0 16px; }
+.runtime-item { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; padding-right: 16px; border-right: 1px solid #edf1f7; }
+.runtime-item:last-child { border: 0; }
+.runtime-item strong { overflow-wrap: anywhere; font-size: 14px; }
+.runtime-item .el-select { width: 100%; max-width: 300px; }
+.runtime-label { color: #66788f; font-size: 12px; }
+.state-label { color: #b45309; font-size: 12px; }
+.state-label::before { content: '●'; margin-right: 6px; font-size: 9px; }
+.state-label.ready { color: #158065; }
+.runtime-item small { color: #718096; font-size: 11px; line-height: 1.6; }
+.channel-status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+.channel-status-grid > div { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 12px 14px; border: 1px solid #e4ebf3; border-radius: 10px; background: #f9fbfe; }
+.channel-status-grid strong { font-size: 12px; color: #456783; }
+.channel-status-grid span { margin-left: auto; font-size: 11px; color: #a96724; }
+.channel-status-grid span.channel-ready { color: #158065; }
+.channel-status-grid small { flex-basis: 100%; color: #7e8ea1; font-size: 10px; overflow-wrap: anywhere; }
+.channel-execution { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 10px 0; color: #597692; font-size: 11px; }
+.channel-execution small { flex-basis: 100%; color: #8a98a9; overflow-wrap: anywhere; }
+.access-key-row { display: flex; align-items: center; gap: 10px; margin: 18px 0; }
+.access-key-row label { flex-shrink: 0; color: #66788f; font-size: 12px; }
+.access-key-row .el-input { max-width: 430px; }
+.warning-list { margin: 10px 0; color: #9a611b; font-size: 12px; line-height: 1.7; }
+.warning-list p { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0; overflow-wrap: anywhere; }
+.general-answer-notice { margin-bottom: 14px; border: 1px solid #eac58b; }
+.warning-list .el-icon { margin-top: 4px; flex-shrink: 0; }
+.welcome-panel { text-align: center; max-width: 740px; margin: 42px auto 32px; }
+.welcome-icon { background: #e4effc; color: #1f77b4; font-size: 25px; width: 58px; height: 58px; border-radius: 18px; }
+.welcome-panel h2 { font-size: 24px; margin: 20px 0 14px; }
+.welcome-panel > p { color: #687b92; font-size: 14px; line-height: 1.9; }
+.quick-prompts { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
+.quick-prompts button { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: #3b5f81; border: 1px solid #d9e5f1; background: white; padding: 12px 16px; border-radius: 10px; cursor: pointer; text-align: left; }
+.quick-prompts button:hover { border-color: #7fa9d4; background: #f0f7ff; }
+.message-list { max-height: calc(100vh - 410px); min-height: 280px; overflow-y: auto; padding: 32px 8px; scroll-behavior: smooth; }
+.message { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 30px; }
+.message-avatar { display: grid; place-items: center; color: #1f77b4; background: #e5effc; width: 36px; height: 36px; border-radius: 12px; flex: 0 0 36px; }
+.message.user .message-avatar { background: #e2e8f0; color: #526276; }
+.message-body { min-width: 0; flex: 1; padding: 16px 20px; background: white; border-radius: 0 16px 16px; border: 1px solid #e4ebf3; }
+.message.user .message-body { background: #edf4fc; }
+.message-label { color: #66809b; font-size: 11px; margin-bottom: 10px; font-weight: 650; }
+.answer-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.85; font-size: 14px; color: #253b53; }
+.loading-line { display: flex; gap: 8px; align-items: center; color: #647a93; font-size: 13px; }
+.execution-meta { display: flex; gap: 6px 16px; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid #eaf0f6; font-size: 11px; color: #718096; overflow-wrap: anywhere; }
+.evidence-overview { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+.evidence-overview > div { display: flex; flex-direction: column; gap: 6px; }
+.evidence-overview strong { font-size: 13px; color: #355c80; }
+.evidence-overview span, .evidence-overview small { font-size: 11px; color: #7b8b9d; }
+.evidence-disclaimer { color: #8a6b42; font-size: 11px; line-height: 1.7; margin: 12px 0; }
+.inline-evidence { display: grid; gap: 8px; }
+.evidence-preview { display: flex; gap: 10px; align-items: center; text-align: left; border: 1px solid #e4ebf3; padding: 10px; border-radius: 9px; background: #f8fafd; cursor: pointer; color: #354e68; font-size: 12px; }
+.evidence-preview > span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.evidence-preview small { color: #7d8da0; font-size: 10px; }
+.citation-badge { display: inline-block; font-size: 11px; color: #55728d; background: #e7edf3; border-radius: 5px; padding: 3px 6px; flex-shrink: 0; }
+.citation-badge.cited { color: #1b6f80; background: #dff2f3; }
+.copy-answer { margin-top: 12px; color: #6984a0; }
+.composer { position: sticky; bottom: 16px; border: 1px solid #cddcec; border-radius: 16px; background: white; padding: 18px 22px 10px; box-shadow: 0 10px 36px #173d6714; margin-top: 24px; }
+.composer textarea { width: 100%; resize: vertical; min-height: 76px; max-height: 240px; border: 0; outline: 0; color: #253b53; font-size: 14px; line-height: 1.8; background: transparent; font-family: inherit; }
+.composer textarea::placeholder { color: #93a2b4; }
+.composer-actions { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin: 8px 0 10px; }
+.composer-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.composer-actions small { color: #8b99a9; font-size: 10px; }
+.send-actions { display: flex; gap: 12px; align-items: center; }
+.privacy-note { font-size: 10px; color: #8a98a9; margin: 0; padding-top: 10px; border-top: 1px solid #f0f3f7; }
+.drawer-note { padding: 12px 16px; background: #f6f9fd; color: #6e8096; font-size: 12px; line-height: 1.8; border-radius: 10px; }
+.evidence-card { display: block; text-align: left; width: 100%; border: 1px solid #dfe8f2; border-radius: 12px; padding: 16px; margin-bottom: 14px; cursor: pointer; background: white; font-family: inherit; color: #334d68; }
+.evidence-card:hover { border-color: #83add4; background: #fbfdff; }
+.card-heading, .card-footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 11px; color: #7b8fa3; }
+.evidence-card h3 { font-size: 14px; line-height: 1.6; margin: 12px 0 6px; }
+.card-source { color: #6a849f; font-size: 11px; overflow-wrap: anywhere; }
+.card-text { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.8; font-size: 12px; color: #667b91; white-space: pre-wrap; }
+.card-footer { padding-top: 10px; border-top: 1px solid #edf2f7; flex-wrap: wrap; }
+.chunk-metadata { display: grid; grid-template-columns: 90px 1fr; gap: 12px; margin: 24px 0; font-size: 13px; }
+.chunk-metadata dt { color: #8091a4; }
+.chunk-metadata dd { margin: 0; overflow-wrap: anywhere; color: #37516b; }
+.source-link { color: #1f77b4; font-size: 12px; text-decoration: none; }
+.original-label { font-size: 13px; color: #37516b; margin-top: 24px; }
+.original-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.85; background: #f6f9fc; border: 1px solid #e3ebf3; padding: 18px; max-height: 48vh; overflow-y: auto; border-radius: 10px; }
+@media (max-width: 1200px) { .system-layout :deep(.sidebar) { width: 220px; } .page-container { padding: 24px; } .evidence-preview small { display: none; } }
+@media (max-width: 900px) { .runtime-grid { grid-template-columns: 1fr; gap: 16px; } .channel-status-grid { grid-template-columns: 1fr; } .runtime-item { padding: 0 0 12px; border-right: 0; border-bottom: 1px solid #edf1f7; } .message-list { max-height: 55vh; } .page-header { padding: 18px 24px; } .page-header > .el-tag { display: none; } .runtime-heading h2 { font-size: 16px; } .composer-tools small, .send-actions small { display: none; } }
+@media (max-width: 640px) { .system-layout :deep(.sidebar) { display: none; } .page-container { padding: 14px; } .page-header { padding: 16px; gap: 8px; } .page-header h1 { font-size: 16px; } .runtime-panel { padding: 18px; } .message-body { padding: 14px; } .message-avatar { display: none; } .composer { padding: 14px; bottom: 8px; } .welcome-panel h2 { font-size: 20px; } .runtime-heading > .el-button { font-size: 11px; padding: 8px; } .access-key-row { flex-wrap: wrap; } }
 </style>

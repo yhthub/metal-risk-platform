@@ -1,0 +1,3 @@
+# Public demo services verify the exact CSV bytes, not only parsed values.
+# Disable platform line-ending conversion so clones retain the published SHA256.
+/backend/app/data/*.csv -text whitespace=cr-at-eol

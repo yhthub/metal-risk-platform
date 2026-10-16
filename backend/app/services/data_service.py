@@ -2,15 +2,19 @@ import pandas as pd
 import numpy as np
 import os
 import json
+import math
 import re
+import threading
 from io import BytesIO
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+from fastapi.concurrency import run_in_threadpool
 from ..models.schemas import (
     IndividualData, BatchImportResponse, DataStatistics,
     VisualizationData, ApiResponse
 )
 from ..utils.helpers import generate_file_id, ensure_upload_dir, validate_file_type
+from .table_processing_capacity import run_table_processing, TableProcessingBusy
 
 
 # 内存数据存储（暂不使用数据库）
@@ -21,6 +25,46 @@ individual_records: List[Dict[str, Any]] = []
 
 UPLOAD_DIR = ensure_upload_dir(os.getenv("UPLOAD_DIR", "data/uploads"))
 MAX_UPLOAD_SIZE = 25 * 1024 * 1024
+
+
+def _batch_limit(name: str, default: int, maximum: int) -> int:
+    """Bound deployment overrides; defaults also fit the public NHANES files."""
+    try:
+        return max(1, min(int(os.getenv(name, str(default))), maximum))
+    except ValueError:
+        return default
+
+
+_import_capacity = threading.BoundedSemaphore(_batch_limit("BATCH_MAX_CONCURRENT_IMPORTS", 1, 2))
+_cache_lock = threading.RLock()
+_cache_sizes: Dict[str, int] = {}
+
+
+def _remember_dataset(file_id: str, *, frame=None, analysis=None, size: int = 0) -> None:
+    """Evict only RAM references, never uploaded source/analysis files on disk."""
+    with _cache_lock:
+        for existing in dict.fromkeys((*data_store, *analysis_store)):
+            _cache_sizes.setdefault(existing, 0)
+        if frame is not None:
+            data_store.pop(file_id, None)
+            data_store[file_id] = frame
+        if analysis is not None:
+            analysis_store.pop(file_id, None)
+            analysis_store[file_id] = analysis
+        retained_size = max(size, _cache_sizes.pop(file_id, 0))
+        _cache_sizes[file_id] = retained_size
+        active = set(data_store) | set(analysis_store)
+        for stale in set(_cache_sizes) - active:
+            _cache_sizes.pop(stale, None)
+        capacity = _batch_limit("BATCH_CACHE_MAX_DATASETS", 5, 20)
+        byte_budget = _batch_limit("BATCH_CACHE_MAX_BYTES", 128 * 1024 * 1024, 512 * 1024 * 1024)
+        # Insertion order is the recent-import/recovery order; no file is removed.
+        while len(active) > capacity or sum(_cache_sizes.get(key, 0) for key in active) > byte_budget:
+            oldest = next(iter(_cache_sizes))
+            data_store.pop(oldest, None)
+            analysis_store.pop(oldest, None)
+            _cache_sizes.pop(oldest, None)
+            active.discard(oldest)
 
 
 OUTCOME_CONFIGS: Dict[str, Dict[str, Any]] = {
@@ -59,8 +103,8 @@ OUTCOME_CONFIGS: Dict[str, Dict[str, Any]] = {
             {"key": "education", "column": "DEMO_J__DMDEDUC2", "label": "教育程度", "unit": "编码"},
             {"key": "marital", "column": "DEMO_J__DMDMARTL", "label": "婚姻状况", "unit": "编码"},
             {"key": "income_ratio", "column": "DEMO_J__INDFMPIR", "label": "家庭收入贫困比", "unit": "比值"},
-            {"key": "smoking", "column": "SMQ_J__SMQ020", "label": "吸烟状态", "unit": "编码"},
-            {"key": "alcohol", "column": "ALQ_J__ALQ111", "label": "饮酒状态", "unit": "编码"},
+            {"key": "smoking", "column": "SMQ_J__SMQ020", "label": "终生吸烟 ≥100支", "unit": "编码"},
+            {"key": "alcohol", "column": "ALQ_J__ALQ111", "label": "终生曾饮酒 ≥1杯", "unit": "编码"},
         ],
         "identifier_column": "SEQN",
         "survey_design_columns": [
@@ -75,9 +119,10 @@ OUTCOME_CONFIGS: Dict[str, Dict[str, Any]] = {
 class DatasetValidationError(ValueError):
     """上传数据不满足结局字段要求。"""
 
-    def __init__(self, message: str, missing_columns: Optional[List[str]] = None):
+    def __init__(self, message: str, missing_columns: Optional[List[str]] = None, *, status_code: int = 422):
         super().__init__(message)
         self.missing_columns = missing_columns or []
+        self.status_code = status_code
 
 
 def get_outcome_configs() -> List[Dict[str, Any]]:
@@ -118,21 +163,55 @@ def _safe_filename(filename: str) -> str:
 def _read_tabular_file(file_content: bytes, filename: str) -> pd.DataFrame:
     if len(file_content) > MAX_UPLOAD_SIZE:
         raise DatasetValidationError(
-            f"文件大小超过限制（最大 {MAX_UPLOAD_SIZE // (1024 * 1024)} MB）"
+            f"文件大小超过限制（最大 {MAX_UPLOAD_SIZE // (1024 * 1024)} MB）", status_code=413
+        )
+
+    # Reuse the cleaner's already bounded parser (including XLSX expansion,
+    # sparse dimensions, long cells and logical-text budgets). Its transient
+    # string frame is released before pandas' existing numeric/NA inference.
+    # Local import avoids the cleaner -> outcome-config module dependency cycle.
+    from .data_cleaning_service import read_table, CleaningError
+    try:
+        table = read_table(file_content, filename)
+    except CleaningError as exc:
+        oversized = any(term in str(exc) for term in ("超过", "超出", "过大"))
+        raise DatasetValidationError(str(exc), status_code=413 if oversized or exc.status_code == 413 else 422) from exc
+    max_rows = _batch_limit("BATCH_MAX_ROWS", 50_000, 100_000)
+    max_columns = _batch_limit("BATCH_MAX_COLUMNS", 300, 300)
+    max_cells = _batch_limit("BATCH_MAX_CELLS", 2_000_000, 2_000_000)
+    rows, columns = table.data.shape
+    del table
+    if rows > max_rows or columns > max_columns or rows * columns > max_cells:
+        raise DatasetValidationError(
+            f"群体导入超出容量：最多 {max_rows:,} 行、{max_columns} 列、{max_cells:,} 个数据单元格；请分批或先清洗减少字段。",
+            status_code=413,
         )
 
     lower_name = filename.lower()
-    if lower_name.endswith(".csv"):
-        last_error = None
-        for encoding in ("utf-8-sig", "utf-8", "gb18030"):
-            try:
-                return pd.read_csv(BytesIO(file_content), encoding=encoding, low_memory=False)
-            except UnicodeDecodeError as exc:
-                last_error = exc
-        raise DatasetValidationError(f"CSV 编码无法识别: {last_error}")
-    if lower_name.endswith((".xlsx", ".xls")):
-        return pd.read_excel(BytesIO(file_content))
-    raise DatasetValidationError(f"不支持的文件格式: {filename}")
+    try:
+        if lower_name.endswith(".csv"):
+            for encoding in ("utf-8-sig", "utf-8", "gb18030"):
+                try:
+                    # IDs remain identifiers; quantities retain numeric inference.
+                    frame = pd.read_csv(BytesIO(file_content), encoding=encoding, low_memory=False,
+                                        dtype={"SEQN": "string"}, nrows=max_rows + 1)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            else:
+                raise DatasetValidationError("CSV 编码无法识别，请另存为 UTF-8 CSV")
+        elif lower_name.endswith(".xlsx"):
+            frame = pd.read_excel(BytesIO(file_content), dtype={"SEQN": "string"}, nrows=max_rows + 1)
+        else:
+            raise DatasetValidationError("仅支持 CSV 和 XLSX 文件")
+    except (pd.errors.ParserError, pd.errors.EmptyDataError, ValueError, OSError) as exc:
+        if isinstance(exc, DatasetValidationError):
+            raise
+        raise DatasetValidationError("表格无法解析，请检查格式、首行列名与数据内容") from exc
+    frame_bytes = int(frame.memory_usage(index=True, deep=True).sum())
+    if frame_bytes > _batch_limit("BATCH_MAX_DATAFRAME_BYTES", 64 * 1024 * 1024, 128 * 1024 * 1024):
+        raise DatasetValidationError("群体表格的展开内存超过限制，请分批或先减少字段", status_code=413)
+    return frame
 
 
 def _as_numeric(data: pd.DataFrame, columns: List[str]) -> pd.DataFrame:
@@ -140,6 +219,21 @@ def _as_numeric(data: pd.DataFrame, columns: List[str]) -> pd.DataFrame:
     for column in columns:
         numeric[column] = pd.to_numeric(numeric[column], errors="coerce")
     return numeric
+
+
+def _json_missing_values(value: Any) -> Any:
+    """Represent undefined numeric summaries as null, never conceal infinity."""
+    if isinstance(value, dict):
+        return {key: _json_missing_values(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_missing_values(item) for item in value]
+    if isinstance(value, (float, np.floating)):
+        if math.isnan(value):
+            return None
+        if not math.isfinite(value):
+            raise DatasetValidationError("分析结果出现非法无穷数值，请检查上传数据")
+        return float(value)
+    return value
 
 
 def _describe_series(series: pd.Series) -> Dict[str, Any]:
@@ -192,6 +286,8 @@ def _build_analysis(
         sbp_columns + dbp_columns + exposure_columns + confounder_columns
     ))
     numeric = _as_numeric(data, analysis_columns)
+    if np.isinf(numeric.to_numpy(dtype=float, na_value=np.nan)).any():
+        raise DatasetValidationError("上传数据包含非法无穷数值，请修正后重新导入")
 
     sbp = numeric[sbp_columns].where(
         numeric[sbp_columns].ge(50) & numeric[sbp_columns].le(300)
@@ -257,14 +353,26 @@ def _build_analysis(
     for index, item in enumerate(exposure_meta):
         raw_series = cohort_numeric[item["column"]].dropna()
         std = raw_series.std(ddof=0)
-        if not std or pd.isna(std):
-            standardized_exposures[item["column"]] = 0.0
+        if raw_series.empty:
+            standardized_exposures[item["column"]] = np.nan
+        elif std == 0:
+            # A constant observed value has Z=0, but missing values stay missing.
+            standardized_exposures[item["column"]] = (
+                cohort_numeric[item["column"]].where(
+                    cohort_numeric[item["column"]].isna(), 0.0
+                )
+            )
+        elif not np.isfinite(std):
+            raise DatasetValidationError("暴露变量标准化出现非法非有限数值，请检查上传数据")
         else:
             standardized_exposures[item["column"]] = (
                 cohort_numeric[item["column"]] - raw_series.mean()
             ) / std
 
         series = standardized_exposures[item["column"]].dropna()
+        if series.empty:
+            boxplot_data.append([None] * 5)
+            continue
         q1 = series.quantile(0.25)
         median = series.quantile(0.5)
         q3 = series.quantile(0.75)
@@ -332,13 +440,16 @@ def _build_analysis(
     histogram_series = []
     for item in exposure_meta:
         values = standardized_exposures[item["column"]].dropna().clip(-3, 3)
-        counts, edges = np.histogram(values, bins=density_x, density=True)
-        centers = ((edges[:-1] + edges[1:]) / 2).round(3)
-        density_series.append({
-            "name": item["short_label"],
-            "x": centers.tolist(),
-            "values": np.round(counts, 5).tolist(),
-        })
+        if values.empty:
+            density_series.append({"name": item["short_label"], "x": [], "values": []})
+        else:
+            counts, edges = np.histogram(values, bins=density_x, density=True)
+            centers = ((edges[:-1] + edges[1:]) / 2).round(3)
+            density_series.append({
+                "name": item["short_label"],
+                "x": centers.tolist(),
+                "values": np.round(counts, 5).tolist(),
+            })
         hist_counts, _ = np.histogram(
             standardized_exposures[item["column"]].dropna(),
             bins=histogram_edges,
@@ -354,6 +465,7 @@ def _build_analysis(
             cohort_numeric[item["column"]].rank(pct=True) * 100
         )
     composite_exposure = exposure_percentiles.mean(axis=1)
+    unknown_exposure_count = int(composite_exposure.isna().sum())
     bubble_count = min(350, len(cohort))
     bubble_positions = np.linspace(0, len(cohort) - 1, bubble_count, dtype=int)
     bubble_points = []
@@ -364,7 +476,10 @@ def _build_analysis(
             "age": round(float(numeric_row[age_column]), 1),
             "mean_sbp": round(float(row["mean_sbp_mmHg"]), 2),
             "mean_dbp": round(float(row["mean_dbp_mmHg"]), 2),
-            "exposure_percentile": round(float(composite_exposure.iloc[position]), 2),
+            "exposure_percentile": (
+                round(float(composite_exposure.iloc[position]), 2)
+                if pd.notna(composite_exposure.iloc[position]) else None
+            ),
             "group": (
                 "高血压组"
                 if row["mean_sbp_mmHg"] >= 140 or row["mean_dbp_mmHg"] >= 90
@@ -422,9 +537,10 @@ def _build_analysis(
         f"另有 {int((adult_mask & ~valid_bp_mask).sum())} 名成人因有效血压读数不足未进入分析。",
         "上传原文件保持不变；PCA仅在计算时对暴露变量进行标准化并用0填补标准化后的缺失值。",
         "本模块进行描述性统计与可视化，不执行回归建模、P值检验或因果推断。",
+        f"分析队列中 {unknown_exposure_count} 人的5项暴露均缺失，综合暴露百分位保留为空，气泡图不绘制这些记录；其余记录按已测暴露计算，不将缺失填零。",
     ]
 
-    return {
+    return _json_missing_values({
         "metadata": {
             "file_id": file_id,
             "filename": filename,
@@ -487,13 +603,17 @@ def _build_analysis(
         },
         "bubble": {
             "points": bubble_points,
+            "unknown_exposure_records": unknown_exposure_count,
+            "sampled_unknown_exposure_records": sum(
+                point["exposure_percentile"] is None for point in bubble_points
+            ),
         },
         "demographics": {
             "marital": marital_distribution,
             "education": education_distribution,
             "income": income_distribution,
         },
-    }
+    })
 
 
 async def save_individual_data(data: IndividualData) -> ApiResponse:
@@ -517,7 +637,26 @@ async def import_batch_file(
     file_content: bytes,
     filename: str,
     outcome_id: str = "blood_pressure",
+    provenance: Optional[Dict[str, Any]] = None,
 ) -> BatchImportResponse:
+    """Keep parsing/analysis off the event loop; one heavy import by default."""
+    return await run_in_threadpool(_guarded_batch_import, file_content, filename, outcome_id, provenance)
+
+
+def _guarded_batch_import(file_content, filename, outcome_id, provenance):
+    # Acquire inside the worker: cancellation of the caller cannot release the
+    # slot early while its pandas analysis is still running in the background.
+    if not _import_capacity.acquire(blocking=False):
+        raise DatasetValidationError("另一份群体数据正在分析，请稍后再导入。", status_code=429)
+    try:
+        return run_table_processing(_import_batch_file, file_content, filename, outcome_id, provenance)
+    except TableProcessingBusy as exc:
+        raise DatasetValidationError(str(exc), status_code=429) from exc
+    finally:
+        _import_capacity.release()
+
+
+def _import_batch_file(file_content, filename, outcome_id="blood_pressure", provenance=None) -> BatchImportResponse:
     """解析、校验并分析群体数据，同时保留原始上传文件。"""
     config = OUTCOME_CONFIGS.get(outcome_id)
     if config is None:
@@ -557,10 +696,17 @@ async def import_batch_file(
             "未检测到部分调查设计变量，本轮描述性统计不受影响："
             + "、".join(optional_missing)
         )
+    if provenance is not None:
+        # Only fixed server-side public-demo provenance is passed by its route.
+        analysis["metadata"]["demo_provenance"] = json.loads(json.dumps(provenance, ensure_ascii=False))
+        analysis["metadata"]["warnings"].extend(provenance.get("limitations", []))
 
-    # 存储数据
-    data_store[file_id] = df
-    analysis_store[file_id] = analysis
+    # Validate serialization before storing either data or files. Invalid numeric
+    # output must not leave an apparently successful in-memory/partial record.
+    try:
+        analysis_json = json.dumps(analysis, ensure_ascii=False, indent=2, allow_nan=False)
+    except ValueError as exc:
+        raise DatasetValidationError("分析结果包含非法非有限数值，未保存本次导入") from exc
 
     # 原始文件与派生分析分别保存，原始医疗数据绝不覆盖。
     file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{safe_name}")
@@ -568,7 +714,11 @@ async def import_batch_file(
         f.write(file_content)
     analysis_path = os.path.join(UPLOAD_DIR, f"{file_id}_analysis.json")
     with open(analysis_path, "w", encoding="utf-8") as f:
-        json.dump(analysis, f, ensure_ascii=False, indent=2, allow_nan=False)
+        f.write(analysis_json)
+
+    # Persistence precedes cache insertion; RAM eviction does not erase files.
+    _remember_dataset(file_id, frame=df, analysis=analysis,
+                      size=int(df.memory_usage(index=True, deep=True).sum()) + len(analysis_json.encode("utf-8")))
 
     return BatchImportResponse(
         file_id=file_id,
@@ -587,26 +737,34 @@ async def import_batch_file(
 
 
 async def get_dataset_analysis(file_id: str) -> Dict[str, Any]:
+    return await run_in_threadpool(_get_dataset_analysis, file_id)
+
+
+def _get_dataset_analysis(file_id: str) -> Dict[str, Any]:
     """获取已生成的真实数据统计结果，必要时从磁盘恢复。"""
-    if file_id in analysis_store:
-        return analysis_store[file_id]
+    with _cache_lock:
+        if file_id in analysis_store:
+            return analysis_store[file_id]
 
     analysis_path = os.path.join(UPLOAD_DIR, f"{file_id}_analysis.json")
     if not os.path.exists(analysis_path):
         raise ValueError(f"分析结果不存在: {file_id}")
+    analysis_bytes = os.path.getsize(analysis_path)
+    if analysis_bytes > 8 * 1024 * 1024:
+        raise ValueError("分析结果文件超过恢复容量限制")
 
     with open(analysis_path, "r", encoding="utf-8") as f:
         analysis = json.load(f)
-    analysis_store[file_id] = analysis
+    _remember_dataset(file_id, analysis=analysis, size=analysis_bytes)
     return analysis
 
 
 async def get_data_statistics(file_id: str) -> DataStatistics:
     """获取数据统计信息"""
-    if file_id not in data_store:
+    with _cache_lock:
+        df = data_store.get(file_id)
+    if df is None:
         raise ValueError(f"文件不存在: {file_id}")
-
-    df = data_store[file_id]
     total = len(df)
 
     # 统计性别分布
@@ -634,10 +792,10 @@ async def get_data_statistics(file_id: str) -> DataStatistics:
 
 async def get_visualization_data(file_id: str) -> VisualizationData:
     """获取可视化数据"""
-    if file_id not in data_store:
+    with _cache_lock:
+        df = data_store.get(file_id)
+    if df is None:
         raise ValueError(f"文件不存在: {file_id}")
-
-    df = data_store[file_id]
 
     # 婚姻状况分布
     marital_dist = {"已婚": 0, "未婚": 0, "离异": 0, "丧偶": 0}

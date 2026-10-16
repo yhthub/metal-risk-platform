@@ -1,5 +1,5 @@
 <template>
-  <div class="system-layout">
+  <div class="system-layout" :class="{'single-page': formData.mode === 'single'}">
 
   <Sidebar default-active="1-1" />
 
@@ -30,11 +30,22 @@
           <div class="step-line" :class="{ 'active-line': currentStep >= 2 }"></div>
           <div class="step" :class="{ 'active': currentStep >= 2 }"><span class="step-num">2</span> 多维可视化分析</div>
           <div class="step-line" :class="{ 'active-line': currentStep >= 3 }"></div>
-          <div class="step pending"><span class="step-num">3</span> 风险推理模型</div>
+          <div class="step pending"><span class="step-num">3</span> 风险分析模型</div>
         </div>
 
         <div class="input-dashboard">
-          <div class="panel-card clean-clinical-card">
+          <div v-if="formData.mode === 'single'" class="single-intro">
+            <div>
+              <span class="eyebrow">INDIVIDUAL PROFILE</span>
+              <h1>一份数据，读懂个体暴露画像</h1>
+              <p>录入监测结果，按样本与单位匹配参考；也可用合成示例快速体验。</p>
+            </div>
+            <div class="single-intro-actions">
+              <button type="button" class="btn-demo" @click="fillIndividualDemo"><el-icon><DocumentChecked /></el-icon> 一键填入演示数据</button>
+              <span>填充档案、10项指标及口径，立即生成画像</span>
+            </div>
+          </div>
+          <div class="panel-card clean-clinical-card" :class="{'single-input-card': formData.mode === 'single'}">
             <div class="card-layout-grid">
               <div class="form-entry-area">
                 <div class="config-row">
@@ -50,8 +61,8 @@
                   <div class="config-group flex-1">
                     <label>数据录入模式</label>
                     <div class="mode-switch">
-                      <button :class="{'active': formData.mode === 'single'}" @click="handleModeChange('single')">单人录入</button>
-                      <button :class="{'active': formData.mode === 'batch'}" @click="handleModeChange('batch')">群体导入</button>
+                      <button :class="{'active': formData.mode === 'single'}" :disabled="isAnalyzing || groupDemoRunning" @click="handleModeChange('single')">单人录入</button>
+                      <button :class="{'active': formData.mode === 'batch'}" :disabled="isAnalyzing || groupDemoRunning" @click="handleModeChange('batch')">群体导入</button>
                     </div>
                   </div>
                 </div>
@@ -59,13 +70,17 @@
                 <div class="clinical-divider"></div>
 
                 <div class="input-mode-section" v-if="formData.mode === 'single'">
-                  <div class="form-section">
-                    <h4 class="section-title">基础个体档案</h4>
+                  <div v-if="demoSource" class="demo-notice" role="status">
+                    <el-icon><InfoFilled /></el-icon>
+                    <div><strong>{{ demoEdited ? '合成示例 · 已修改' : '合成示例 · 仅供系统演示' }}</strong><span>非真实人员或检测记录，不用于诊断。氡为独立的住宅环境示例，不是工位实测。</span></div>
+                  </div>
+                  <div class="form-section basic-profile-section">
+                    <div class="section-heading"><h4 class="section-title"><span class="section-number">01</span> 基础个体档案</h4><span class="section-caption">身份信息与接触背景</span></div>
                     <div class="clinical-input-grid cols-4">
-                      <div class="clinical-input-item"><span class="label">Name / ID</span><div class="input-wrap"><input type="text" v-model="formData.singleData.name" placeholder="ID: SZ-102" /></div></div>
-                      <div class="clinical-input-item"><span class="label">Gender</span><div class="input-wrap select-wrap"><select v-model="formData.singleData.gender"><option value="male">Male</option><option value="female">Female</option></select></div></div>
-                      <div class="clinical-input-item"><span class="label">Age</span><div class="input-wrap"><input type="number" v-model="formData.singleData.age" placeholder="0" /><span class="unit">Y</span></div></div>
-                      <div class="clinical-input-item"><span class="label">Exposure Years</span><div class="input-wrap"><input type="number" v-model="formData.singleData.workYears" placeholder="0" /><span class="unit">Y</span></div></div>
+                      <div class="clinical-input-item"><label class="label" for="individual-name">姓名 / 编号</label><div class="input-wrap"><input id="individual-name" type="text" v-model="formData.singleData.name" placeholder="请输入编号" /></div></div>
+                      <div class="clinical-input-item"><label class="label" for="individual-gender">性别</label><div class="input-wrap select-wrap"><select id="individual-gender" v-model="formData.singleData.gender" @change="individualGenderConfirmed = false"><option value="">请选择</option><option value="male">男</option><option value="female">女</option></select></div><label style="font-size:12px;color:#64748b"><input type="checkbox" v-model="individualGenderConfirmed" :disabled="!formData.singleData.gender" /> 已核对用于模型编码的性别</label></div>
+                      <div class="clinical-input-item"><label class="label" for="individual-age">年龄</label><div class="input-wrap"><input id="individual-age" type="number" min="0" v-model="formData.singleData.age" placeholder="未录入" /><span class="unit">岁</span></div></div>
+                      <div class="clinical-input-item"><label class="label" for="individual-work-years">接触工龄</label><div class="input-wrap"><input id="individual-work-years" type="number" min="0" v-model="formData.singleData.workYears" placeholder="未录入" /><span class="unit">年</span></div></div>
                     </div>
                     <div class="clinical-input-grid cols-4" style="margin-top: 16px;">
                       <div class="clinical-input-item">
@@ -138,36 +153,52 @@
                       </div>
                       <div class="clinical-input-item" style="grid-column: span 2;">
                         <span class="label">既往职业病史</span>
-                        <div class="input-wrap"><input type="text" v-model="formData.singleData.history" placeholder="如：2023年诊断轻度铅中毒，已治愈" /></div>
+                        <div class="input-wrap"><input type="text" v-model="formData.singleData.history" placeholder="选填：已确认的职业病史" /></div>
                       </div>
                     </div>
                   </div>
 
-                  <div class="form-section">
-                    <h4 class="section-title">核心重金属暴露指标 (8种)</h4>
-                    <div class="clinical-input-grid cols-4">
-                      <div class="clinical-input-item"><span class="label">Pb (铅)</span><div class="input-wrap" :class="{'is-error': formData.singleData.pb > 400}"><input type="number" v-model="formData.singleData.pb" placeholder="0.00" /><span class="unit">μg/L</span></div></div>
-                      <div class="clinical-input-item"><span class="label">Cd (镉)</span><div class="input-wrap"><input type="number" v-model="formData.singleData.cd" placeholder="0.00" /><span class="unit">μg/g</span></div></div>
-                      <div class="clinical-input-item"><span class="label">Hg (汞)</span><div class="input-wrap"><input type="number" v-model="formData.singleData.hg" placeholder="0.00" /><span class="unit">μg/L</span></div></div>
-                      <div class="clinical-input-item"><span class="label">Th (钍)</span><div class="input-wrap"><input type="number" v-model="formData.singleData.th" placeholder="0.00" /><span class="unit">μg/L</span></div></div>
-                      <div class="clinical-input-item"><span class="label">Li (锂)</span><div class="input-wrap"><input type="number" v-model="formData.singleData.li" placeholder="0.00" /><span class="unit">μg/L</span></div></div>
-                      <div class="clinical-input-item"><span class="label">Cr (铬)</span><div class="input-wrap"><input type="number" v-model="formData.singleData.cr" placeholder="0.00" /><span class="unit">μg/L</span></div></div>
-                      <div class="clinical-input-item"><span class="label">Ni (镍)</span><div class="input-wrap"><input type="number" v-model="formData.singleData.ni" placeholder="0.00" /><span class="unit">μg/L</span></div></div>
-                      <div class="clinical-input-item"><span class="label">Co (钴)</span><div class="input-wrap"><input type="number" v-model="formData.singleData.co" placeholder="0.00" /><span class="unit">μg/L</span></div></div>
-                    </div>
-                  </div>
-
-                  <div class="form-section">
-                    <h4 class="section-title">伴生非金属与标志物</h4>
-                    <div class="clinical-input-grid cols-3">
-                      <div class="clinical-input-item"><span class="label">As (砷)</span><div class="input-wrap"><input type="number" v-model="formData.singleData.as" placeholder="0.00" /><span class="unit">μg/g</span></div></div>
-                      <div class="clinical-input-item"><span class="label">Rn (氡)</span><div class="input-wrap"><input type="number" v-model="formData.singleData.rn" placeholder="0.00" /><span class="unit">Bq/m³</span></div></div>
-                      <div class="clinical-input-item upload-addon">
-                        <span class="label">Attachment</span>
-                        <button class="btn-mini-upload"><el-icon><Upload /></el-icon> 导入LIS体检报告</button>
+                  <div class="form-section measurement-section" v-for="group in individualGroups" :key="group.id">
+                    <div class="section-heading"><h4 class="section-title"><span class="section-number">{{ group.id === 'core' ? '02' : '03' }}</span> {{ group.title }}</h4><span class="section-caption">{{ group.id === 'core' ? '每项独立选择测量口径' : '区分生物样本与环境监测' }}</span></div>
+                    <div class="clinical-input-grid measurement-grid">
+                      <div class="clinical-input-item measurement-card" v-for="field in group.fields" :key="field.key">
+                        <div class="measurement-heading"><span class="label">{{ field.label }}</span><span class="measurement-state" :class="{'is-comparable': measurementRow(field.key)?.ratio !== null}">{{ measurementRow(field.key)?.inputState === 'missing' ? '待录入' : measurementRow(field.key)?.inputState === 'invalid' ? '需修正' : measurementRow(field.key)?.ratio !== null ? '可参考比较' : '仅展示实测值' }}</span></div>
+                        <div class="input-wrap" :class="{'is-error': individualProfile.rows.find(row => row.key === field.key)?.inputState === 'invalid'}">
+                          <input type="number" min="0" step="any" v-model="formData.singleData[field.key]" placeholder="未录入" :aria-label="field.label + '实测值'" @input="handleMeasurementInput(field.key)" />
+                        </div>
+                        <div class="measurement-metadata">
+                          <label class="metadata-field"><span>样本类型</span>
+                          <select v-model="individualMetadata[field.key].sample" :aria-label="field.label + '样本类型'" @change="handleMetadataChange(field.key)">
+                            <option v-for="sample in SAMPLE_OPTIONS" :key="sample.value" :value="sample.value">{{ sample.label }}</option>
+                          </select>
+                          </label>
+                          <label class="metadata-field"><span>测量单位</span>
+                          <select v-model="individualMetadata[field.key].unit" :aria-label="field.label + '单位'" @change="handleMetadataChange(field.key)">
+                            <option v-for="unit in UNIT_OPTIONS" :key="unit" :value="unit">{{ unit || '单位未指定' }}</option>
+                          </select>
+                          </label>
+                          <label v-if="field.key === 'as'" class="metadata-field metadata-wide"><span>分析物类型</span>
+                          <select v-if="field.key === 'as'" v-model="individualMetadata.as.analyte" aria-label="砷分析物类型" @change="handleMetadataChange('as')">
+                            <option value="">砷类型未指定</option><option value="total">总砷（不套用毒性砷参考）</option><option value="toxic_speciated">已分型：无机＋甲基化砷合计</option>
+                          </select>
+                          </label>
+                          <label v-if="field.key === 'hg'" class="metadata-field metadata-wide"><span>汞分析物类型</span><select v-model="individualMetadata.hg.analyte" aria-label="汞分析物类型" @change="handleMetadataChange('hg')"><option value="">汞分析物未确认</option><option value="total_mercury">已确认：总汞（预测模型要求）</option></select></label>
+                          <label v-if="['cd', 'hg', 'rn'].includes(field.key)" class="metadata-field metadata-wide"><span>参考适用情境</span>
+                          <select v-if="['cd', 'hg', 'rn'].includes(field.key)" v-model="individualMetadata[field.key].context" :aria-label="field.label + '参考适用情境'" @change="handleMetadataChange(field.key)">
+                            <option value="">参考情境未确认</option>
+                            <option v-if="field.key === 'cd'" value="occupational_cadmium">已确认：职业镉生物监测</option>
+                            <option v-if="field.key === 'hg'" value="occupational_mercury_stable">已确认：中长期较稳定职业汞接触</option>
+                            <option v-if="field.key === 'rn'" value="residential_annual">已确认：住宅室内年平均</option>
+                            <option value="other">其他情境／工作场所／瞬时（不自动套用）</option>
+                          </select>
+                          </label>
+                          <button v-if="individualMetadata[field.key].confirmed === false" class="metadata-confirm" @click="confirmMetadata(field.key)">确认此数值的样本、单位与情境</button>
+                        </div>
                       </div>
                     </div>
                   </div>
+                  <p class="individual-caution">每项测量需独立注明样本与单位。改变口径不会换写原数字；已有数值须重新确认。年龄仅用于参考适用性，工种不自动确认职业监测情境。</p>
+                  <div class="single-form-footer"><span><el-icon><Upload /></el-icon> LIS接口尚未接入 · 当前支持手动录入</span><button type="button" class="btn-clear" @click="clearIndividualInput">清空单人数据</button></div>
                 </div>
 
                 <div class="input-mode-section" v-if="formData.mode === 'batch'">
@@ -178,7 +209,7 @@
                         v-model="selectedOutcomeId"
                         placeholder="请选择预测结局"
                         size="large"
-                        :disabled="isAnalyzing"
+                        :disabled="isAnalyzing || groupDemoRunning"
                         @change="handleOutcomeChange"
                       >
                         <el-option
@@ -206,11 +237,37 @@
                     </div>
                   </div>
 
+                  <section class="group-demo-panel" aria-label="NHANES公开数据一键体验">
+                    <div class="group-demo-heading"><div><span class="group-demo-eyebrow">PUBLIC DATA · NHANES 2017–2018</span><h4>无需准备文件，体验真实公开数据</h4><p>{{ groupDemoInfo ? `${formatNumber(groupDemoInfo.rows)} 条真实成人记录 · 23 个规范字段 · 完整病例固定子集` : groupDemoLoading ? '正在核对服务器公开样本与来源说明…' : '公开样本尚未就绪，请检查后端服务。' }}</p></div><button type="button" class="btn-group-demo" :disabled="isAnalyzing || groupDemoRunning || !groupDemoInfo" @click="fillGroupDemo"><el-icon><DocumentChecked /></el-icon>{{ groupDemoRunning ? '正在载入并真实分析…' : '一键体验 NHANES 公开数据' }}</button></div>
+                    <p class="group-demo-boundary">不是模拟数据，也不是职业人群；仅用于体验未加权描述性统计与数据流程，不用于总体风险推断或诊断。</p>
+                    <details v-if="groupDemoInfo" class="group-demo-details"><summary>查看公开来源与筛选局限</summary><p>从 {{ formatNumber(groupDemoInfo.eligible_records) }} 条符合演示完整性条件的公开记录中，按 SEQN 升序固定选取 {{ formatNumber(groupDemoInfo.rows) }} 条；保留原转存值，未新增本地插补或缩尾，发布值可能含官方检测限替代。</p><ul><li v-for="(note, index) in groupDemoInfo.limitations" :key="index">{{ note }}</li></ul><div class="group-demo-sources"><a v-for="source in groupDemoInfo.source_links" :key="source.url" :href="source.url" target="_blank" rel="noopener noreferrer">{{ source.label }} ↗</a></div></details>
+                    <p v-if="groupDemoError" class="group-demo-error" role="alert">{{ groupDemoError }} <button v-if="!groupDemoInfo" type="button" :disabled="groupDemoLoading || isAnalyzing" @click="loadGroupDemo">重新核对公开样本</button></p>
+                  </section>
+                  <section class="batch-format-guide" aria-label="群体数据格式说明">
+                    <div class="format-guide-heading">
+                      <div><h4>群体数据格式要求</h4><p>一行一人，第一行为列名；CSV / XLSX，不超过 25 MB。</p></div>
+                      <button type="button" class="format-template-button" :disabled="!batchFormatSchema || batchFormatLoading" @click="downloadBatchTemplate">下载空白列名模板</button>
+                    </div>
+                    <ul>
+                      <li>保留人员标识 SEQN、3 次收缩压与 3 次舒张压列头、5 项血液暴露及 8 项混杂因素。列名须与模板一致，缺失值留空。</li>
+                      <li>血压单位 mmHg；血铅 μg/dL，其余 4 项血液暴露 μg/L。年龄单位为岁；分类变量采用原 NHANES 编码，不把“男 / 女”等文本直接当编码。</li>
+                      <li>入组分析限定成人，收缩压与舒张压各至少 2 次有效读数。列头齐全不代表每行均可入组；可选调查设计列可保留。</li>
+                    </ul>
+                    <details class="format-field-details" v-if="batchFormatSchema">
+                      <summary>查看 {{ batchFormatSchema.required_columns.length }} 个必需字段与可选字段</summary>
+                      <div class="format-table-scroll"><table><thead><tr><th>含义</th><th>系统列名</th><th>单位 / 类型</th><th>要求</th></tr></thead><tbody><tr v-for="field in batchFormatSchema.fields" :key="field.column"><td>{{ field.label }}</td><td><code>{{ field.column }}</code></td><td>{{ field.unit || '—' }}</td><td>{{ field.required ? '必需列' : '可选列' }}</td></tr></tbody></table></div>
+                    </details>
+                    <p v-else class="format-schema-status">{{ batchFormatLoading ? '正在读取当前系统字段规范…' : batchFormatError || '字段规范尚未加载，请确认后端服务。' }}</p>
+                    <div class="format-cleaning-entry"><span>原始表格列名、行列结构不符合要求？</span><NuxtLink to="/data-cleaning">前往数据清洗与格式转换 <span aria-hidden="true">→</span></NuxtLink></div>
+                  </section>
+                  <div v-if="batchImportError" class="batch-import-error" role="alert"><strong>本次文件未完成导入</strong><p>{{ batchImportError }}</p><NuxtLink to="/data-cleaning">先整理原始文件，再返回群体导入</NuxtLink></div>
+
                   <input
                     ref="fileInputRef"
                     class="hidden-file-input"
                     type="file"
-                    accept=".csv,.xlsx,.xls"
+                    accept=".csv,.xlsx"
+                    :disabled="isAnalyzing || groupDemoRunning"
                     @change="handleFileChange"
                   />
                   <div
@@ -223,45 +280,63 @@
                     <div v-if="!hasFile">
                       <div class="upload-text">拖拽群体监测数据至此 (支持 .csv / .xlsx)</div>
                       <div class="upload-hint">系统将按照“{{ selectedOutcome?.name || '所选结局' }}”自动校验结局、暴露与混杂因素字段</div>
-                      <button class="btn-upload" type="button" @click="openFilePicker">选择本地文件</button>
+                      <button class="btn-upload" type="button" :disabled="isAnalyzing || groupDemoRunning" @click="openFilePicker">选择本地文件</button>
                     </div>
                     <div v-else class="file-success">
-                      <div class="upload-text"><el-icon style="vertical-align: middle; margin-right: 6px;"><DocumentChecked/></el-icon> {{ selectedFile?.name }}</div>
+                      <div class="upload-text"><el-icon style="vertical-align: middle; margin-right: 6px;"><DocumentChecked/></el-icon> {{ groupDemoSource ? groupDemoSource.sample_filename : selectedFile?.name }}</div>
+                      <div v-if="groupDemoSource" class="group-demo-active">真实公开子样本 · NHANES {{ groupDemoSource.cycle }} · 非职业人群</div>
                       <div class="upload-hint success-text" v-if="uploadResult">
                         成功解析 {{ formatNumber(uploadResult.total_records) }} 条原始记录，成人有效分析队列 {{ formatNumber(uploadResult.analysis_records) }} 人。
                       </div>
                       <div class="upload-hint success-text" v-else>
                         文件大小 {{ formatFileSize(selectedFile?.size || 0) }}，等待启动真实数据分析。
                       </div>
-                      <button class="btn-upload btn-reupload" type="button" @click="resetSelectedFile">重新上传</button>
+                      <button class="btn-upload btn-reupload" type="button" :disabled="isAnalyzing || groupDemoRunning" @click="resetSelectedFile">重新上传</button>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div class="reference-sidebar">
-                <div class="ref-card">
-                  <h4><el-icon><InfoFilled /></el-icon> 临床监测基线参考</h4>
-                  <p class="ref-desc">基于职业卫生标准的安全阈值区间，为特征评估提供基线依据：</p>
+                <div class="ref-card" v-if="formData.mode === 'single'">
+                  <h4><el-icon><InfoFilled /></el-icon> 对应情境参考比较</h4>
+                  <p class="ref-desc">只匹配当前样本与单位。各来源含义不同，不是统一安全线、诊断或健康评分。</p>
                   <ul class="ref-list">
-                    <li><span class="metal">Pb (铅)</span><span class="range">&lt; 100 μg/L</span></li>
-                    <li><span class="metal">Cd (镉)</span><span class="range">&lt; 5.0 μg/g</span></li>
-                    <li><span class="metal">Hg (汞)</span><span class="range">&lt; 10.0 μg/L</span></li>
-                    <li><span class="metal">Th (钍)</span><span class="range">&lt; 0.1 μg/L</span></li>
-                    <li><span class="metal">Li (锂)</span><span class="range">&lt; 1.0 μg/L</span></li>
-                    <li><span class="metal">Cr (铬)</span><span class="range">&lt; 5.0 μg/L</span></li>
-                    <li><span class="metal">Ni (镍)</span><span class="range">&lt; 3.0 μg/L</span></li>
-                    <li><span class="metal">Co (钴)</span><span class="range">&lt; 2.0 μg/L</span></li>
-                    <li><span class="metal">As (砷)</span><span class="range">&lt; 35.0 μg/g</span></li>
-                    <li><span class="metal">Rn (氡)</span><span class="range">&lt; 50 Bq/m³</span></li>
+                    <li v-for="row in applicableReferenceRows" :key="row.key"><span class="metal">{{ row.label }}</span><span class="range individual-reference-status">{{ row.reference.value }} {{ row.reference.unit }}</span></li>
+                  </ul>
+                  <p v-if="!applicableReferenceRows.length" class="reference-empty">选择样本、单位和适用情境后，这里显示匹配的参考。未匹配的指标仍保留原始值。</p>
+                  <details class="reference-details"><summary>查看全部指标与依据 <span>{{ individualProfile.rows.length }}项</span></summary>
+                    <div v-for="row in individualProfile.rows" :key="row.key" class="individual-reference-note">
+                      <strong>{{ row.label }}</strong>
+                      <template v-if="row.reference"><a :href="row.reference.source" target="_blank" rel="noopener noreferrer">{{ row.reference.title }}</a><p>{{ row.reference.note }}</p></template>
+                      <p v-else>{{ row.conditions.reference.reason }}</p>
+                    </div>
+                    <p class="ref-desc">资料核对日期 {{ REFERENCE_RETRIEVED_AT }}</p>
+                  </details>
+                </div>
+                <div class="ref-card" v-else>
+                  <h4><el-icon><InfoFilled /></el-icon> 群体导入检查</h4>
+                  <p class="ref-desc">此处检查表格与分析条件，不使用单人页面的情境参考值作为群体安全线。</p>
+                  <ul class="ref-list">
+                    <li><span class="metal">必需字段</span><span>{{ batchFormatSchema?.required_columns.length ?? '待载入' }}</span></li>
+                    <li><span class="metal">血压列头</span><span>收缩压 3列 + 舒张压 3列</span></li>
+                    <li><span class="metal">年龄条件</span><span>≥ 18岁</span></li>
+                    <li><span class="metal">有效血压读数</span><span>每类至少 2次</span></li>
+                    <li><span class="metal">缺失数值</span><span>留空，不填零</span></li>
                   </ul>
                 </div>
                 
                 <div class="action-card">
-                  <h4>生成评估画像</h4>
-                  <p>将录入特征推入后端模型，执行清洗、标准化与特征分析。</p>
-                  <button class="btn-analyze" :class="{'is-loading': isAnalyzing}" @click="runAnalysis">
-                    <span v-if="!isAnalyzing">启动特征可视化分析 ➔</span>
+                  <h4>{{ formData.mode === 'single' ? '当前录入概览' : '生成群体特征分析' }}</h4>
+                  <template v-if="formData.mode === 'single'">
+                    <div class="input-progress"><strong>{{ individualProfile.counts.valid }}<small> / 10项</small></strong><span>有效录入</span><div class="input-progress-track"><i :style="{width: `${individualProfile.counts.valid * 10}%`}"></i></div></div>
+                    <div class="input-summary"><span>可参考比较 <b>{{ individualProfile.counts.comparable }}项</b></span><span>待补 / 修正 <b>{{ individualProfile.counts.missing + individualProfile.counts.invalid }}项</b></span></div>
+                    <p v-if="demoSource" class="demo-summary">{{ demoEdited ? '合成示例（已修改）' : '合成示例 · 演示数据' }}</p>
+                    <p>在浏览器内生成可视化，不运行医疗预测模型。</p>
+                  </template>
+                  <p v-else>校验列名与有效队列条件，基于上传数据生成描述性统计与可视化；此步骤不运行医疗预测模型。</p>
+                  <button class="btn-analyze" :class="{'is-loading': isAnalyzing}" :disabled="isAnalyzing || groupDemoRunning" @click="runAnalysis">
+                    <span v-if="!isAnalyzing">{{ formData.mode === 'single' ? '生成单人可视化画像' : '启动特征可视化分析' }} ➔</span>
                     <span v-else>数据提取与处理中...</span>
                   </button>
                 </div>
@@ -273,7 +348,8 @@
         <div class="visualization-dashboard" v-if="showDashboard">
           
           <!-- 群体模式大屏 -->
-          <div v-if="formData.mode === 'batch'" class="batch-dashboard-container animate-on-scroll is-visible">
+          <div v-if="formData.mode === 'batch'" ref="groupDashboardRef" class="batch-dashboard-container animate-on-scroll is-visible">
+            <div v-if="groupDemoSource" class="group-demo-dashboard-source"><strong>公开数据体验 · NHANES {{ groupDemoSource.cycle }} / {{ formatNumber(groupDemoSource.rows) }} 人固定子集</strong><span>BPXO 为振荡式血压方法比较研究；图表为未加权描述性统计，不代表职业人群或美国总体。图中血压组别按当前平均读数划分，不是临床诊断。</span></div>
             
             <div class="kpi-row">
               <div class="kpi-card total"><el-icon class="kpi-icon"><Avatar /></el-icon><div class="kpi-info"><span>成人有效分析队列</span><strong>{{ formatNumber(analysisData?.kpis.analysis_records) }}<small> / {{ formatNumber(analysisData?.kpis.total_records) }} 人</small></strong></div></div>
@@ -282,7 +358,11 @@
               <div class="kpi-card ready"><el-icon class="kpi-icon"><CircleCheckFilled /></el-icon><div class="kpi-info"><span>平均收缩压 / 舒张压</span><strong>{{ analysisData?.kpis.mean_sbp }} / {{ analysisData?.kpis.mean_dbp }}<small> mmHg</small></strong></div></div>
             </div>
 
-            <div class="analysis-notes" v-if="analysisData?.metadata.warnings?.length">
+            <details v-if="groupDemoSource && analysisData?.metadata.warnings?.length" class="analysis-notes-details">
+              <summary>查看处理说明、PCA 缺失处理与公开数据局限（{{ analysisData.metadata.warnings.length }} 项）</summary>
+              <div class="analysis-notes"><span v-for="note in analysisData.metadata.warnings" :key="note"><el-icon><InfoFilled /></el-icon>{{ note }}</span></div>
+            </details>
+            <div class="analysis-notes" v-if="!groupDemoSource && analysisData?.metadata.warnings?.length">
               <span v-for="note in analysisData.metadata.warnings" :key="note"><el-icon><InfoFilled /></el-icon>{{ note }}</span>
             </div>
 
@@ -397,12 +477,12 @@
           </div>
 
           <!-- 单人模式科研图表 -->
-          <div v-else class="single-dashboard-container animate-on-scroll is-visible">
-            
+          <div v-else ref="singleDashboardRef" class="single-dashboard-container animate-on-scroll is-visible">
+            <div class="single-results-heading"><div><span class="eyebrow">VISUAL INSIGHTS</span><h2>单人数据可视化画像</h2><p>修改输入后图表实时更新 · {{ individualProfile.counts.valid }}项有效录入 / {{ individualProfile.counts.comparable }}项可比较</p></div><span v-if="demoSource" class="demo-badge">{{ demoEdited ? '合成示例 · 已修改' : '合成示例 · 非真实数据' }}</span></div>
             <div class="b-chart-card mb-6" style="padding-bottom: 0;">
               <div class="b-c-header">
                 <h4>个体多维暴露全景画像 (Relative Exposure Index)</h4>
-                <span class="sub-title">将多项绝对指标转化为相对安全限值的比率，直观呈现各指标是否突破安全或预警阈值。</span>
+                <span class="sub-title">仅对样本、单位及情境匹配的指标计算实测值／该参考值。100%表示参考值，不表示安全或诊断。</span>
               </div>
               <div id="singleChartMaster" style="width: 100%; height: 350px;"></div>
             </div>
@@ -411,48 +491,48 @@
               
               <div class="b-chart-card col-span-1">
                 <div class="b-c-header">
-                  <h4>靶向因子偏移雷达图 (Radar)</h4>
-                  <span class="sub-title">对比个体指标与国家职业卫生基线的覆盖面积，精准定位偏离安全基准的主要特征向。</span>
+                  <h4>参考占比雷达图 (Radar)</h4>
+                  <span class="sub-title">采用与主图相同的比例尺度；至少3项可比较指标才绘制，不以零填补缺失。</span>
                 </div>
                 <div id="singleChartRadar" class="b-c-canvas"></div>
               </div>
 
               <div class="b-chart-card col-span-1">
                 <div class="b-c-header">
-                  <h4>核心指标纵向时间序列 (Longitudinal)</h4>
-                  <span class="sub-title">追踪个体连续多年的暴露水平演变，底部绿色阴影区代表临床参考的安全基线范围。</span>
+                  <h4>参考可比性条件矩阵 (Heatmap)</h4>
+                  <span class="sub-title">可=条件满足，空=未提供，×=不匹配，待=口径确认。完整原因见提示；蓝灰状态不是医疗风险或安全信号。</span>
                 </div>
                 <div id="singleChartTimeline" class="b-c-canvas"></div>
               </div>
 
               <div class="b-chart-card col-span-1">
                 <div class="b-c-header">
-                  <h4>暴露特征群体排位 (Percentiles)</h4>
-                  <span class="sub-title">评估个体各项重金属指标在整体流行病学队列中的相对水平与百分位排名。</span>
+                  <h4>参考占比排序 (Reference Ratio)</h4>
+                  <span class="sub-title">按各自参考占比排列，仅为描述性排序，不是群体百分位或跨指标毒性排名。</span>
                 </div>
                 <div id="singleChartPercentile" class="b-c-canvas"></div>
               </div>
 
               <div class="b-chart-card col-span-1">
                 <div class="b-c-header">
-                  <h4>靶器官风险归因拆解 (Organ Breakdown)</h4>
-                  <span class="sub-title">内环指示存在潜在受损风险的靶器官，外环解析导致该风险的主导金属及协同因子。</span>
+                  <h4>指标录入状态分布 (Input Status)</h4>
+                  <span class="sub-title">内环统计有效、缺失及非法输入，外环每项代表一个指标；计数不是人数或器官归因。</span>
                 </div>
                 <div id="singleChartRiskPie" class="b-c-canvas"></div>
               </div>
 
               <div class="b-chart-card col-span-1">
                 <div class="b-c-header">
-                  <h4>特征标准化偏离度 (Z-Score)</h4>
-                  <span class="sub-title">量化个体各项指标偏离群体均值的标准差倍数，识别个体特异性的高吸收或高暴露项。</span>
+                  <h4>相对参考值偏移 (Reference Offset)</h4>
+                  <span class="sub-title">计算（实测值／参考值−1）×100%；不是Z-score、群体标准差或模型特征贡献。</span>
                 </div>
                 <div id="singleChartZScore" class="b-c-canvas"></div>
               </div>
 
               <div class="b-chart-card col-span-1">
                 <div class="b-c-header">
-                  <h4>多维异常综合指数 (Anomaly Index)</h4>
-                  <span class="sub-title">基于马氏距离等算法生成的综合健康偏移指标，表征个体整体状态偏离正常群体的程度。</span>
+                  <h4>已录入可比较覆盖率 (Coverage)</h4>
+                  <span class="sub-title">可比较指标数／有效录入指标数；只反映参考适用覆盖率，不合成医疗综合分。</span>
                 </div>
                 <div id="singleChartAnomaly" class="b-c-canvas"></div>
               </div>
@@ -463,10 +543,11 @@
           <div class="bottom-action-bar">
             <div class="tips">
               <el-icon><CircleCheckFilled /></el-icon>
-              数据特征清洗完毕，相关性与缺失率预处理（EDA）校验完成。您可以安全地将特征矩阵推入 <strong>复合风险量化与推理模型</strong>。
+              <template v-if="formData.mode === 'single'">单次实测画像已生成，{{ individualProfile.counts.comparable }} 项可比较；未计算趋势、相关性、医学风险或因果效应。</template>
+              <template v-else>已生成群体描述性统计。真实指标估计另需年龄、性别、BMI及三种全血金属；缺失必需字段会提示，不自动补值。</template>
             </div>
             <button class="btn-next-step" @click="goToRiskWarning">
-              进入风险预警与因果推理控制台 ➔
+              携带当前数据进入风险分析 ➔
             </button>
           </div>
         </div>
@@ -477,9 +558,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { renderBatchAnalysisCharts } from '~/composables/useBatchAnalysisCharts'
+import { buildIndividualProfile, parseMeasurement } from '~/utils/individualProfile'
+import { MEASUREMENTS, SAMPLE_OPTIONS, UNIT_OPTIONS, REFERENCE_RETRIEVED_AT, createIndividualMetadata } from '~/utils/individualReferences'
+import { createIndividualDemo } from '~/utils/individualDemo'
 import { 
   Coin, DataLine, TrendCharts, Share, DocumentChecked, Upload, DocumentAdd,
   CircleCheckFilled, InfoFilled, ArrowLeft, Male, Female, Avatar
@@ -488,16 +572,86 @@ import * as echarts from 'echarts'
 
 const router = useRouter()
 const currentStep = ref(1)
-const { getOutcomeConfigs, uploadBatchData, getDatasetAnalysis } = useApi()
+const { getOutcomeConfigs, uploadBatchData, getDatasetAnalysis, getCleaningSchema, getGroupDemo, importGroupDemo } = useApi()
 
-const formData = ref({
-  job: 'smelting', mode: 'batch',
-  singleData: {
-    name: '', gender: 'male', age: null, workYears: null,
-    pb: 1.24, cd: 0.89, hg: 0.12, th: 0.05, li: 0.18, cr: 0.34, ni: 0.45, co: 0.11, as: 1.05, rn: 15.0,
+const createEmptySingleData = () => ({
+    name: '', gender: '', age: null, workYears: null,
+    pb: null, cd: null, hg: null, th: null, li: null, cr: null, ni: null, co: null, as: null, rn: null,
     education: '', marital: '', smoking: '', drinking: '', bmi: null, ppe: '', history: ''
-  }
 })
+const formData = ref({
+  job: 'smelting', mode: 'batch', singleData: createEmptySingleData()
+})
+
+const individualMetadata = ref(createIndividualMetadata())
+const individualGenderConfirmed = ref(false)
+const predictionState = usePredictionState()
+const individualProfile = computed(() => buildIndividualProfile(formData.value.singleData, individualMetadata.value))
+const applicableReferenceRows = computed(() => individualProfile.value.rows.filter(row => row.reference && row.metadata.confirmed !== false))
+const measurementRow = (key) => individualProfile.value.rows.find(row => row.key === key)
+const singleDashboardRef = ref(null)
+const demoSource = ref(false)
+const demoSnapshot = ref('')
+const individualSnapshot = () => JSON.stringify({ job: formData.value.job, singleData: formData.value.singleData, metadata: individualMetadata.value, genderConfirmed: individualGenderConfirmed.value })
+const demoEdited = computed(() => demoSource.value && individualSnapshot() !== demoSnapshot.value)
+const hasIndividualInput = computed(() => {
+  const empty = createEmptySingleData()
+  return individualGenderConfirmed.value || Object.entries(formData.value.singleData).some(([key, value]) => value !== empty[key]) ||
+    JSON.stringify(individualMetadata.value) !== JSON.stringify(createIndividualMetadata())
+})
+const confirmInputReplacement = async (action) => {
+  if (!hasIndividualInput.value) return true
+  try {
+    await ElMessageBox.confirm(`${action}会替换当前单人档案和测量口径。当前内容尚未保存，是否继续？`, '确认替换单人数据', {
+      confirmButtonText: '确认替换', cancelButtonText: '保留当前数据', type: 'warning', closeOnClickModal: false
+    })
+    return true
+  } catch { return false }
+}
+const fillIndividualDemo = async () => {
+  if (demoSource.value && !demoEdited.value) {
+    await runAnalysis()
+    return
+  }
+  if (!await confirmInputReplacement('填入合成示例')) return
+  const demo = createIndividualDemo()
+  formData.value.job = demo.job
+  formData.value.singleData = demo.singleData
+  individualMetadata.value = demo.metadata
+  individualGenderConfirmed.value = true // Explicit synthetic fixture, not a default for real records.
+  demoSnapshot.value = individualSnapshot()
+  demoSource.value = true
+  await runAnalysis()
+  ElMessage.success('已填入合成示例并生成画像；非真实人员检测记录。')
+}
+const clearIndividualInput = async () => {
+  if (!await confirmInputReplacement('清空')) return
+  disposeSingleCharts()
+  formData.value.singleData = createEmptySingleData()
+  individualMetadata.value = createIndividualMetadata()
+  individualGenderConfirmed.value = false
+  demoSource.value = false
+  demoSnapshot.value = ''
+  showDashboard.value = false
+  currentStep.value = 1
+}
+const individualGroups = [
+  { id: 'core', title: '元素实测指标 (8种)', fields: MEASUREMENTS.slice(0, 8) },
+  { id: 'companion', title: '伴生元素与环境指标', fields: MEASUREMENTS.slice(8) }
+]
+const sampleLabel = (sample) => SAMPLE_OPTIONS.find(item => item.value === sample)?.label || '样本未指定'
+const rawMeasurement = (row) => row.raw === null || row.raw === undefined || row.raw === '' ? '未录入' : String(row.raw)
+const handleMetadataChange = (key) => {
+  // Never rewrite or reinterpret the measured number after changing its metadata.
+  if (parseMeasurement(formData.value.singleData[key]).state === 'valid') {
+    individualMetadata.value[key].confirmed = false
+    ElMessage.info('原数字未改变。请核对并确认此数值的样本、单位及适用情境。')
+  }
+}
+const handleMeasurementInput = (key) => {
+  if (parseMeasurement(formData.value.singleData[key]).state === 'missing') individualMetadata.value[key].confirmed = true
+}
+const confirmMetadata = (key) => { individualMetadata.value[key].confirmed = true }
 
 const outcomeOptions = ref([
   {
@@ -518,8 +672,8 @@ const outcomeOptions = ref([
       { column: 'DEMO_J__DMDEDUC2', label: '教育程度' },
       { column: 'DEMO_J__DMDMARTL', label: '婚姻状况' },
       { column: 'DEMO_J__INDFMPIR', label: '家庭收入贫困比' },
-      { column: 'SMQ_J__SMQ020', label: '吸烟状态' },
-      { column: 'ALQ_J__ALQ111', label: '饮酒状态' }
+      { column: 'SMQ_J__SMQ020', label: '终生吸烟 ≥100支' },
+      { column: 'ALQ_J__ALQ111', label: '终生曾饮酒 ≥1杯' }
     ]
   }
 ])
@@ -527,18 +681,108 @@ const selectedOutcomeId = ref('blood_pressure')
 const selectedOutcome = computed(() =>
   outcomeOptions.value.find(item => item.id === selectedOutcomeId.value)
 )
+const batchFormatSchema = ref(null)
+const batchFormatLoading = ref(false)
+const batchFormatError = ref('')
+const batchImportError = ref('')
+let formatRequestVersion = 0
+const loadBatchFormat = async () => {
+  const version = ++formatRequestVersion
+  batchFormatSchema.value = null
+  batchFormatError.value = ''
+  batchFormatLoading.value = true
+  try {
+    const result = await getCleaningSchema(selectedOutcomeId.value)
+    if (version !== formatRequestVersion) return
+    if (result.success) batchFormatSchema.value = result.data
+    else batchFormatError.value = result.error || '无法读取字段规范。'
+  } catch { if (version === formatRequestVersion) batchFormatError.value = '无法读取字段规范，请检查后端服务。' }
+  finally { if (version === formatRequestVersion) batchFormatLoading.value = false }
+}
+const downloadBatchTemplate = () => {
+  if (!batchFormatSchema.value) return
+  // Column headers only: no invented patients, measurements or categorical codes.
+  const columns = batchFormatSchema.value.required_columns
+  const csv = '\uFEFF' + columns.map(column => '"' + String(column).replace(/"/g, '""') + '"').join(',') + '\r\n'
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `group_${selectedOutcomeId.value}_columns.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+watch(selectedOutcomeId, loadBatchFormat)
 const fileInputRef = ref(null)
 const selectedFile = ref(null)
-const hasFile = computed(() => Boolean(selectedFile.value))
+const hasFile = computed(() => Boolean(selectedFile.value || groupDemoSource.value))
 const uploadResult = ref(null)
 const analysisData = ref(null)
 const isAnalyzing = ref(false)
 const showDashboard = ref(false)
 
+// PUBLIC_GROUP_DEMO_START: fixed server-side public records, not synthetic form values.
+const groupDemoInfo = ref(null)
+const groupDemoSource = ref(null)
+const groupDemoLoading = ref(false)
+const groupDemoRunning = ref(false)
+const groupDemoError = ref('')
+const groupDashboardRef = ref(null)
+const loadGroupDemo = async () => {
+  groupDemoLoading.value = true
+  groupDemoError.value = ''
+  try {
+    const response = await getGroupDemo()
+    if (response.success) groupDemoInfo.value = response.data
+    else { groupDemoInfo.value = null; groupDemoError.value = response.error || '服务器公开样本暂不可用。' }
+  } catch { groupDemoInfo.value = null; groupDemoError.value = '无法读取公开样本来源，请检查后端服务。' }
+  finally { groupDemoLoading.value = false }
+}
+const fillGroupDemo = async () => {
+  if (isAnalyzing.value || groupDemoRunning.value || !groupDemoInfo.value) return
+  groupDemoRunning.value = true
+  groupDemoError.value = ''
+  let committed = false
+  try {
+    if (selectedFile.value || uploadResult.value || analysisData.value || groupDemoSource.value) {
+      try {
+        await ElMessageBox.confirm('公开样本分析成功后，将替换当前群体输入与图表展示；已有服务器分析记录不会删除。是否继续？', '切换到公开数据体验', {
+          confirmButtonText: '使用公开样本', cancelButtonText: '保留当前数据', type: 'warning', closeOnClickModal: false
+        })
+      } catch { return }
+    }
+    isAnalyzing.value = true
+    const response = await importGroupDemo()
+    if (!response.success) { groupDemoError.value = response.error || '公开样本载入失败；当前数据未被替换。'; return }
+    const payload = response.data
+    if (!payload?.import_result?.file_id || !payload?.analysis?.kpis || !payload?.provenance?.id) {
+      groupDemoError.value = '公开样本响应不完整；当前输入和图表已保留。'
+      return
+    }
+    // Commit only after the genuine import+analysis has succeeded; preserve old input on any failure.
+    selectedFile.value = null
+    selectedOutcomeId.value = payload.import_result.outcome_id
+    uploadResult.value = payload.import_result
+    analysisData.value = payload.analysis
+    groupDemoSource.value = payload.provenance
+    committed = true
+    batchImportError.value = ''
+    showDashboard.value = true
+    currentStep.value = 2
+    await nextTick()
+    initBatchECharts()
+    groupDashboardRef.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    ElMessage.success(`已载入 ${formatNumber(payload.import_result.analysis_records)} 人的 NHANES 公开子样本；不是模拟记录。`)
+  } catch { groupDemoError.value = committed ? '公开样本已载入，但图表渲染失败；请刷新页面或检查浏览器。' : '公开样本分析请求失败；当前输入和已有效分析未被替换。' }
+  finally { isAnalyzing.value = false; groupDemoRunning.value = false }
+}
+// PUBLIC_GROUP_DEMO_END
+
 const activeFilter = ref('all')
 const toggleFilter = (status) => { activeFilter.value = activeFilter.value === status ? 'all' : status }
 
 const handleModeChange = (mode) => {
+  if (isAnalyzing.value || groupDemoRunning.value) return
+  if (formData.value.mode === 'single') disposeSingleCharts()
   formData.value.mode = mode
   showDashboard.value = false
 }
@@ -555,14 +799,16 @@ const formatFileSize = (bytes) => {
 }
 
 const openFilePicker = () => {
+  if (isAnalyzing.value || groupDemoRunning.value) return
   fileInputRef.value?.click()
 }
 
 const setSelectedFile = (file) => {
+  if (isAnalyzing.value || groupDemoRunning.value) return
   if (!file) return
   const extension = file.name.split('.').pop()?.toLowerCase()
-  if (!['csv', 'xlsx', 'xls'].includes(extension)) {
-    ElMessage.error('仅支持 CSV、XLSX 或 XLS 文件')
+  if (!['csv', 'xlsx'].includes(extension)) {
+    ElMessage.error('仅支持 CSV 或 XLSX 文件；旧 XLS 文件请先另存为 XLSX')
     return
   }
   if (file.size > 25 * 1024 * 1024) {
@@ -570,6 +816,8 @@ const setSelectedFile = (file) => {
     return
   }
   selectedFile.value = file
+  groupDemoSource.value = null
+  batchImportError.value = ''
   uploadResult.value = null
   analysisData.value = null
   showDashboard.value = false
@@ -585,6 +833,9 @@ const handleFileDrop = (event) => {
 }
 
 const resetSelectedFile = () => {
+  if (isAnalyzing.value || groupDemoRunning.value) return
+  groupDemoSource.value = null
+  batchImportError.value = ''
   selectedFile.value = null
   uploadResult.value = null
   analysisData.value = null
@@ -594,6 +845,9 @@ const resetSelectedFile = () => {
 }
 
 const handleOutcomeChange = () => {
+  if (isAnalyzing.value || groupDemoRunning.value) return
+  groupDemoSource.value = null
+  batchImportError.value = ''
   uploadResult.value = null
   analysisData.value = null
   showDashboard.value = false
@@ -611,6 +865,15 @@ const loadOutcomeConfigs = async () => {
 }
 
 const runAnalysis = async () => {
+  if (isAnalyzing.value || groupDemoRunning.value) return
+  if (formData.value.mode === 'batch' && groupDemoSource.value && analysisData.value) {
+    showDashboard.value = true
+    currentStep.value = 2
+    await nextTick()
+    initBatchECharts()
+    window.scrollTo({ top: 800, behavior: 'smooth' })
+    return
+  }
   if (formData.value.mode === 'batch' && !hasFile.value) {
     ElMessage.warning('请先上传群体数据文件')
     return
@@ -618,6 +881,7 @@ const runAnalysis = async () => {
 
   if (formData.value.mode === 'batch') {
     isAnalyzing.value = true
+    batchImportError.value = ''
     showDashboard.value = false
     try {
       const upload = await uploadBatchData(selectedFile.value, selectedOutcomeId.value)
@@ -626,13 +890,15 @@ const runAnalysis = async () => {
         const missingMessage = missing.length
           ? `；缺少字段：${missing.join('、')}`
           : ''
-        ElMessage.error(`${upload.error}${missingMessage}`)
+        batchImportError.value = `${upload.error}${missingMessage}`
+        ElMessage.error(batchImportError.value)
         return
       }
 
       uploadResult.value = upload.data
       const analysis = await getDatasetAnalysis(upload.data.file_id)
       if (!analysis.success) {
+        batchImportError.value = analysis.error || '统计分析结果获取失败'
         ElMessage.error(analysis.error || '统计分析结果获取失败')
         return
       }
@@ -645,6 +911,7 @@ const runAnalysis = async () => {
       initBatchECharts()
       window.scrollTo({ top: 800, behavior: 'smooth' })
     } catch (error) {
+      batchImportError.value = '群体数据分析失败，请检查后端服务和上传文件。'
       console.error('群体数据分析失败:', error)
       ElMessage.error('群体数据分析失败，请检查后端服务和上传文件')
     } finally {
@@ -653,21 +920,43 @@ const runAnalysis = async () => {
     return
   }
 
-  isAnalyzing.value = true
-  setTimeout(() => {
-    isAnalyzing.value = false
-    showDashboard.value = true
-    currentStep.value = 2
-    nextTick(() => {
-      initSingleECharts()
-      window.scrollTo({ top: 800, behavior: 'smooth' })
-    })
-  }, 1200)
+  showDashboard.value = true
+  currentStep.value = 2
+  await nextTick()
+  initSingleECharts()
+  if (individualProfile.value.counts.invalid) ElMessage.warning('存在非法输入；已保留原值，但不参与参考比较。')
+  singleDashboardRef.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
 }
 
-const goToRiskWarning = async () => { 
-  currentStep.value = 3 
-  await navigateTo('/risk') 
+const goToRiskWarning = async () => {
+  predictionState.invalidate()
+  if (formData.value.mode === 'batch') {
+    if (!uploadResult.value?.file_id) {
+      ElMessage.warning('请先成功导入群体数据；不能用页面示例代替真实数据文件。')
+      return
+    }
+    predictionState.batchIntake.value = { file_id: uploadResult.value.file_id, filename: uploadResult.value.filename }
+    currentStep.value = 3
+    await navigateTo('/risk?mode=batch')
+    return
+  }
+  const person = formData.value.singleData
+  const number = (value) => parseMeasurement(value).value
+  predictionState.batchIntake.value = null
+  predictionState.setIntake({
+    person: { id: person.name || '', age: number(person.age), gender: person.gender || null,
+      gender_confirmed: individualGenderConfirmed.value, bmi: number(person.bmi),
+      pb: number(person.pb), cd: number(person.cd), hg: number(person.hg) },
+    measurements: Object.fromEntries(['pb', 'cd', 'hg'].map(key => [key, {
+      sample: individualMetadata.value[key].sample, unit: individualMetadata.value[key].unit,
+      analyte: key === 'pb' ? 'lead' : key === 'cd' ? 'cadmium' : individualMetadata.value.hg.analyte,
+      confirmed: individualMetadata.value[key].confirmed,
+    }])),
+    // Old education/frequency labels do not define the training categories.
+    covariates: { education: null, marital: null, smoking: null, alcohol_any_past_year: null },
+  })
+  currentStep.value = 3
+  await navigateTo('/risk?mode=individual')
 }
 
 const goToHome = async () => {
@@ -1015,172 +1304,143 @@ const initBatchECharts = () => {
    ============================================== */
 let singleCharts = []
 
-const initSingleECharts = () => {
-  singleCharts.forEach(c => c.dispose())
+const disposeSingleCharts = () => {
+  singleCharts.forEach(chart => chart.dispose())
   singleCharts = []
-
-  // 1. 主图：相对暴露指数画像
-  const domMaster = document.getElementById('singleChartMaster')
-  if (domMaster) {
-    const chartMaster = echarts.init(domMaster)
-    const elements = ['Pb(铅)', 'Cd(镉)', 'Hg(汞)', 'Th(钍)', 'Li(锂)', 'Cr(铬)', 'Ni(镍)', 'Co(钴)', 'As(砷)', 'Rn(氡)']
-    const values = [124, 89, 24, 12, 18, 34, 65, 40, 105, 30]
-    chartMaster.setOption({
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: '{b}: {c}% 相对限值' },
-      grid: { left: '5%', right: '5%', bottom: '10%', top: '15%', containLabel: true },
-      xAxis: { type: 'category', data: elements, axisLabel: { fontWeight: 'bold' }, axisTick: { show: false } },
-      yAxis: { type: 'value', max: 150, splitLine: { lineStyle: { type: 'dashed' } } },
-      visualMap: { show: false, pieces: [{ gt: 0, lte: 50, color: '#34D399' }, { gt: 50, lte: 100, color: '#FBBF24' }, { gt: 100, color: '#EF4444' }] },
-      series: [{
-        name: '相对暴露指数', type: 'bar', barWidth: '40%', data: values, itemStyle: { borderRadius: [4, 4, 0, 0] },
-        label: { show: true, position: 'top', formatter: '{c}%', fontWeight: 'bold' },
-        markLine: {
-          silent: true, symbol: 'none', lineStyle: { width: 2, type: 'dashed' },
-          data: [
-            { yAxis: 50, lineStyle: { color: '#FBBF24' }, label: { formatter: '早期预警界限 (50%)', position: 'insideEndTop' } },
-            { yAxis: 100, lineStyle: { color: '#EF4444' }, label: { formatter: '危险超标界限 (100%)', position: 'insideEndTop' } }
-          ]
-        }
-      }]
-    })
-    singleCharts.push(chartMaster)
-  }
-
-  // 子图 1：雷达图
-  const domRadar = document.getElementById('singleChartRadar')
-  if (domRadar) {
-    const chartRadar = echarts.init(domRadar)
-    chartRadar.setOption({
-      tooltip: {}, legend: { bottom: 0, itemWidth: 12, itemHeight: 12 },
-      radar: { indicator: [{ name: 'Pb 铅', max: 150 }, { name: 'As 砷', max: 150 }, { name: 'Cd 镉', max: 100 }, { name: 'Hg 汞', max: 50 }, { name: 'Cr 铬', max: 50 }, { name: 'Ni 镍', max: 100 }], radius: '60%', center: ['50%', '45%'] },
-      series: [{
-        name: '暴露分布对比', type: 'radar',
-        data: [
-          { value: [124, 105, 89, 24, 34, 65], name: '受试者指标', areaStyle: { color: 'rgba(239, 68, 68, 0.3)' }, lineStyle: { color: '#EF4444' }, itemStyle: { color: '#EF4444' } },
-          { value: [100, 100, 100, 100, 100, 100], name: '临床安全阈值上限', areaStyle: { color: 'rgba(16, 185, 129, 0.1)' }, lineStyle: { color: '#10B981', type: 'dashed' }, itemStyle: { color: '#10B981' } }
-        ]
-      }]
-    })
-    singleCharts.push(chartRadar)
-  }
-
-  // 子图 2：折线图
-  const domTimeline = document.getElementById('singleChartTimeline')
-  if (domTimeline) {
-    const chartTimeline = echarts.init(domTimeline)
-    chartTimeline.setOption({
-      tooltip: { trigger: 'axis' }, legend: { top: 0, right: 0, itemWidth: 10, itemHeight: 10 },
-      grid: { left: '12%', right: '5%', bottom: '15%', top: '20%' },
-      xAxis: { type: 'category', boundaryGap: false, data: ['2022', '2023', '2024', '2025', '2026(今)'] },
-      yAxis: { type: 'value', max: 150, splitLine: { lineStyle: { type: 'dashed' } } },
-      series: [
-        { name: 'Pb 走势', type: 'line', data: [80, 95, 110, 118, 124], smooth: true, itemStyle: { color: '#EF4444' }, lineStyle: { width: 3 }, markArea: { itemStyle: { color: 'rgba(16, 185, 129, 0.1)' }, data: [ [{ yAxis: '0' }, { yAxis: '100' }] ] } },
-        { name: 'As 走势', type: 'line', data: [70, 85, 95, 102, 105], smooth: true, itemStyle: { color: '#F59E0B' }, lineStyle: { width: 3 } },
-        { name: 'Cd 走势', type: 'line', data: [45, 55, 68, 79, 89], smooth: true, itemStyle: { color: '#3B82F6' }, lineStyle: { width: 3 } }
-      ]
-    })
-    singleCharts.push(chartTimeline)
-  }
-
-  // 子图 3：条形图
-  const domPercentile = document.getElementById('singleChartPercentile')
-  if (domPercentile) {
-    const chartPercentile = echarts.init(domPercentile)
-    chartPercentile.setOption({
-      tooltip: { formatter: '{b} 处于全厂前 {c}% 水平' },
-      grid: { left: '15%', right: '10%', bottom: '15%', top: '10%' },
-      xAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { type: 'dashed' } } },
-      yAxis: { type: 'category', data: ['Cr', 'Ni', 'Cd', 'As', 'Pb'], axisTick: { show: false }, axisLabel: { fontWeight: 'bold' } },
-      series: [{
-        name: '百分位', type: 'bar', barWidth: '40%', data: [42, 68, 85, 92, 98],
-        itemStyle: { color: new echarts.graphic.LinearGradient(1, 0, 0, 0, [{ offset: 0, color: '#FCA5A5' }, { offset: 1, color: '#EF4444' }]), borderRadius: [0, 4, 4, 0] },
-        label: { show: true, position: 'right', formatter: '前 {c}%', fontWeight: 'bold' },
-        markLine: { silent: true, symbol: 'none', label: { formatter: '中位数\n(P50)', position: 'start' }, lineStyle: { color: '#64748B', type: 'dashed' }, data: [{ xAxis: 50 }] }
-      }]
-    })
-    singleCharts.push(chartPercentile)
-  }
-
-  // 子图 4：嵌套环形图
-  const domRiskPie = document.getElementById('singleChartRiskPie')
-  if (domRiskPie) {
-    const chartRiskPie = echarts.init(domRiskPie)
-    chartRiskPie.setOption({
-      tooltip: { trigger: 'item', formatter: '{a} <br/>{b}: {c} ({d}%)' },
-      series: [
-        {
-          name: '受累靶器官', type: 'pie', selectedMode: 'single', radius: [0, '40%'], label: { position: 'inner', fontSize: 11, color: '#fff', fontWeight: 'bold' }, labelLine: { show: false }, itemStyle: { borderColor: '#fff', borderWidth: 1 },
-          data: [ { value: 45, name: '神经系', itemStyle: { color: '#EF4444' } }, { value: 35, name: '泌尿系', itemStyle: { color: '#F59E0B' } }, { value: 20, name: '肝/心', itemStyle: { color: '#3B82F6' } } ]
-        },
-        {
-          name: '主导金属特征', type: 'pie', radius: ['50%', '75%'], itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 }, label: { formatter: '{b|{b}}\n{c}%', rich: { b: { fontSize: 12, fontWeight: 'bold' } } },
-          data: [ { value: 30, name: 'Pb 诱导', itemStyle: { color: '#FCA5A5' } }, { value: 15, name: 'Hg 协同', itemStyle: { color: '#F87171' } }, { value: 25, name: 'As 诱导', itemStyle: { color: '#FCD34D' } }, { value: 10, name: 'Cd 协同', itemStyle: { color: '#FBBF24' } }, { value: 12, name: 'Cd 蓄积', itemStyle: { color: '#93C5FD' } }, { value: 8, name: 'Cr/Ni', itemStyle: { color: '#60A5FA' } } ]
-        }
-      ]
-    })
-    singleCharts.push(chartRiskPie)
-  }
-
-  // 子图 5：特征标准化 Z-Score 偏离图 
-  const domZScore = document.getElementById('singleChartZScore')
-  if (domZScore) {
-    const chartZScore = echarts.init(domZScore)
-    chartZScore.setOption({
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      grid: { left: '15%', right: '10%', bottom: '15%', top: '15%' },
-      xAxis: { type: 'value', name: '偏离程度', splitLine: { lineStyle: { type: 'dashed' } } },
-      yAxis: { type: 'category', data: ['Cr', 'Ni', 'Cd', 'As', 'Pb'], axisTick: { show: false }, axisLabel: { fontWeight: 'bold' } },
-      series: [
-        {
-          name: '特异性偏离', type: 'bar', barWidth: '50%',
-          label: { show: true, position: 'right', formatter: '{c}' },
-          data: [
-            { value: -0.8, itemStyle: { color: '#34D399' }, label: { position: 'left' } },
-            { value: 0.3, itemStyle: { color: '#FBBF24' } },
-            { value: 1.5, itemStyle: { color: '#F87171' } },
-            { value: 2.1, itemStyle: { color: '#EF4444' } },
-            { value: 3.2, itemStyle: { color: '#B91C1C' } }
-          ]
-        }
-      ]
-    })
-    singleCharts.push(chartZScore)
-  }
-
-  // 子图 6：多维异常检测指数 (Gauge)
-  const domAnomaly = document.getElementById('singleChartAnomaly')
-  if (domAnomaly) {
-    const chartAnomaly = echarts.init(domAnomaly)
-    chartAnomaly.setOption({
-      tooltip: { formatter: '{a} <br/>{b} : {c}' },
-      series: [
-        {
-          name: '偏移指数', type: 'gauge',
-          center: ['50%', '60%'], radius: '80%',
-          min: 0, max: 20,
-          splitNumber: 4,
-          axisLine: {
-            lineStyle: {
-              width: 12,
-              color: [ [0.5, '#34D399'], [0.8, '#FBBF24'], [1, '#EF4444'] ]
-            }
-          },
-          pointer: { itemStyle: { color: 'auto' } },
-          axisTick: { distance: -12, length: 8, lineStyle: { color: '#fff', width: 2 } },
-          splitLine: { distance: -12, length: 20, lineStyle: { color: '#fff', width: 3 } },
-          axisLabel: { color: 'inherit', distance: 20, fontSize: 10 },
-          detail: { valueAnimation: true, formatter: '{value}', color: 'inherit', fontSize: 24, fontWeight: 'bold' },
-          data: [{ value: 16.4, name: '报警红区' }],
-          title: { offsetCenter: [0, '30%'], fontSize: 12, color: '#64748B', fontWeight: 'bold' }
-        }
-      ]
-    })
-    singleCharts.push(chartAnomaly)
-  }
 }
+const chartEmpty = (message) => ({
+  series: [],
+  graphic: [{ type: 'text', left: 'center', top: 'middle', style: { text: message, fill: '#64748B', font: '12px sans-serif', lineHeight: 20, textAlign: 'center' } }]
+})
+const escapeTooltip = (value) => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]))
+const preciseLabel = (value) => Number.isFinite(value) ? Number(value.toPrecision(5)).toString() : '不可计算'
+const measurementTooltip = (row) => [
+  escapeTooltip(row.label),
+  '原始值：' + escapeTooltip(rawMeasurement(row)) + ' ' + escapeTooltip(row.metadata.unit || '单位未指定'),
+  '样本：' + escapeTooltip(sampleLabel(row.metadata.sample)),
+  row.ratio === null ? escapeTooltip(row.comparisonLabel) : '参考占比：' + preciseLabel(row.ratio) + '%',
+  row.reference ? escapeTooltip(row.reference.title) + '：' + row.reference.value + ' ' + escapeTooltip(row.reference.unit) : '暂无适用参考',
+  escapeTooltip(row.comparisonLabel)
+].join('<br/>')
+const initSingleECharts = () => {
+  const profile = individualProfile.value
+  const ratios = profile.comparable
+  const max = profile.scaleMax
+  const gradient = (reached) => new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+    { offset: 0, color: reached ? '#FCA5A5' : '#93C5FD' },
+    { offset: 1, color: reached ? '#EF4444' : '#3B82F6' }
+  ])
+  const render = (id, option) => {
+    const element = document.getElementById(id)
+    if (!element) return
+    let chart = echarts.getInstanceByDom(element)
+    if (!chart) { chart = echarts.init(element); singleCharts.push(chart) }
+    // Replacing all options removes stale data when a reference becomes inapplicable.
+    chart.setOption(option, { notMerge: true })
+  }
+  const ratioAxis = { type: 'value', max, axisLabel: { formatter: '{value}%' }, splitLine: { lineStyle: { type: 'dashed' } } }
+  const referenceLine = { silent: true, symbol: 'none', lineStyle: { color: '#64748B', type: 'dashed' }, data: [{ yAxis: 100, label: { position: 'insideMiddle', formatter: '参考100%' } }] }
+  render('singleChartMaster', {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: params => measurementTooltip(profile.rows[params[0].dataIndex]) },
+    grid: { left: '5%', right: '5%', bottom: '10%', top: '15%', containLabel: true },
+    xAxis: { type: 'category', data: profile.rows.map(row => row.label), axisLabel: { interval: 0, fontWeight: 'bold', fontSize: 10, formatter: (label, index) => label + '\n' + rawMeasurement(profile.rows[index]) + '\n' + (profile.rows[index].metadata.unit || '单位未指定') }, axisTick: { show: false } },
+    yAxis: ratioAxis,
+    series: ratios.length ? [{
+      name: '参考占比', type: 'bar', barWidth: '40%',
+      data: profile.rows.map(row => ({ value: row.ratio, itemStyle: { color: gradient(row.reached === true), borderRadius: [4, 4, 0, 0] } })),
+      label: { show: true, position: 'top', formatter: params => params.value === null ? '' : preciseLabel(params.value) + '%', fontWeight: 'bold' },
+      markLine: referenceLine
+    }] : [],
+    graphic: ratios.length ? [] : chartEmpty('暂无可比较指标\n原始数值与单位仍显示在横轴').graphic
+  })
+  render('singleChartRadar', ratios.length >= 3 ? {
+    tooltip: { formatter: () => ratios.map(measurementTooltip).join('<br/><br/>') },
+    legend: { bottom: 0, itemWidth: 12, itemHeight: 12 },
+    radar: { indicator: ratios.map(row => ({ name: row.label, max })), radius: '60%', center: ['50%', '45%'] },
+    series: [{ type: 'radar', data: [
+      { value: ratios.map(row => row.ratio), name: '实测参考占比', areaStyle: { color: 'rgba(239, 68, 68, 0.3)' }, lineStyle: { color: '#EF4444' }, itemStyle: { color: '#EF4444' } },
+      { value: ratios.map(() => 100), name: '各自参考值（非安全线）', areaStyle: { color: 'rgba(16, 185, 129, 0.1)' }, lineStyle: { color: '#10B981', type: 'dashed' }, itemStyle: { color: '#10B981' } }
+    ] }]
+  } : chartEmpty('雷达图至少需要3项可比较指标\n当前：' + ratios.length + '项；不以零填补'))
+  const conditionKeys = ['input', 'sample', 'unit', 'reference']
+  const conditionLabels = ['输入', '样本', '单位', '参考']
+  // These codes are categorical condition states, never substitute missing concentrations with zero.
+  const stateCodes = { pass: 1, missing: -1, incompatible: 0, pending: 2 }
+  const stateLabels = { pass: '可', missing: '空', incompatible: '×', pending: '待' }
+  const cells = profile.rows.flatMap((row, x) => conditionKeys.map((key, y) => [x, y, stateCodes[row.conditions[key].state]]))
+  render('singleChartTimeline', {
+    tooltip: { position: 'top', formatter: params => {
+      const [x, y] = params.data
+      return measurementTooltip(profile.rows[x]) + '<br/>' + conditionLabels[y] + '：' + escapeTooltip(profile.rows[x].conditions[conditionKeys[y]].reason)
+    } },
+    grid: { left: '15%', right: '4%', top: '10%', bottom: '20%' },
+    xAxis: { type: 'category', data: profile.rows.map(row => row.key.toUpperCase()), axisTick: { show: false } },
+    yAxis: { type: 'category', data: conditionLabels, axisTick: { show: false } },
+    visualMap: { show: false, pieces: [{ value: -1, color: '#F1F5F9' }, { value: 0, color: '#CBD5E1' }, { value: 1, color: '#93C5FD' }, { value: 2, color: '#DBEAFE' }] },
+    series: [{ type: 'heatmap', data: cells, label: { show: true, fontSize: 11, width: 12, overflow: 'truncate', align: 'center', color: '#334155', formatter: params => stateLabels[Object.keys(stateCodes).find(key => stateCodes[key] === params.value[2])] }, itemStyle: { borderColor: '#fff', borderWidth: 2 } }]
+  })
+  render('singleChartPercentile', ratios.length ? {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: params => measurementTooltip(profile.sorted[params[0].dataIndex]) },
+    grid: { left: '18%', right: '15%', bottom: '15%', top: '10%' },
+    xAxis: ratioAxis, yAxis: { type: 'category', inverse: true, data: profile.sorted.map(row => row.label), axisTick: { show: false }, axisLabel: { fontWeight: 'bold' } },
+    series: [{ name: '参考占比（非百分位）', type: 'bar', barWidth: '40%', data: profile.sorted.map(row => ({ value: row.ratio, itemStyle: { color: gradient(row.reached === true), borderRadius: [0, 4, 4, 0] } })), label: { show: true, position: 'right', formatter: params => preciseLabel(params.value) + '%', fontWeight: 'bold' },
+      markLine: { silent: true, symbol: 'none', lineStyle: { color: '#64748B', type: 'dashed' }, data: [{ xAxis: 100, label: { show: false } }] } }]
+  } : chartEmpty('暂无参考占比可排序\n不是群体百分位'))
+  const inputColors = { valid: '#3B82F6', missing: '#CBD5E1', invalid: '#EF4444' }
+  render('singleChartRiskPie', {
+    legend: { bottom: 0, selectedMode: false, itemWidth: 10, itemHeight: 10, icon: 'circle', textStyle: { color: '#64748B', fontSize: 11 }, data: ['有效', '缺失', '非法'], formatter: name => name + ' ' + profile.counts[{ '有效': 'valid', '缺失': 'missing', '非法': 'invalid' }[name]] + '项' },
+    // A separate centered summary does not follow a slice's angular label anchor.
+    graphic: [{ type: 'text', left: 'center', top: 'middle', silent: true, z: 100, style: {
+      text: '{count|' + profile.counts.valid + '/' + profile.counts.total + '}\n{caption|有效录入}',
+      align: 'center', verticalAlign: 'middle', rich: {
+        count: { fontSize: 23, fontWeight: 'bold', fill: '#1D4ED8', lineHeight: 30, align: 'center' },
+        caption: { fontSize: 11, fill: '#64748B', lineHeight: 20, align: 'center' }
+      }
+    } }],
+    tooltip: { trigger: 'item', formatter: params => {
+      if (params.seriesIndex === 1) return measurementTooltip(profile.rows[params.dataIndex])
+      return escapeTooltip(params.name) + '：' + params.value + '项（指标计数）'
+    } },
+    series: [
+      { name: '录入状态计数', type: 'pie', radius: ['33%', '47%'], label: { show: false }, labelLine: { show: false }, itemStyle: { borderColor: '#fff', borderWidth: 1 }, data: [
+        { value: profile.counts.valid, name: '有效', itemStyle: { color: inputColors.valid } },
+        { value: profile.counts.missing, name: '缺失', itemStyle: { color: inputColors.missing } },
+        { value: profile.counts.invalid, name: '非法', itemStyle: { color: inputColors.invalid } }
+      ].filter(item => item.value > 0) },
+      { name: '每项指标的录入状态', type: 'pie', radius: ['53%', '77%'], itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 }, label: { position: 'inside', formatter: '{b}', fontSize: 10, color: '#0F172A' }, labelLine: { show: false }, data: profile.rows.map(row => ({ value: 1, name: row.key.toUpperCase(), itemStyle: { color: inputColors[row.inputState] } })) }
+    ]
+  })
+  render('singleChartZScore', ratios.length ? {
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: params => measurementTooltip(ratios[params[0].dataIndex]) + '<br/>相对参考偏移：' + preciseLabel(ratios[params[0].dataIndex].offset) + '%' },
+    grid: { left: '18%', right: '18%', bottom: '15%', top: '15%' },
+    xAxis: { type: 'value', name: '相对参考偏移 (%)', nameLocation: 'middle', nameGap: 28, nameTextStyle: { fontSize: 11 }, splitLine: { lineStyle: { type: 'dashed' } } },
+    yAxis: { type: 'category', data: ratios.map(row => row.label), axisTick: { show: false }, axisLabel: { fontWeight: 'bold' } },
+    series: [{ name: '参考偏移（非Z-score）', type: 'bar', barWidth: '50%', data: ratios.map(row => ({ value: row.offset, itemStyle: { color: row.offset > 0 ? '#EF4444' : '#34D399' } })), label: { show: true, position: 'right', formatter: params => preciseLabel(params.value) + '%' } }]
+  } : chartEmpty('暂无可计算的参考偏移\n不是Z-score'))
+  render('singleChartAnomaly', profile.coverage === null ? chartEmpty('尚无有效测量\n覆盖率不可计算（不显示为0%）') : {
+    tooltip: { formatter: () => '可比较 ' + profile.counts.comparable + '项 / 有效录入 ' + profile.counts.valid + '项<br/>非医疗综合分；不表示安全或健康' },
+    series: [{
+      name: '已录入可比较覆盖率', type: 'gauge', center: ['50%', '60%'], radius: '80%', min: 0, max: 100, splitNumber: 4,
+      axisLine: { lineStyle: { width: 12, color: [[1, '#E2E8F0']] } },
+      progress: { show: true, width: 12, itemStyle: { color: '#3B82F6' } },
+      pointer: { show: false }, axisTick: { distance: -12, length: 8, lineStyle: { color: '#fff', width: 2 } },
+      splitLine: { distance: -12, length: 20, lineStyle: { color: '#fff', width: 3 } }, axisLabel: { color: '#64748B', distance: 20, fontSize: 10 },
+      detail: { offsetCenter: [0, '6%'], valueAnimation: true, formatter: value => preciseLabel(value) + '%', color: '#1D4ED8', fontSize: 24, fontWeight: 'bold' },
+      data: [{ value: profile.coverage, name: profile.counts.comparable + ' / ' + profile.counts.valid + '项（非医疗分）' }],
+      title: { offsetCenter: [0, '38%'], fontSize: 12, color: '#64748B', fontWeight: 'bold' }
+    }]
+  })
+}
+// Real-time single-profile updates only; batch requests/data/chart logic are untouched.
+watch(individualProfile, () => {
+  if (formData.value.mode !== 'single' || !showDashboard.value) return
+  initSingleECharts()
+}, { flush: 'post' })
 
 onMounted(() => {
   loadOutcomeConfigs()
+  loadBatchFormat()
+  loadGroupDemo()
   window.addEventListener('resize', handleResize)
 })
 
@@ -1198,6 +1458,11 @@ onBeforeUnmount(() => {
 
 <style lang="scss" scoped>
 @use "sass:color";
+.measurement-metadata { display: grid; gap: 6px; margin-top: 8px; select { width: 100%; min-width: 0; padding: 6px 4px; border: 1px solid #E2E8F0; border-radius: 4px; background: #F8FAFC; color: #475569; font-size: 11px; } }
+.metadata-confirm { padding: 6px; border: 1px solid #FBBF24; border-radius: 4px; background: #FFFBEB; color: #92400E; font-size: 11px; cursor: pointer; }
+.individual-caution { font-size: 12px; line-height: 1.7; color: #64748B; }
+.individual-reference-note { margin-top: 12px; font-size: 11px; line-height: 1.6; a { color: #1D4ED8; } p { margin: 4px 0; color: #64748B; } }
+.reference-sidebar .ref-card .ref-list .range.individual-reference-status { color: #64748B; }
 :deep(.el-icon svg) {
   max-width: 1em;
   max-height: 1em;
@@ -1218,7 +1483,7 @@ $color-danger: #F87171;
 
 .system-layout { display: flex; height: 100vh; background-color: $color-bg; font-family: 'Inter', -apple-system, sans-serif; overflow: hidden; }
 
-.main-content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; scroll-behavior: smooth; background: #F8FAFC;}
+.main-content { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow-y: auto; scroll-behavior: smooth; background: #F8FAFC;}
 
 .ep-header { 
   height: 64px; 
@@ -1290,8 +1555,8 @@ $color-danger: #F87171;
 
 .clean-clinical-card { background: #fff; border-radius: 12px; border: 1px solid $border-color; box-shadow: 0 4px 15px rgba(0,0,0,0.03); overflow: hidden; margin-bottom: 40px; }
 .card-layout-grid { display: flex; min-height: 400px; }
-.form-entry-area { flex: 2.2; padding: 40px; border-right: 1px solid $border-color; }
-.reference-sidebar { flex: 1; background: #F8FAFC; padding: 40px 30px; display: flex; flex-direction: column; justify-content: space-between; }
+.form-entry-area { flex: 2.2; min-width: 0; padding: 40px; border-right: 1px solid $border-color; }
+.reference-sidebar { flex: 1; min-width: 0; background: #F8FAFC; padding: 40px 30px; display: flex; flex-direction: column; justify-content: space-between; }
 
 .config-row { display: flex; gap: 40px; label { display: block; font-size: 0.95rem; font-weight: 700; color: $text-main; margin-bottom: 12px; } }
 .flex-2 { flex: 2; } .flex-1 { flex: 1; }
@@ -1333,11 +1598,11 @@ $color-danger: #F87171;
 }
 .outcome-selector {
   display: grid;
-  grid-template-columns: 100px minmax(260px, 360px) 1fr;
+  grid-template-columns: 80px minmax(0, 1fr);
   align-items: center;
   gap: 14px;
   .config-label { font-size: 0.95rem; font-weight: 800; color: $text-main; }
-  p { margin: 0; color: $text-muted; font-size: 0.85rem; line-height: 1.5; }
+  p { grid-column: 1 / -1; margin: 0; color: $text-muted; font-size: 0.85rem; line-height: 1.5; }
 }
 .field-role-summary { margin-top: 18px; padding-top: 16px; border-top: 1px dashed #CBD5E1; }
 .role-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 9px; }
@@ -1363,6 +1628,46 @@ $color-danger: #F87171;
   &.muted { border-color: #DDD6FE; color: #5B21B6; }
 }
 .hidden-file-input { display: none; }
+.group-demo-panel { margin-bottom: 20px; padding: 20px; border: 1px solid #cddff2; border-radius: 12px; background: linear-gradient(110deg, #f4f9ff, #fff); }
+.group-demo-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.group-demo-eyebrow { color: #4c80aa; font-size: 11px; letter-spacing: .8px; font-weight: 700; }
+.group-demo-heading h4 { margin: 8px 0; color: #233f5b; font-size: 17px; }
+.group-demo-heading p, .group-demo-details p { margin: 0; color: #64748b; font-size: 13px; line-height: 1.8; }
+.btn-group-demo { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 12px 16px; border: 0; border-radius: 8px; color: #fff; background: #267cbd; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.btn-group-demo:disabled { opacity: .55; cursor: not-allowed; }
+.group-demo-boundary { font-size: 12px; color: #64748b; line-height: 1.8; margin: 14px 0 0; }
+.group-demo-details { margin-top: 12px; border-top: 1px solid #e2ebf6; padding-top: 12px; }
+.group-demo-details summary { color: #397bae; font-weight: 700; font-size: 12px; cursor: pointer; }
+.group-demo-details p { margin-top: 12px; }
+.group-demo-details ul { margin: 10px 0; padding-left: 18px; color: #64748b; font-size: 12px; line-height: 1.85; }
+.group-demo-details li + li { margin-top: 5px; }
+.group-demo-sources { display: flex; gap: 8px 16px; flex-wrap: wrap; margin-top: 10px; }
+.group-demo-sources a { color: #2b79af; font-size: 12px; }
+.group-demo-error { font-size: 13px; line-height: 1.8; color: #a45543; margin-bottom: 0; }
+.group-demo-error button { color: #267cbd; font-size: 12px; background: transparent; border: 0; cursor: pointer; }
+.group-demo-active { font-size: 13px; font-weight: 650; color: #2a7c78; margin: 12px 0; }
+.group-demo-dashboard-source { display: flex; flex-direction: column; gap: 9px; padding: 18px 20px; border: 1px solid #d8e7f6; background: #f3f8fe; border-radius: 12px; margin-bottom: 20px; }
+.group-demo-dashboard-source strong { color: #2d638c; font-size: 15px; }
+.group-demo-dashboard-source span { color: #64748b; font-size: 13px; line-height: 1.8; }
+.batch-dashboard-container { scroll-margin-top: 88px; }
+.analysis-notes-details { border: 1px solid #dce7f2; background: #f8fbfe; border-radius: 9px; padding: 12px 16px; margin-bottom: 18px; }
+.analysis-notes-details summary { font-size: 12px; line-height: 1.8; color: #547493; cursor: pointer; }
+.analysis-notes-details .analysis-notes { margin-top: 12px; margin-bottom: 0; }
+.batch-format-guide {
+  margin-bottom: 20px; padding: 20px; border: 1px solid #DBEAFE; border-radius: 12px; background: #fff;
+  .format-guide-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  h4 { margin: 0 0 7px; font-size: 15px; color: #0F172A; font-weight: 800; }
+  p { margin: 0; color: #64748B; font-size: 12px; line-height: 1.7; }
+  ul { margin: 14px 0; padding-left: 18px; color: #475569; font-size: 12px; line-height: 1.85; }
+  li + li { margin-top: 5px; }
+  .format-template-button { padding: 8px 11px; background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; white-space: nowrap; &:disabled { opacity: .5; cursor: not-allowed; } }
+  .format-field-details { margin-top: 12px; summary { cursor: pointer; font-size: 12px; font-weight: 700; color: #1D4ED8; } }
+  .format-table-scroll { overflow-x: auto; margin-top: 12px; max-width: 100%; }
+  table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: left; th, td { padding: 8px; border-bottom: 1px solid #E2E8F0; } th { background: #F8FAFC; color: #475569; } code { font-size: 10px; white-space: nowrap; } }
+  .format-cleaning-entry { margin-top: 16px; padding-top: 13px; border-top: 1px dashed #DBEAFE; display: flex; flex-wrap: wrap; gap: 7px 12px; font-size: 12px; color: #64748B; a { font-weight: 700; color: #1D4ED8; } }
+  .format-schema-status { margin-top: 12px; }
+}
+.batch-import-error { margin: 0 0 18px; padding: 15px; border: 1px solid #FECACA; border-radius: 10px; background: #FEF2F2; font-size: 12px; color: #991B1B; p { overflow-wrap: anywhere; line-height: 1.7; } a { color: #1D4ED8; font-weight: 700; } }
 
 .upload-dragger { border: 2px dashed #CBD5E1; border-radius: 12px; padding: 60px; text-align: center; background: #F8FAFC; cursor: pointer; transition: all 0.3s; &:hover { border-color: $color-primary; background: #EFF6FF; } &.has-file { border-color: $color-safe; background: #ecfdf5; } .upload-icon { font-size: 2.5rem; color: #94A3B8; margin-bottom: 16px; } .upload-text { font-size: 1.1rem; font-weight: 700; color: $text-main; margin-bottom: 8px; } .upload-hint { font-size: 0.95rem; color: $text-muted; margin-bottom: 24px; &.success-text { color: #059669; } } .btn-upload { background: #fff; border: 1px solid $border-color; padding: 10px 24px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.95rem; color: $text-main; &.btn-reupload{ border-color: $color-safe; color: #059669;} } }
 
@@ -1516,6 +1821,55 @@ $color-danger: #F87171;
 /* 底部操作条 */
 .bottom-action-bar { display: flex; justify-content: space-between; align-items: center; background: #FFFFFF; padding: 24px 32px; border-radius: 12px; border: 1px solid $border-color; box-shadow: 0 4px 20px -5px rgba(0,0,0,0.05); .tips { display: flex; align-items: center; gap: 8px; color: $text-muted; font-size: 1rem; .el-icon { color: $color-primary; font-size: 1.4rem; } strong { color: $text-main; } } .btn-next-step { background: $color-primary; color: #FFFFFF; border: none; padding: 16px 32px; border-radius: 8px; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(31, 119, 180, 0.3); &:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(31, 119, 180, 0.4); background: color.adjust($color-primary, $lightness: -5%); } } }
 
+.single-page {
+  .main-content { min-width: 0; }
+  .page-container { padding: 30px 32px 80px; }
+  .single-intro { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 26px 30px; margin-bottom: 24px; border: 1px solid #DBEAFE; border-radius: 16px; background: linear-gradient(110deg, #EFF6FF, #F8FAFC 70%); h1 { font-size: clamp(20px, 1.6vw, 28px); color: #0F172A; margin: 8px 0 10px; font-weight: 800; } p { color: #64748B; font-size: 14px; line-height: 1.7; margin: 0; } }
+  .eyebrow { font-size: 10px; font-weight: 800; letter-spacing: 2px; color: #1F77B4; }
+  .single-intro-actions { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; > span { color: #64748B; font-size: 11px; } }
+  .btn-demo { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: none; border-radius: 9px; padding: 13px 20px; background: #1F77B4; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 10px #1F77B425; &:hover { background: #166596; } }
+  button:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid #93C5FD; outline-offset: 3px; }
+  .single-input-card { background: transparent; border: none; box-shadow: none; overflow: visible; }
+  .card-layout-grid { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 22px; align-items: start; min-height: 0; }
+  .form-entry-area { padding: 26px; background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; min-width: 0; box-shadow: 0 3px 12px #0F172A03; }
+  .config-row { gap: 20px; label { font-size: 13px; margin-bottom: 10px; } .config-group { min-width: 0; } }
+  .radio-cards { gap: 8px; }
+  .radio-card { font-size: 13px; padding: 10px 6px; }
+  .mode-switch button { font-size: 13px; white-space: nowrap; padding: 9px; }
+  .clinical-divider { margin: 24px 0; }
+  .demo-notice { display: flex; gap: 10px; padding: 13px 15px; margin-bottom: 24px; border-radius: 9px; border: 1px solid #BFDBFE; background: #EFF6FF; color: #1E40AF; .el-icon { flex-shrink: 0; margin-top: 2px; } strong { display: block; font-size: 13px; margin-bottom: 4px; } span { display: block; font-size: 12px; line-height: 1.7; color: #475569; } }
+  .form-section { margin-bottom: 28px; }
+  .section-heading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; }
+  .section-title { display: flex; align-items: center; border: none; padding: 0; margin: 0; font-size: 15px; font-weight: 800; gap: 9px; }
+  .section-number { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 7px; background: #EFF6FF; color: #1F77B4; font-size: 11px; }
+  .section-caption { font-size: 11px; color: #94A3B8; }
+  .clinical-input-item { min-width: 0; gap: 7px; .label { font-size: 12px; } .input-wrap { border-color: #DCE3EC; border-radius: 7px; input, select { min-width: 0; padding: 10px; font-size: 13px; } .unit { flex-shrink: 0; font-size: 11px; padding: 0 7px; } } }
+  .basic-profile-section .clinical-input-grid { gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .measurement-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .measurement-card { padding: 16px; border: 1px solid #E2E8F0; border-radius: 10px; background: #FAFCFF; .input-wrap { margin: 5px 0 3px; input { font-size: 18px; font-weight: 700; padding: 10px 12px; } } }
+  .measurement-heading { display: flex; align-items: center; justify-content: space-between; gap: 5px; .label { font-size: 14px; } }
+  .measurement-state { font-size: 10px; color: #64748B; background: #F1F5F9; border-radius: 4px; padding: 3px 5px; &.is-comparable { color: #1D4ED8; background: #DBEAFE; } }
+  .measurement-metadata { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 5px; select { font-size: 12px; border-radius: 6px; padding: 8px 5px; background: #fff; min-height: 34px; } .metadata-field { min-width: 0; display: grid; gap: 5px; > span { font-size: 10px; color: #64748B; } } .metadata-wide, .metadata-confirm { grid-column: 1 / -1; } }
+  .metadata-confirm { font-size: 12px; padding: 8px; }
+  .individual-caution { margin: 0; padding: 14px; border-radius: 8px; background: #F8FAFC; font-size: 11px; line-height: 1.8; }
+  .single-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; color: #94A3B8; font-size: 11px; > span { display: inline-flex; align-items: center; gap: 5px; } }
+  .btn-clear { background: #fff; border: 1px solid #CBD5E1; border-radius: 6px; padding: 8px 12px; color: #475569; font-size: 12px; cursor: pointer; flex-shrink: 0; &:hover { background: #F8FAFC; } }
+  .reference-sidebar { padding: 0; background: transparent; gap: 18px; position: sticky; top: 84px; justify-content: flex-start; min-width: 0; .ref-card, .action-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 22px; box-shadow: 0 3px 12px #0F172A03; h4 { font-size: 14px; } } .ref-card .ref-desc { font-size: 12px; line-height: 1.8; } .ref-card .ref-list li { gap: 8px; font-size: 12px; padding: 11px 0; .range { font-size: 12px; } } .action-card { order: -1; margin: 0; border-top: 3px solid #1F77B4; p { font-size: 12px; line-height: 1.8; margin-bottom: 16px; } .btn-analyze { background: #1F77B4; font-size: 13px; padding: 13px 10px; } } }
+  .input-progress { position: relative; margin: 20px 0 18px; strong { display: block; font-size: 32px; color: #0F172A; small { color: #94A3B8; font-size: 13px; font-weight: 500; } } > span { display: block; color: #64748B; font-size: 11px; margin: 5px 0 12px; } }
+  .input-progress-track { height: 5px; background: #F1F5F9; border-radius: 3px; overflow: hidden; i { display: block; height: 100%; background: #3B82F6; transition: width .25s; } }
+  .input-summary { display: grid; gap: 9px; font-size: 12px; color: #64748B; padding-bottom: 16px; margin-bottom: 14px; border-bottom: 1px solid #F1F5F9; span { display: flex; justify-content: space-between; } b { color: #334155; font-weight: 600; } }
+  .demo-summary, .demo-badge { color: #1D4ED8; font-size: 11px; background: #EFF6FF; border: 1px solid #DBEAFE; border-radius: 6px; padding: 7px 10px; }
+  .reference-empty { font-size: 12px; color: #64748B; line-height: 1.8; padding: 13px; background: #F8FAFC; border-radius: 8px; }
+  .reference-details { margin-top: 16px; summary { cursor: pointer; font-size: 12px; color: #1F77B4; line-height: 1.7; span { color: #94A3B8; font-size: 11px; margin-left: 8px; } } }
+  .individual-reference-note { font-size: 12px; padding-top: 12px; border-top: 1px solid #F1F5F9; strong { color: #334155; display: block; margin-bottom: 5px; } a { display: block; overflow-wrap: anywhere; } p { line-height: 1.8; } }
+  .single-results-heading { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: 14px; margin: 10px 0 24px; h2 { font-size: 23px; color: #0F172A; margin: 8px 0; font-weight: 800; } p { font-size: 12px; color: #64748B; margin: 0; } }
+  .single-dashboard-container { scroll-margin-top: 88px; .batch-charts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .b-chart-card { min-width: 0; } .b-c-header .sub-title { line-height: 1.7; font-size: 12px; } }
+}
+
+@media (max-width: 1350px) {
+  .single-page { .card-layout-grid { grid-template-columns: minmax(0, 1fr); } .reference-sidebar { position: static; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } .single-intro { align-items: flex-start; } .single-intro-actions { align-items: flex-start; } }
+}
+
 @media (max-width: 1200px) {
   .batch-charts-grid { grid-template-columns: 1fr 1fr; }
   .kpi-row { grid-template-columns: 1fr 1fr; }
@@ -1524,5 +1878,29 @@ $color-danger: #F87171;
   .clinical-input-grid { grid-template-columns: repeat(2, 1fr); }
   .outcome-selector { grid-template-columns: 100px 1fr; p { grid-column: 1 / -1; } }
   .bottom-action-bar { flex-direction: column; gap: 20px; align-items: stretch; .btn-next-step{ width: 100%; } }
+}
+
+@media (max-width: 1050px) {
+  .single-page { :deep(.sidebar) { display: none; } .page-container { padding: 24px; } .basic-profile-section .clinical-input-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+}
+
+@media (max-width: 720px) {
+  .single-page {
+    .page-container { padding: 20px 14px 60px; }
+    .nav-wrapper { padding: 0 16px; } .ep-right-zone, .back-link .divider, .page-title-top { display: none; }
+    .pipeline-steps { gap: 8px; margin-bottom: 20px; .step { font-size: 11px; gap: 5px; } .step-num { width: 20px; height: 20px; flex-shrink: 0; font-size: 10px; } .step-line { margin: 0; min-width: 10px; } }
+    .single-intro { flex-direction: column; padding: 22px; gap: 20px; h1 { font-size: 21px; line-height: 1.5; } p { font-size: 12px; } }
+    .single-intro-actions { width: 100%; .btn-demo { width: 100%; } > span { font-size: 10px; } }
+    .form-entry-area { padding: 20px 16px; }
+    .config-row { flex-direction: column; gap: 18px; }
+    .basic-profile-section .clinical-input-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .measurement-grid, .reference-sidebar, .single-dashboard-container .batch-charts-grid { grid-template-columns: minmax(0, 1fr); }
+    .section-caption { display: none; }
+    .measurement-card { padding: 16px; }
+    .single-form-footer { align-items: flex-start; > span { line-height: 1.7; } }
+    .single-dashboard-container .b-chart-card { padding: 18px 14px; }
+    .single-results-heading h2 { font-size: 20px; }
+    .bottom-action-bar { padding: 20px; .tips { font-size: 12px; line-height: 1.8; } .btn-next-step { font-size: 13px; padding: 13px; } }
+  }
 }
 </style>

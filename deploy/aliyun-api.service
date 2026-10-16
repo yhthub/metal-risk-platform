@@ -1,0 +1,57 @@
+# Install as a NEW zhiwei-api.service only; do not replace an old unit.
+# Root must create uid/gid 10001 `zhiwei` and verify the data mount first.
+[Unit]
+Description=Zhiwei dedicated low-memory website API
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/data/zhiwei
+
+[Service]
+Type=simple
+User=zhiwei
+Group=zhiwei
+WorkingDirectory=/data/zhiwei/releases/site_20261011_001/backend
+# Read by the system manager, not exposed on the command line or in source.
+EnvironmentFile=/data/zhiwei/private/deployment.env
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+Environment=UPLOAD_DIR=/data/zhiwei/private/uploads
+Environment=RAG_RETRIEVAL_MODE=bm25 RAG_MEDCPT_RERANK=false RAG_DENSE_ALLOW_EXACT_SCAN=false
+Environment=RAG_REQUIRE_RESTORE_RECEIPT=true
+Environment=RAG_REQUIRE_API_KEY=true RAG_ENABLE_UPLOAD_DOWNLOAD=false RAG_ENABLE_LEGACY_OLLAMA=false
+Environment=RAG_ALLOW_GENERAL_KNOWLEDGE_FALLBACK=true RAG_MAX_CONCURRENT_GENERATIONS=1
+Environment=CORS_ORIGINS=http://8.148.158.242
+Environment=BATCH_MAX_CONCURRENT_IMPORTS=1 BATCH_CACHE_MAX_DATASETS=2 BATCH_CACHE_MAX_BYTES=67108864
+Environment=BATCH_MAX_DATAFRAME_BYTES=33554432 BATCH_MAX_ROWS=10000 BATCH_MAX_COLUMNS=200 BATCH_MAX_CELLS=1000000
+Environment=HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+# Private env must use the actual host corpus path, not Docker's /data/corpus.
+ExecStart=/data/zhiwei/runtime/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 18000 --workers 1 --no-access-log --no-proxy-headers
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=60s
+TimeoutStopSec=30s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/data/zhiwei/private/uploads
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+LockPersonality=true
+CapabilityBoundingSet=
+MemoryMax=1G
+MemorySwapMax=0
+CPUQuota=100%
+TasksMax=64
+LimitNOFILE=4096
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zhiwei-api
+
+[Install]
+WantedBy=multi-user.target

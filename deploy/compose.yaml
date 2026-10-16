@@ -1,0 +1,152 @@
+name: occupational-health-rag
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/backend.Dockerfile
+      args:
+        INSTALL_MEDCPT: ${INSTALL_MEDCPT:-false}
+    restart: unless-stopped
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=256m"]
+    environment:
+      RAG_CORPUS_ROOT: /data/corpus
+      RAG_LLM_BASE_URL: http://llm:8000/v1
+      RAG_LLM_MODEL: ${RAG_LLM_MODEL:-Llama-3.1-8B}
+      RAG_LLM_API_KEY: ${RAG_LLM_API_KEY:?set the internal model key}
+      RAG_LLM_TIMEOUT_SECONDS: ${RAG_LLM_TIMEOUT_SECONDS:-180}
+      RAG_LLM_MAX_TOKENS: ${RAG_LLM_MAX_TOKENS:-768}
+      RAG_LLM_CONTEXT_CHARS: ${RAG_LLM_CONTEXT_CHARS:-18000}
+      # One source of truth: tokenizer budget and vLLM context must agree.
+      RAG_LLM_CONTEXT_WINDOW: ${VLLM_MAX_MODEL_LEN:-8192}
+      RAG_LLM_TOKENIZER_PATH: /models/llama
+      RAG_TOP_K: ${RAG_TOP_K:-8}
+      RAG_CANDIDATE_K: ${RAG_CANDIDATE_K:-32}
+      RAG_RETRIEVAL_MODE: hybrid
+      RAG_ALLOW_DEGRADED_RETRIEVAL: "false"
+      RAG_DENSE_BACKEND: faiss
+      RAG_DENSE_INDEX_PATH: /data/dense-index/${RAG_DENSE_INDEX_FILENAME:-medcpt_ivfpq.faiss}
+      RAG_DENSE_MAX_INDEX_BYTES: ${RAG_DENSE_MAX_INDEX_BYTES:-2147483648}
+      RAG_DENSE_NPROBE: ${RAG_DENSE_NPROBE:-32}
+      RAG_DENSE_TIMEOUT_SECONDS: ${RAG_DENSE_TIMEOUT_SECONDS:-20}
+      RAG_DENSE_ALLOW_EXACT_SCAN: "false"
+      RAG_EMBEDDING_DEVICE: cpu
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      HF_HOME: /tmp/huggingface
+      RAG_MAX_CONCURRENT_GENERATIONS: ${RAG_MAX_CONCURRENT_GENERATIONS:-1}
+      RAG_RATE_LIMIT_PER_MINUTE: ${RAG_RATE_LIMIT_PER_MINUTE:-20}
+      RAG_API_KEY: ${RAG_API_KEY:?set a strong application key}
+      RAG_REQUIRE_API_KEY: "true"
+      RAG_ENABLE_LEGACY_OLLAMA: "false"
+      CORS_ORIGINS: ${RAG_PUBLIC_ORIGIN:?set the exact HTTPS origin}
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - type: bind
+        source: ${RAG_CORPUS_HOST_PATH:?set a closed immutable corpus path}
+        target: /data/corpus
+        read_only: true
+        bind: {create_host_path: false}
+      - uploads:/data/uploads
+      - type: bind
+        source: ${RAG_DENSE_INDEX_HOST_PATH:?set a verified closed full-corpus dense index directory}
+        target: /data/dense-index
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${RAG_MODEL_HOST_PATH:?set verified local Hugging Face weights and tokenizer}
+        target: /models/llama
+        read_only: true
+        bind: {create_host_path: false}
+    expose: ["8000"]
+    networks: [private]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  llm:
+    # Intentionally mandatory: select/pin an image verified for the target CUDA/GPU, not latest.
+    image: ${VLLM_IMAGE:?pin a tested vLLM image tag or digest}
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    shm_size: 2gb
+    environment:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      HF_HOME: /cache/huggingface
+      VLLM_CACHE_ROOT: /cache/vllm
+      VLLM_NO_USAGE_STATS: "1"
+      DO_NOT_TRACK: "1"
+      RAG_LLM_API_KEY: ${RAG_LLM_API_KEY:?set the internal model key}
+    command:
+      - --model
+      - /models/llama
+      - --served-model-name
+      - ${RAG_LLM_MODEL:-Llama-3.1-8B}
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --api-key
+      - ${RAG_LLM_API_KEY:?set the internal model key}
+      - --dtype
+      - ${VLLM_DTYPE:-auto}
+      - --tensor-parallel-size
+      - ${VLLM_TENSOR_PARALLEL_SIZE:-1}
+      - --max-model-len
+      - ${VLLM_MAX_MODEL_LEN:-8192}
+      - --max-num-seqs
+      - ${VLLM_MAX_NUM_SEQS:-2}
+      - --gpu-memory-utilization
+      - ${VLLM_GPU_MEMORY_UTILIZATION:-0.85}
+    volumes:
+      - type: bind
+        source: ${RAG_MODEL_HOST_PATH:?set verified local Hugging Face weights}
+        target: /models/llama
+        read_only: true
+        bind: {create_host_path: false}
+      - model_cache:/cache
+    expose: ["8000"]
+    networks: [private]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: ${VLLM_GPU_COUNT:-1}
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,urllib.request; r=urllib.request.Request('http://127.0.0.1:8000/v1/models',headers={'Authorization':'Bearer '+os.environ['RAG_LLM_API_KEY']}); urllib.request.urlopen(r,timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      start_period: 180s
+      retries: 5
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/frontend.Dockerfile
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      RAG_API_KEY: ${RAG_API_KEY:?set a strong application key}
+      RAG_PUBLIC_ORIGIN: ${RAG_PUBLIC_ORIGIN:?set the exact HTTPS origin}
+      RAG_API_ORIGIN: http://api:8000
+      RAG_API_HOST: api
+    # Loopback only. A TLS/authenticated outer proxy is required before other users connect.
+    ports: ["127.0.0.1:${RAG_WEB_PORT:-8080}:8080"]
+    depends_on:
+      api: {condition: service_started}
+      llm: {condition: service_started}
+    networks: [private, edge]
+
+networks:
+  private: {internal: true}
+  edge: {}
+volumes:
+  uploads: {}
+  model_cache: {}

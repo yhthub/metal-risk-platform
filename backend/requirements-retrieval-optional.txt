@@ -1,0 +1,6 @@
+# Optional independent MedCPT retrieval; use a separately pinned runtime
+# compatible with the target CPU/CUDA. No package auto-downloads model weights.
+transformers>=4.45,<5
+torch>=2.4,<3
+numpy>=1.26,<3
+faiss-cpu>=1.12,<2

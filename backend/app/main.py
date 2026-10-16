@@ -4,8 +4,10 @@ from fastapi.staticfiles import StaticFiles
 import os
 import logging
 
-from .api import datainput, risk, causal, plan, agent
+from .api import datainput, data_cleaning, risk, prediction, causal, plan, agent
 from .services.data_service import UPLOAD_DIR
+from .security import ApiGuard, api_keys
+from .rag_config import env_bool
 
 # 配置日志
 logging.basicConfig(
@@ -21,26 +23,37 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# 配置CORS - 简化配置，确保跨域正常工作
+# 默认本地开发精确源；生产由同源HTTPS网关转发，不使用通配CORS。
+cors_origins = [value.strip() for value in os.getenv(
+    "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",") if value.strip()]
+if "*" in cors_origins:
+    raise RuntimeError("CORS_ORIGINS must contain explicit origins, not '*'")
+if env_bool("RAG_REQUIRE_API_KEY") and not api_keys():
+    raise RuntimeError("Production RAG requires a configured non-empty API key")
+app.middleware("http")(ApiGuard())
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 允许所有源
+    allow_origins=cors_origins,
     allow_credentials=False,  # 使用 * 时必须为 False
     allow_methods=["*"],  # 允许所有方法
     allow_headers=["*"],  # 允许所有头
 )
 
-logger.info("CORS 已配置为允许所有源访问")
+logger.info("CORS 已配置为明确指定的访问源")
 
 # 确保上传目录存在
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # 挂载静态文件目录
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+if env_bool("RAG_ENABLE_UPLOAD_DOWNLOAD"):
+    # Off by default: a directory of health records must not become public.
+    app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-# 注册路由
+# 注册路由；清洗接口沿用全局认证保护，不暴露原始上传文件目录。
 app.include_router(datainput.router)
+app.include_router(data_cleaning.router)
 app.include_router(risk.router)
+app.include_router(prediction.router)
 app.include_router(causal.router)
 app.include_router(plan.router)
 app.include_router(agent.router)
@@ -60,7 +73,7 @@ async def root():
         "api_prefix": "/api",
         "modules": [
             {"name": "数据接入", "prefix": "/api/datainput", "description": "职业暴露数据的结构化录入与批量导入"},
-            {"name": "风险量化", "prefix": "/api/risk", "description": "基于20种预训练模型的风险评估与预警"},
+            {"name": "指标估计", "prefix": "/api/risk", "description": "NHANES v5真实CPU模型：12项当次连续指标估计，非疾病概率或因果效应"},
             {"name": "因果推理", "prefix": "/api/causal", "description": "全景DAG可视化与反事实推演"},
             {"name": "干预策略", "prefix": "/api/plan", "description": "个人化干预方案生成与成效预测"},
             {"name": "RAG问答", "prefix": "/api/agent", "description": "知识库智能问答与决策溯源"}
@@ -75,6 +88,7 @@ async def health_check():
     """
     return {
         "status": "healthy",
+        "scope": "process_liveness_only; use authenticated /api/agent/status for RAG readiness",
         "service": "occupational-health-api",
         "version": "1.0.0"
     }
@@ -100,10 +114,12 @@ async def api_info():
             },
             "risk": {
                 "models": "GET /api/risk/models - 获取可用模型",
-                "assess": "POST /api/risk/assess - 执行风险评估",
-                "high_risk": "GET /api/risk/high-risk/{assessment_id} - 高危人员名单",
-                "detail": "GET /api/risk/detail/{assessment_id} - 评估详情",
-                "report": "GET /api/risk/report/{assessment_id} - 生成报告"
+                "status": "GET /api/risk/status - 真实模型就绪状态及输入契约",
+                "demo": "GET /api/risk/demo - 明确标记的合成单人输入",
+                "predict": "POST /api/risk/predict - 一次估计12项当次指标",
+                "dashboard": "POST /api/risk/dashboard - 原风险图表的真实模型解释及条件输入响应",
+                "batch": "POST /api/risk/predict-batch - 已导入群体数据的分页真实预测",
+                "legacy": "原模拟评估/高危/因果报告接口已停用，不再返回固定假数据"
             },
             "causal": {
                 "dag": "GET /api/causal/dag - 获取DAG数据",

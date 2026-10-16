@@ -1,0 +1,103 @@
+# Separate project: does not replace the old site's containers or publish API/model ports.
+name: occupational-health-aliyun
+services:
+  api:
+    image: ${ALIYUN_API_IMAGE:?set a pre-built versioned API image}
+    restart: unless-stopped
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    pids_limit: 128
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 1.0
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=128m"]
+    environment:
+      RAG_CORPUS_ROOT: /data/corpus
+      RAG_RETRIEVAL_MODE: bm25
+      RAG_MEDCPT_RERANK: "false"
+      RAG_ALLOW_DEGRADED_RETRIEVAL: "false"
+      RAG_DENSE_ALLOW_EXACT_SCAN: "false"
+      RAG_LLM_PROVIDER: ${RAG_LLM_PROVIDER:?set ollama or openai_compatible}
+      RAG_LLM_BASE_URL: ${RAG_LLM_BASE_URL:?set the existing reachable external model URL}
+      RAG_LLM_MODEL: ${RAG_LLM_MODEL:?set the actual model name offered by that service}
+      RAG_LLM_API_KEY: ${RAG_LLM_API_KEY:-}
+      RAG_LLM_TIMEOUT_SECONDS: ${RAG_LLM_TIMEOUT_SECONDS:-180}
+      RAG_LLM_MAX_TOKENS: ${RAG_LLM_MAX_TOKENS:-512}
+      RAG_LLM_CONTEXT_CHARS: ${RAG_LLM_CONTEXT_CHARS:-3500}
+      RAG_LLM_CONTEXT_WINDOW: ${RAG_LLM_CONTEXT_WINDOW:-4096}
+      RAG_TOP_K: ${RAG_TOP_K:-2}
+      RAG_CANDIDATE_K: ${RAG_CANDIDATE_K:-8}
+      RAG_RETRIEVAL_TIMEOUT_SECONDS: ${RAG_RETRIEVAL_TIMEOUT_SECONDS:-8}
+      RAG_MAX_CONCURRENT_GENERATIONS: "1"
+      RAG_ALLOW_GENERAL_KNOWLEDGE_FALLBACK: "true"
+      RAG_API_KEY: ${RAG_API_KEY:?set the shared application access token}
+      RAG_REQUIRE_API_KEY: "true"
+      RAG_ENABLE_LEGACY_OLLAMA: "false"
+      RAG_ENABLE_UPLOAD_DOWNLOAD: "false"
+      RAG_RATE_LIMIT_PER_MINUTE: ${RAG_RATE_LIMIT_PER_MINUTE:-20}
+      CORS_ORIGINS: ${RAG_PUBLIC_ORIGIN:?set the exact existing public origin}
+      UPLOAD_DIR: /data/uploads
+      BATCH_MAX_CONCURRENT_IMPORTS: "1"
+      BATCH_CACHE_MAX_DATASETS: "2"
+      BATCH_CACHE_MAX_BYTES: "67108864"
+      BATCH_MAX_DATAFRAME_BYTES: "33554432"
+      BATCH_MAX_ROWS: "10000"
+      BATCH_MAX_COLUMNS: "200"
+      BATCH_MAX_CELLS: "1000000"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+    volumes:
+      - type: bind
+        source: ${RAG_CORPUS_HOST_PATH:?set the closed immutable export root}
+        target: /data/corpus
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${RAG_UPLOADS_HOST_PATH:?set the existing app-owned private uploads directory}
+        target: /data/uploads
+        bind: {create_host_path: false}
+    expose: ["8000"]
+    networks: [application]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=3).read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}
+
+  web:
+    image: ${ALIYUN_WEB_IMAGE:?set a pre-built versioned static frontend image}
+    restart: unless-stopped
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 64
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    tmpfs:
+      - /etc/nginx/conf.d:rw,noexec,nosuid,size=8m
+      - /var/cache/nginx:rw,noexec,nosuid,size=16m
+      - /var/run:rw,noexec,nosuid,size=8m
+      - /tmp:rw,noexec,nosuid,size=16m
+    environment:
+      RAG_API_KEY: ${RAG_API_KEY:?set the shared application access token}
+      RAG_PUBLIC_ORIGIN: ${RAG_PUBLIC_ORIGIN:?set the exact existing public origin}
+      RAG_API_ORIGIN: http://api:8000
+      RAG_API_HOST: api
+    ports: ["127.0.0.1:${RAG_WEB_PORT:-8080}:8080"]
+    depends_on:
+      api: {condition: service_healthy}
+    networks: [application]
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}
+
+networks:
+  # NOT internal:true: api needs outbound access to the existing external model.
+  # No host networking, privileged mode, or changes to existing containers.
+  application: {}

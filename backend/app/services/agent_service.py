@@ -250,7 +250,6 @@ async def process_chat(request: ChatRequest) -> ChatResponse:
             system_prompt=sys_prompt,
             model=target_model,
             temperature=0.4,
-            timeout=180
             timeout=120
         )
         if llm_res.get("success") and llm_res.get("answer"):

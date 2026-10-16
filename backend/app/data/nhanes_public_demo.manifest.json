@@ -1,0 +1,264 @@
+{
+  "id": "nhanes_2017_2018_public_adults_300",
+  "title": "NHANES 2017–2018 公开成人数据体验",
+  "cycle": "2017–2018",
+  "outcome_id": "blood_pressure",
+  "rows": 300,
+  "columns": [
+    "SEQN",
+    "BPXO_J__BPXOSY1",
+    "BPXO_J__BPXOSY2",
+    "BPXO_J__BPXOSY3",
+    "BPXO_J__BPXODI1",
+    "BPXO_J__BPXODI2",
+    "BPXO_J__BPXODI3",
+    "PBCD_J__LBXBPB",
+    "PBCD_J__LBXBCD",
+    "PBCD_J__LBXTHG",
+    "PBCD_J__LBXBSE",
+    "PBCD_J__LBXBMN",
+    "DEMO_J__RIDAGEYR",
+    "DEMO_J__RIAGENDR",
+    "DEMO_J__RIDRETH3",
+    "DEMO_J__DMDEDUC2",
+    "DEMO_J__DMDMARTL",
+    "DEMO_J__INDFMPIR",
+    "SMQ_J__SMQ020",
+    "ALQ_J__ALQ111",
+    "DEMO_J__WTMEC2YR",
+    "DEMO_J__SDMVPSU",
+    "DEMO_J__SDMVSTRA"
+  ],
+  "required_columns": [
+    "SEQN",
+    "BPXO_J__BPXOSY1",
+    "BPXO_J__BPXOSY2",
+    "BPXO_J__BPXOSY3",
+    "BPXO_J__BPXODI1",
+    "BPXO_J__BPXODI2",
+    "BPXO_J__BPXODI3",
+    "PBCD_J__LBXBPB",
+    "PBCD_J__LBXBCD",
+    "PBCD_J__LBXTHG",
+    "PBCD_J__LBXBSE",
+    "PBCD_J__LBXBMN",
+    "DEMO_J__RIDAGEYR",
+    "DEMO_J__RIAGENDR",
+    "DEMO_J__RIDRETH3",
+    "DEMO_J__DMDEDUC2",
+    "DEMO_J__DMDMARTL",
+    "DEMO_J__INDFMPIR",
+    "SMQ_J__SMQ020",
+    "ALQ_J__ALQ111"
+  ],
+  "eligible_records": 3739,
+  "joined_records": 9254,
+  "source_kind": "local_csv_exports_of_public_nhanes_components",
+  "source_files": [
+    {
+      "file": "DEMO_J.csv",
+      "sha256": "b8c23d58d7a2b7bfec5736de17438279b2681103581f5be0d5c76ba54aa18557",
+      "rows": 9254,
+      "allowlisted_source_columns": [
+        "SEQN",
+        "RIDAGEYR",
+        "RIAGENDR",
+        "RIDRETH3",
+        "DMDEDUC2",
+        "DMDMARTL",
+        "INDFMPIR",
+        "WTMEC2YR",
+        "SDMVPSU",
+        "SDMVSTRA"
+      ]
+    },
+    {
+      "file": "BPXO_J.csv",
+      "sha256": "a4f7cd61d7dcb0d021f0f6bae0098e8b909dcdc92ca793272cfd838991a975b7",
+      "rows": 7132,
+      "allowlisted_source_columns": [
+        "SEQN",
+        "BPXOSY1",
+        "BPXOSY2",
+        "BPXOSY3",
+        "BPXODI1",
+        "BPXODI2",
+        "BPXODI3"
+      ]
+    },
+    {
+      "file": "PBCD_J.csv",
+      "sha256": "abf3f1ac40dba66c10eb478a2d73afff899fa48275903e3a00c41c32cac7ae5f",
+      "rows": 8366,
+      "allowlisted_source_columns": [
+        "SEQN",
+        "LBXBPB",
+        "LBXBCD",
+        "LBXTHG",
+        "LBXBSE",
+        "LBXBMN"
+      ]
+    },
+    {
+      "file": "SMQ_J.csv",
+      "sha256": "590c14a16e986c7204fef9b3472546bfe066397c11c5fda7f81f281a9627a7d4",
+      "rows": 6724,
+      "allowlisted_source_columns": [
+        "SEQN",
+        "SMQ020"
+      ]
+    },
+    {
+      "file": "ALQ_J.csv",
+      "sha256": "de0b3805e6512287d547ba57fb30b56f8ed919df071e5bcedce0c1293f528c11",
+      "rows": 5533,
+      "allowlisted_source_columns": [
+        "SEQN",
+        "ALQ111"
+      ]
+    }
+  ],
+  "source_links": [
+    {
+      "label": "NHANES 2017–2018 人口学与调查设计",
+      "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/DEMO_J.htm"
+    },
+    {
+      "label": "NHANES 2017–2018 振荡式血压方法比较研究",
+      "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/BPXO_J.htm"
+    },
+    {
+      "label": "NHANES 2017–2018 血液铅、镉、汞、硒与锰",
+      "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/PBCD_J.htm"
+    },
+    {
+      "label": "NHANES 2017–2018 吸烟问卷",
+      "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/SMQ_J.htm"
+    },
+    {
+      "label": "NHANES 2017–2018 饮酒问卷",
+      "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/ALQ_J.htm"
+    }
+  ],
+  "sample_filename": "NHANES_2017-2018_public_adults_300.csv",
+  "sample_sha256": "eb3f0fa05f721fc95f96c30abcefb9c34751c6fa7a83648841e696a697bb2751",
+  "sample_bytes": 39620,
+  "sample_matrix_sha256": "9c79bce9cd89584c77cac92b051d2317ab06e52fc3b0d518c2ee04640c132016",
+  "selection": {
+    "sort": "public numeric SEQN ascending; retain DEMO source SEQN string in output",
+    "limit": 300,
+    "steps": [
+      {
+        "stage": "adult_age_at_least_18",
+        "before": 9254,
+        "after": 5856,
+        "removed": 3398
+      },
+      {
+        "stage": "all_23_allowlisted_fields_present_and_finite",
+        "before": 5856,
+        "after": 3772,
+        "removed": 2084
+      },
+      {
+        "stage": "exclude_unverified_tiny_export_marker_without_recoding",
+        "before": 3772,
+        "after": 3742,
+        "removed": 30
+      },
+      {
+        "stage": "all_three_sbp_readings_within_existing_analysis_bounds",
+        "before": 3742,
+        "after": 3742,
+        "removed": 0
+      },
+      {
+        "stage": "all_three_dbp_readings_within_existing_analysis_bounds",
+        "before": 3742,
+        "after": 3742,
+        "removed": 0
+      },
+      {
+        "stage": "all_three_pairs_sbp_above_dbp",
+        "before": 3742,
+        "after": 3742,
+        "removed": 0
+      },
+      {
+        "stage": "official_known_categorical_codes_only",
+        "before": 3742,
+        "after": 3739,
+        "removed": 3
+      },
+      {
+        "stage": "nonnegative_concentrations_and_income_ratio",
+        "before": 3739,
+        "after": 3739,
+        "removed": 0
+      },
+      {
+        "stage": "present_positive_survey_design_fields",
+        "before": 3739,
+        "after": 3739,
+        "removed": 0
+      }
+    ],
+    "valid_categorical_codes": {
+      "DEMO_J__RIAGENDR": [
+        1,
+        2
+      ],
+      "DEMO_J__RIDRETH3": [
+        1,
+        2,
+        3,
+        4,
+        6,
+        7
+      ],
+      "DEMO_J__DMDEDUC2": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "DEMO_J__DMDMARTL": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "SMQ_J__SMQ020": [
+        1,
+        2
+      ],
+      "ALQ_J__ALQ111": [
+        1,
+        2
+      ]
+    },
+    "imputation": false,
+    "winsorization": false,
+    "value_recoding": false,
+    "allowlisted_columns_only": true
+  },
+  "limitations": [
+    "真实公开调查记录的固定完整病例子集，不是模拟数据，也不是职业暴露监测人群。",
+    "按公开 SEQN 升序选取，非随机代表性抽样；不能据此推断美国人群发生率或职业人群风险。",
+    "当前图表为未加权描述性统计；虽保留调查设计变量，但未执行复杂抽样加权推断。",
+    "使用本地原始组件 CSV 转存值，未新增本地插补、缩尾或医学单位换算；保留官方发布值，可能含官方 LLOD/√2 检测限替代值，未逐格对照官方 XPT。",
+    "含 5.397605346934028e-79 转存异常值的所需字段记录被排除，不解释为零或低于检出限。",
+    "年龄 80 为官方公开数据的 80 岁及以上截顶编码；公开 SEQN 不是个人身份信息。",
+    "教育与婚姻字段的官方适用年龄为 20 岁及以上，因此这个完整字段子集实际均为 20 岁及以上；INDFMPIR=5 表示 5 及以上截顶，而非精确比值 5。",
+    "SMQ020 指终生累计吸烟至少 100 支；ALQ111 指终生曾喝过至少 1 杯酒，不等同于当前吸烟或当前饮酒状态。",
+    "此子集用于体验系统的数据流程与可视化，不是已经训练或临床验证的预测模型。"
+  ],
+  "rebuild": {
+    "script": "backend/tools/prepare_nhanes_public_demo.py",
+    "source_pattern": "csv/{DEMO_J,BPXO_J,PBCD_J,SMQ_J,ALQ_J}.csv",
+    "source_files_written": false
+  }
+}

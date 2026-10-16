@@ -1,0 +1,53 @@
+# Install as a NEW zhiwei-nginx.service only. Root checks 80 is free before start.
+# Uses privately EXTRACTED Ubuntu nginx-core, not apt-installed global nginx.
+[Unit]
+Description=Zhiwei dedicated HTTP demo ingress preserving existing website
+After=network-online.target zhiwei-api.service
+Wants=network-online.target
+RequiresMountsFor=/data/zhiwei
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/data/zhiwei/runtime/nginx
+# No token/model key in this environment, unit, or argv. Token is in private conf.
+Environment=LD_LIBRARY_PATH=/data/zhiwei/runtime/nginx/usr/lib/x86_64-linux-gnu:/data/zhiwei/runtime/nginx/lib/x86_64-linux-gnu
+ExecStartPre=/data/zhiwei/runtime/nginx/usr/sbin/nginx -p /data/zhiwei/runtime/nginx/ -c /data/zhiwei/runtime/etc/nginx.conf -t
+ExecStart=/data/zhiwei/runtime/nginx/usr/sbin/nginx -p /data/zhiwei/runtime/nginx/ -c /data/zhiwei/runtime/etc/nginx.conf -g "daemon off;"
+ExecReload=/data/zhiwei/runtime/nginx/usr/sbin/nginx -p /data/zhiwei/runtime/nginx/ -c /data/zhiwei/runtime/etc/nginx.conf -t
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGQUIT
+KillMode=mixed
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=30s
+TimeoutStopSec=30s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/data/zhiwei/runtime/nginx/run /data/zhiwei/runtime/nginx/tmp
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+LockPersonality=true
+# Root master binds 80, prepares worker-owned tmp dirs, signals its own workers;
+# `user zhiwei` in the private conf drops workers to uid/gid 10001.
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE CAP_SETUID CAP_SETGID CAP_CHOWN CAP_KILL
+MemoryMax=128M
+MemorySwapMax=0
+CPUQuota=25%
+TasksMax=64
+LimitNOFILE=4096
+# Even syntax diagnostics may contain a rendered token on malformed input.
+# Root's separate, private `nginx -t` may diagnose errors; journal never receives it.
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target

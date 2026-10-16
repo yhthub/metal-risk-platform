@@ -1,6 +1,6 @@
 {
   "name": "occupational-health-system",
-  "version": "1.0.0",
+  "version": "4.1.0",
   "private": true,
   "description": "职业金属复合暴露智能干预推荐与决策支持系统",
   "scripts": {

@@ -20,15 +20,15 @@
         </el-sub-menu>
         <el-sub-menu index="2">
           <template #title><el-icon><DataLine /></el-icon><span>数据集智能治理</span></template>
-          <el-menu-item index="2-1">缺失值与异常清洗</el-menu-item>
+          <el-menu-item index="2-1" @click="goTo('/data-cleaning')">数据清洗与格式转换</el-menu-item>
           <el-menu-item index="2-2">特征降维与标准化</el-menu-item>
         </el-sub-menu>
 
         <div class="menu-group-title">MODEL LAYER 模型层</div>
         <el-sub-menu index="3">
           <template #title><el-icon><TrendCharts /></el-icon><span>风险量化与预警</span></template>
-          <el-menu-item index="3-1" @click="goTo('/risk')">个体靶器官预警</el-menu-item>
-          <el-menu-item index="3-2">群体风险热力图</el-menu-item>
+          <el-menu-item index="3-1" @click="goTo('/risk?mode=individual')">单人当次指标估计</el-menu-item>
+          <el-menu-item index="3-2" @click="goTo('/risk?mode=batch')">群体指标估计</el-menu-item>
         </el-sub-menu>
         
         <el-menu-item index="4" @click="goTo('/causal')">

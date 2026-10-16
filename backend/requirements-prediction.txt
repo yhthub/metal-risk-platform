@@ -1,0 +1,8 @@
+# Separate Python 3.12+ environment; training used xgboost-cpu 3.4.1 on Linux.
+# Windows uses the same-version official xgboost wheel, forced to CPU at inference.
+-r requirements.txt
+numpy==2.3.5
+xgboost==3.4.1
+catboost==1.2.8
+scikit-learn==1.8.0
+threadpoolctl==3.6.0

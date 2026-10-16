@@ -1,0 +1,51 @@
+# Separate HTTP gateway only. Check existing 80 listeners/config first.
+# No old Docker services, volumes, site configs, firewall, or certificates edited.
+name: occupational-health-aliyun-gateway
+services:
+  gateway:
+    image: ${ALIYUN_GATEWAY_IMAGE:-nginx:1.28-alpine}
+    restart: unless-stopped
+    # Intentionally host networking: 127.0.0.1:3000/8080 must mean THIS SERVER,
+    # not another bridge container. No additional public API/model port is bound.
+    network_mode: host
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    # Root master binds 80, creates owned temp dirs, then drops workers to nginx.
+    # No SYS_ADMIN/NET_ADMIN, privileged mode, Docker socket, or writable host mount.
+    cap_add: ["NET_BIND_SERVICE", "SETUID", "SETGID", "CHOWN"]
+    pids_limit: 64
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    tmpfs:
+      - /var/run:rw,noexec,nosuid,size=8m
+      - /var/cache/nginx:rw,noexec,nosuid,size=16m
+      - /tmp:rw,noexec,nosuid,size=16m
+    volumes:
+      - type: bind
+        source: ./aliyun-gateway.conf
+        target: /etc/nginx/nginx.conf
+        read_only: true
+        bind: {create_host_path: false}
+    # This overrides the image's setup scripts: no host config rewrite/envsubst.
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        for tcp_table in /proc/net/tcp /proc/net/tcp6; do
+          if [ -r "$$tcp_table" ] && awk '$$4 == "0A" && $$2 ~ /:0050$$/ { found=1 } END { exit !found }' "$$tcp_table"; then
+            echo 'Port 80 is already listening; refusing to replace the existing service.' >&2
+            exit 1
+          fi
+        done
+        nginx -t
+        exec nginx -g 'daemon off;'
+    healthcheck:
+      # Anonymous STATIC page only, never an API/model/credential request.
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/zhiwei/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: "5m", max-file: "2"}

@@ -1,0 +1,71 @@
+# Only RAG_API_KEY/PUBLIC_ORIGIN/API_ORIGIN/API_HOST are substituted by envsubst.
+# No credentials appear in the frontend JavaScript bundle or access log.
+map $http_authorization $rag_authorized {
+    default 0;
+    "Bearer ${RAG_API_KEY}" 1;
+}
+map $http_origin $rag_origin_allowed {
+    default 0;
+    "" 1;
+    "${RAG_PUBLIC_ORIGIN}" 1;
+}
+map $http_origin $rag_cors_origin {
+    default "";
+    "${RAG_PUBLIC_ORIGIN}" "${RAG_PUBLIC_ORIGIN}";
+}
+limit_req_zone $binary_remote_addr zone=rag_requests:10m rate=20r/m;
+limit_conn_zone $binary_remote_addr zone=rag_connections:10m;
+
+server {
+    listen 8080;
+    server_name _;
+    root /usr/share/nginx/html;
+    access_log off;
+    server_tokens off;
+    client_max_body_size 26m;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy same-origin always;
+    add_header X-Frame-Options DENY always;
+    add_header Access-Control-Allow-Origin $rag_cors_origin always;
+    add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+    add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
+    add_header Vary Origin always;
+
+    # Uploads may contain personal health records. Never proxy the legacy static mount.
+    location = /uploads { return 404; }
+    location ^~ /uploads/ { return 404; }
+    location = /docs { return 404; }
+    location = /redoc { return 404; }
+    location = /openapi.json { return 404; }
+
+    location /api/ {
+        if ($rag_origin_allowed = 0) { return 403; }
+        # Same-origin UI needs no preflight; this permits a correctly configured external client.
+        if ($request_method = OPTIONS) { return 204; }
+        if ($rag_authorized = 0) { return 401; }
+        limit_req zone=rag_requests burst=4 nodelay;
+        limit_req_status 429;
+        limit_conn rag_connections 2;
+        limit_conn_status 429;
+        proxy_pass ${RAG_API_ORIGIN};
+        proxy_http_version 1.1;
+        proxy_set_header Host ${RAG_API_HOST};
+        proxy_ssl_server_name on;
+        proxy_ssl_name ${RAG_API_HOST};
+        proxy_ssl_verify on;
+        proxy_ssl_trusted_certificate /etc/ssl/certs/ca-certificates.crt;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # The gateway owns CORS; avoid duplicate application CORS response headers.
+        proxy_hide_header Access-Control-Allow-Origin;
+        proxy_hide_header Access-Control-Allow-Credentials;
+        proxy_buffering off;
+        # Avoid storing 25 MiB imports in the small read-only-container tmpfs.
+        proxy_request_buffering off;
+        proxy_read_timeout 210s;
+        proxy_send_timeout 30s;
+    }
+
+    location / { try_files $uri $uri/ /index.html; }
+}

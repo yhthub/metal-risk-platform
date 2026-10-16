@@ -51,6 +51,18 @@ ENV/
 backend/venv/
 backend/env/
 backend/.venv/
+backend/.venv-prediction/
+# Prepared, hashed inference assets are local runtime data, not source code.
+models/nhanes_v5/
+
+# Local research assets, runtime corpora and operator receipts stay off GitHub.
+/models/
+/data/
+/outputs/
+# Instance-specific historical operator helpers remain local, not release tools.
+/scripts/aliyun_operator.py
+/scripts/aliyun_enable_bm25_model.py
+/scripts/download_yht_model.py
 
 # Uploads & Temporary files
 backend/data/uploads/*
@@ -79,3 +91,12 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+!.env.*.example
+
+# Private authentication files are never release source.
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519

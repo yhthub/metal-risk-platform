@@ -6,8 +6,9 @@ pydantic==2.10.4
 python-multipart==0.0.19
 aiofiles==24.1.0
 requests>=2.31.0
+markdown>=3.7,<4
 exceptiongroup==1.2.2; python_version < "3.11"
 
-# 本地大语言模型相关（可选）
-ctransformers>=0.2.0
-huggingface_hub>=0.20.0
+# The API uses an external LOCAL model server. Embedding/native model packages
+# are optional and isolated in requirements-retrieval-optional.txt, not required
+# for every website/API deployment.

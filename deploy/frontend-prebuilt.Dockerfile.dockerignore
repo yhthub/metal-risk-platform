@@ -1,0 +1,14 @@
+**
+!my-nuxt-app/
+!my-nuxt-app/.output/
+!my-nuxt-app/.output/public/
+!my-nuxt-app/.output/public/**
+!deploy/
+!deploy/frontend-prebuilt.Dockerfile
+!deploy/nginx/
+!deploy/nginx/default.conf.template
+**/.env
+**/.env.*
+**/*deployment.env
+**/*.key
+**/*.pem

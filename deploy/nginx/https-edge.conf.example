@@ -1,0 +1,30 @@
+# Manual template for the OWNER of the existing ECS/BaoTa nginx. Not installed by this task.
+# Replace every rag.example.org and certificate path before nginx -t.
+# Keep other existing server blocks/sites unchanged.
+server {
+    listen 80;
+    server_name rag.example.org;
+    return 308 https://rag.example.org$request_uri;
+}
+server {
+    listen 443 ssl;
+    server_name rag.example.org;
+    ssl_certificate /etc/ssl/rag.example.org/fullchain.pem;
+    ssl_certificate_key /etc/ssl/rag.example.org/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:RagTls:10m;
+    server_tokens off;
+    access_log off;
+    client_max_body_size 26m;
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        # Forward the CLIENT'S key. Never inject a server administrator/model key.
+        proxy_set_header Authorization $http_authorization;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_read_timeout 210s;
+    }
+}

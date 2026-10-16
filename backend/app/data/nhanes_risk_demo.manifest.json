@@ -1,0 +1,183 @@
+{
+  "id": "nhanes_2017_2018_risk_demo_20",
+  "title": "NHANES 2017–2018 公开成人预测体验（20人）",
+  "cycle": "2017-2018",
+  "outcome_id": "blood_pressure",
+  "rows": 20,
+  "columns": [
+    "SEQN",
+    "BPXO_J__BPXOSY1",
+    "BPXO_J__BPXOSY2",
+    "BPXO_J__BPXOSY3",
+    "BPXO_J__BPXODI1",
+    "BPXO_J__BPXODI2",
+    "BPXO_J__BPXODI3",
+    "PBCD_J__LBXBPB",
+    "PBCD_J__LBXBCD",
+    "PBCD_J__LBXTHG",
+    "PBCD_J__LBXBSE",
+    "PBCD_J__LBXBMN",
+    "DEMO_J__RIDAGEYR",
+    "DEMO_J__RIAGENDR",
+    "DEMO_J__RIDRETH3",
+    "DEMO_J__DMDEDUC2",
+    "DEMO_J__DMDMARTL",
+    "DEMO_J__INDFMPIR",
+    "SMQ_J__SMQ020",
+    "ALQ_J__ALQ111",
+    "DEMO_J__WTMEC2YR",
+    "DEMO_J__SDMVPSU",
+    "DEMO_J__SDMVSTRA",
+    "BMX_J__BMXBMI"
+  ],
+  "required_columns": [
+    "SEQN",
+    "BPXO_J__BPXOSY1",
+    "BPXO_J__BPXOSY2",
+    "BPXO_J__BPXOSY3",
+    "BPXO_J__BPXODI1",
+    "BPXO_J__BPXODI2",
+    "BPXO_J__BPXODI3",
+    "PBCD_J__LBXBPB",
+    "PBCD_J__LBXBCD",
+    "PBCD_J__LBXTHG",
+    "PBCD_J__LBXBSE",
+    "PBCD_J__LBXBMN",
+    "DEMO_J__RIDAGEYR",
+    "DEMO_J__RIAGENDR",
+    "DEMO_J__RIDRETH3",
+    "DEMO_J__DMDEDUC2",
+    "DEMO_J__DMDMARTL",
+    "DEMO_J__INDFMPIR",
+    "SMQ_J__SMQ020",
+    "ALQ_J__ALQ111",
+    "BMX_J__BMXBMI"
+  ],
+  "sample_filename": "NHANES_2017-2018_risk_demo_20.csv",
+  "sample_sha256": "8c88eb746f06a24e6e2b642dd16bf0879af2d236a57c4a7d460b1a03049fa84f",
+  "sample_bytes": 3072,
+  "source_kind": "verified_local_public_nhanes_same_cycle_one_to_one_join",
+  "source_files": [
+    {
+      "file": "NHANES_2017-2018_public_adults_300.csv",
+      "rows": 300,
+      "sha256": "eb3f0fa05f721fc95f96c30abcefb9c34751c6fa7a83648841e696a697bb2751",
+      "cycle": "2017-2018",
+      "role": "all_23_original_public_demo_fields"
+    },
+    {
+      "file": "BMX_J.csv",
+      "rows": 8704,
+      "sha256": "631901c63b0b01fcbe7d2c96cc63379228f5cefc8d29286006b5f038a0f49921",
+      "cycle": "2017-2018",
+      "role": "SEQN_and_original_BMXBMI"
+    },
+    {
+      "file": "BMX_J.xpt",
+      "rows": 8704,
+      "sha256": "8d675e42d8826ac98714b2c3dd4c5138a5e353fb4424f7eff5e6db4a01ce838a",
+      "cycle": "2017-2018",
+      "role": "selected_20_BMI_values_verified_exactly"
+    }
+  ],
+  "source_links": [
+    {
+      "label": "NHANES 2017–2018 人口学与调查设计",
+      "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/DEMO_J.htm"
+    },
+    {
+      "label": "NHANES 2017–2018 振荡式血压方法比较研究",
+      "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/BPXO_J.htm"
+    },
+    {
+      "label": "NHANES 2017–2018 血液铅、镉、汞、硒与锰",
+      "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/PBCD_J.htm"
+    },
+    {
+      "label": "NHANES 2017–2018 吸烟问卷",
+      "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/SMQ_J.htm"
+    },
+    {
+      "label": "NHANES 2017–2018 饮酒问卷",
+      "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/ALQ_J.htm"
+    },
+    {
+      "label": "NHANES 2017–2018 身体测量与BMI",
+      "url": "https://wwwn.cdc.gov/Nchs/Data/Nhanes/Public/2017/DataFiles/BMX_J.htm"
+    }
+  ],
+  "join": {
+    "key": "positive integer SEQN; preserve original public SEQN cell string",
+    "validation": "one_to_one",
+    "source_public_rows": 300,
+    "source_bmi_rows": 8704,
+    "matched_public_records": 300,
+    "valid_positive_finite_bmi_records": 299,
+    "selected_records": 20,
+    "same_cycle": true,
+    "selected_bmi_equal_raw_xpt": true,
+    "selection": "sort canonical numeric SEQN ascending; first 20 with present finite positive BMI",
+    "original_23_cell_strings_preserved": true,
+    "imputation": false,
+    "winsorization": false,
+    "unit_conversion": false,
+    "selected_public_seqn": [
+      93705,
+      93708,
+      93711,
+      93713,
+      93714,
+      93715,
+      93716,
+      93717,
+      93718,
+      93721,
+      93722,
+      93723,
+      93726,
+      93727,
+      93728,
+      93729,
+      93731,
+      93738,
+      93742,
+      93743
+    ]
+  },
+  "measurement_contract": {
+    "pb": {
+      "sample": "whole_blood",
+      "unit": "ug/dL",
+      "analyte": "lead",
+      "confirmed": true
+    },
+    "cd": {
+      "sample": "whole_blood",
+      "unit": "ug/L",
+      "analyte": "cadmium",
+      "confirmed": true
+    },
+    "hg": {
+      "sample": "whole_blood",
+      "unit": "ug/L",
+      "analyte": "total_mercury",
+      "confirmed": true
+    }
+  },
+  "limitations": [
+    "固定20条真实公开调查记录，非模拟数据；属于美国一般人群，不是中国职业暴露人群。",
+    "按公开SEQN升序选择且要求字段完整，非随机代表性样本；不能据此估计患病率或人群风险。",
+    "2017–2018周期已用于既往模型材料或测试查看，此体验不是新增独立性能验证，也不在本接口计算验收指标。",
+    "保留原23列公开样本单元格字符串，仅按同周期唯一SEQN添加实际BMXBMI；未插补、缩尾或换算原始数值。",
+    "BMI已逐条核对同周期原始XPT；其余字段沿用原公开样本的来源核验边界，可能含官方检测限替代值。",
+    "原样本缺少明确过去一年饮酒及部分吸烟细节，模型适配器保留未知，不把终生饮酒ALQ111当过去一年饮酒。",
+    "每次点击均重新导入独立文件并运行现有模型；仅提供探索性当前指标估计，不给出疾病诊断或金属因果效应。"
+  ],
+  "preparation": {
+    "source_files_written": false,
+    "original_public_300_written": false,
+    "prediction_results_precomputed": false,
+    "bmi_field_map": "BMX_J.csv:BMXBMI -> BMX_J__BMXBMI",
+    "row_values_reformatted": false
+  }
+}

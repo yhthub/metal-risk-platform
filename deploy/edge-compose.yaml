@@ -1,0 +1,18 @@
+# Existing 2-core/4-GiB/30-GiB ECS: STATIC FRONTEND/GATEWAY ONLY, no corpus/model mounts.
+name: occupational-health-rag-edge
+services:
+  web:
+    # Build on a machine with enough RAM and transfer/publish a pinned image, not on 4 GiB ECS.
+    image: ${RAG_WEB_IMAGE:?set a pre-built pinned frontend image}
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      RAG_API_KEY: ${RAG_API_KEY:?research access key must be provided by each client}
+      RAG_PUBLIC_ORIGIN: ${RAG_PUBLIC_ORIGIN:?set the future exact HTTPS origin}
+      RAG_API_ORIGIN: ${RAG_API_ORIGIN:?set a private or HTTPS protected RAG node}
+      RAG_API_HOST: ${RAG_API_HOST:?set upstream DNS hostname for TLS SNI and verification}
+    # Existing BaoTa/nginx must be configured by its owner after approval. Do not replace it.
+    ports: ["127.0.0.1:${RAG_WEB_PORT:-8080}:8080"]
+    networks: [edge]
+networks:
+  edge: {}
