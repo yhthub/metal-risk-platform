@@ -1,4 +1,4 @@
-/** Original unsupported chart frames and real six-axis radar, offline only. */
+/** Legacy helper safety and computed-only visible dashboard, offline only. */
 const fs = require('node:fs')
 const path = require('node:path')
 const vm = require('node:vm')
@@ -12,7 +12,7 @@ function load(file, imports = {}) {
   return exports
 }
 const risk = load('riskPrediction.ts')
-const charts = load('riskDashboard.ts', { './riskPrediction': risk, './riskPalette': load('riskPalette.ts') })
+const charts = load('riskDashboard.ts', { './riskPrediction': risk, './riskPalette': load('riskPalette.ts'), './riskChartTheme': load('riskChartTheme.ts') })
 const plain = value => JSON.parse(JSON.stringify(value))
 let checks = 0
 function check(name, run) { run(); checks++; console.log('PASS ' + name) }
@@ -41,15 +41,16 @@ check('the original half gauge has no needle or fabricated fill; Pb-As heatmap r
   assert(heat.graphic[0].children.every(item => item.type === 'rect' && item.style.fill === '#F1F5F9'))
   assert.match(heat.graphic[1].style.text, /没有砷输入或Pb×As效应模型/)
 })
-check('original disease progress rows show no percentage, fake endpoint probabilities or zero-valued score', () => {
+check('single-person dashboard removes disease, uncomputed gauge and Pb-As placeholders instead of drawing zeros', () => {
   const source = fs.readFileSync(path.join(root, 'app/pages/risk/index.vue'), 'utf8')
-  const section = source.split('class="disease-list original-disease-empty"')[1].split('</div></div></div>')[0]
-  assert.match(section, /待疾病概率模型/)
-  assert.match(section, /empty-probability-track/)
-  assert(!/percentage|prob|\d+%/.test(section.replace(/empty-probability-track/g, 'track')))
-  assert.match(source, /原 Pb × As 热图保留/)
-  assert.match(source, /不以 Pb × Cd 响应偷换/)
-  assert.match(source, /不是致病突变、因果曲线或安全阈值/)
+  const template = source.split('<template>')[1].split('<script setup')[0]
+  assert(!/original-disease-empty|empty-probability-track|待疾病概率模型|原图型骨架|Pb × As|高发职业病靶向预测/.test(template))
+  assert(!/buildOriginalUnavailableOption|originalGaugeRef|originalImportanceRef|originalJointRef/.test(source))
+  assert.match(template, /v-if="doseOption" class="result-card/)
+  assert.match(template, /v-if="jointOption" class="result-card/)
+  assert.match(template, /全血铅 × 全血镉的实际模型网格/)
+  assert.match(template, /非因果剂量反应/)
+  assert.match(template, /不代表因果效应、安全阈值或职业病风险等级/)
 })
 check('real radar preserves six spokes and absolute contribution mass without mixing original concentration units', () => {
   const items = Array.from({ length: 11 }, (_, index) => ({ feature: 'f' + index, label_zh: '特征' + index, value: (index % 2 ? -1 : 1) * (index + 1) }))

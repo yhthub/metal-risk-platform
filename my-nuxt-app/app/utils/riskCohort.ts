@@ -3,6 +3,7 @@ import { csvCell, formatPredictionNumber, predictionHasValue, PREDICTION_SCOPE_N
 import type { BatchPredictionOutcome, BatchPredictionResponse, PredictionOutcome, PredictionRequest } from './riskPrediction'
 import type { ChartOption } from './riskDashboard'
 import { RISK_PALETTE, chartGradient, rankingGradient } from './riskPalette'
+import { riskChartBase, riskTooltip, riskValueAxis, riskCategoryAxis } from './riskChartTheme'
 
 export interface CohortStatistics {
   n: number; mean: number | null; median: number | null; q1: number | null; q3: number | null
@@ -116,18 +117,18 @@ export function buildCohortRankOption(result: CohortPredictionResponse, target: 
   const view = buildCohortView(result, target)
   const rows = view.rankings.slice(0, Math.max(1, Math.min(50, Math.floor(limit))))
   if (!rows.length) return null
-  return { tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (params: any[]) => params.map(item => html(item.name) + '：' + formatPredictionNumber(item.value) + ' ' + html(view.unit) + '<br/>全体有效对象中的指标估计排序，非疾病风险概率').join('<br/>') },
-    grid: { left: '3%', right: '13%', top: '5%', bottom: '13%', containLabel: true },
-    xAxis: { type: 'value', name: view.unit, splitLine: { lineStyle: { type: 'dashed' } } },
-    yAxis: { type: 'category', inverse: true, data: rows.map(row => row.person_id), axisTick: { show: false }, axisLabel: { width: 90, overflow: 'truncate' } },
-    series: [{ type: 'bar', name: view.label_zh, barMaxWidth: 26, data: rows.map(row => row.prediction), itemStyle: { color: rankingGradient(), borderRadius: [0, 4, 4, 0] }, label: { show: true, position: 'right', color: RISK_PALETTE.red, formatter: (item: any) => formatPredictionNumber(item.value) } }] }
+  return { ...riskChartBase(), tooltip: riskTooltip({ trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (params: any[]) => params.map(item => html(item.name) + '：' + formatPredictionNumber(item.value) + ' ' + html(view.unit) + '<br/>全体有效对象中的指标估计排序，非疾病风险概率').join('<br/>') }),
+    grid: { left: 12, right: 76, top: 20, bottom: 36, containLabel: true },
+    xAxis: riskValueAxis({ name: view.unit }),
+    yAxis: riskCategoryAxis({ inverse: true, data: rows.map(row => row.person_id), axisLabel: { color: '#475569', fontSize: 11, width: 90, overflow: 'truncate' } }),
+    series: [{ type: 'bar', name: view.label_zh, barMaxWidth: 23, data: rows.map(row => row.prediction), itemStyle: { color: rankingGradient(), borderRadius: [0, 6, 6, 0] }, emphasis: { itemStyle: { shadowBlur: 12, shadowColor: 'rgba(239,68,68,.20)' } }, label: { show: true, position: 'right', distance: 8, fontSize: 11, fontWeight: 600, color: RISK_PALETTE.red, formatter: (item: any) => formatPredictionNumber(item.value) } }] }
 }
 
 export function buildCohortCoverageOption(result: CohortPredictionResponse): ChartOption {
   const percentage = result.total_records ? result.processed_records / result.total_records * 100 : 0
-  return { tooltip: { formatter: '全文件有效输入：' + result.processed_records + ' / ' + result.total_records + '；不是高危比例' },
+  return { ...riskChartBase(), tooltip: riskTooltip({ formatter: '全文件有效输入：' + result.processed_records + ' / ' + result.total_records + '；不是高危比例' }),
     series: [{ type: 'gauge', startAngle: 180, endAngle: 0, center: ['50%', '72%'], radius: '94%', min: 0, max: 100,
-      progress: { show: true, width: 15, itemStyle: { color: RISK_PALETTE.green } }, axisLine: { lineStyle: { width: 15, color: [[1, '#E5EDF7']] } },
+      progress: { show: true, width: 18, roundCap: true, itemStyle: { color: chartGradient('#6EE7B7', RISK_PALETTE.green) } }, axisLine: { roundCap: true, lineStyle: { width: 18, color: [[1, '#E5EDF7']] } },
       pointer: { show: false }, axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false },
       detail: { offsetCenter: [0, '11%'], fontSize: 28, color: RISK_PALETTE.green, formatter: (value: number) => formatPredictionNumber(value, 1) + '%' },
       data: [{ value: percentage, name: result.processed_records + ' / ' + result.total_records + ' 人', title: { offsetCenter: [0, '40%'], fontSize: 11, color: '#64748B' } }] }] }
@@ -138,10 +139,14 @@ export function buildCohortDistributionOption(result: CohortPredictionResponse, 
   if (!view || !histogram || !view.estimated_count || histogram.counts.length + 1 !== histogram.bin_edges.length
     || histogram.counts.reduce((a, b) => a + b, 0) !== view.estimated_count) return null
   const labels = histogram.counts.map((_, index) => formatPredictionNumber(histogram.bin_edges[index], 2) + '–' + formatPredictionNumber(histogram.bin_edges[index + 1], 2))
-  return { tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (params: any[]) => params.map(item => html(item.name) + ' ' + html(view.unit) + '<br/>' + item.value + ' 人；全部有效估计，不是实测患病人数').join('<br/>') },
-    grid: { left: 45, right: 20, top: 30, bottom: 75 }, xAxis: { type: 'category', data: labels, axisLabel: { rotate: 35, fontSize: 9 }, name: view.unit, nameLocation: 'middle', nameGap: 61 },
-    yAxis: { type: 'value', minInterval: 1, name: '人数', splitLine: { lineStyle: { type: 'dashed' } } },
-    series: [{ type: 'bar', name: '估计值分布', data: histogram.counts, barCategoryGap: '3%', itemStyle: { color: chartGradient(RISK_PALETTE.orange, RISK_PALETTE.gold, true), borderRadius: [3, 3, 0, 0] } }] }
+  return { ...riskChartBase(), tooltip: riskTooltip({ trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (params: any[]) => params.map(item => html(item.name) + ' ' + html(view.unit) + '<br/>' + item.value + ' 人；全部有效估计，不是实测患病人数').join('<br/>') }),
+    grid: { left: 12, right: 16, top: 36, bottom: 60, containLabel: true },
+    xAxis: riskCategoryAxis({ data: labels, boundaryGap: true, axisLabel: { interval: 'auto', hideOverlap: true, rotate: 0, lineHeight: 16, fontSize: 10, color: '#8291A8', margin: 14, formatter: (label: string) => label.replace('–', '–\n') }, name: view.unit, nameLocation: 'middle', nameGap: 48, nameTextStyle: { color: '#64748B', fontSize: 11 } }),
+    yAxis: riskValueAxis({ minInterval: 1, name: '人数', nameGap: 18, max: (extent: { max: number }) => Math.max(1, Math.ceil(extent.max * 1.2)) }),
+    series: [{ type: 'bar', name: '估计值分布', data: histogram.counts, barCategoryGap: '44%', barMaxWidth: 26,
+      itemStyle: { color: chartGradient('#60A5FA', '#2563EB', true), borderRadius: [5, 5, 0, 0] },
+      label: { show: true, position: 'top', distance: 8, color: '#5075A6', fontSize: 11, fontWeight: 600, formatter: (item: { value: number }) => item.value > 0 ? String(item.value) : '' },
+      emphasis: { itemStyle: { color: chartGradient('#3B82F6', '#1D4ED8', true), shadowBlur: 12, shadowColor: 'rgba(37,99,235,.16)' } } }] }
 }
 
 export function buildCohortGroupOption(result: CohortPredictionResponse, target: string, groupBy: 'gender' | 'age'): ChartOption | null {
@@ -149,14 +154,14 @@ export function buildCohortGroupOption(result: CohortPredictionResponse, target:
   if (!view) return null
   const groups = groupBy === 'gender' ? view.by_gender : view.by_age_band
   if (!groups.some(group => group.estimated_count > 0 && finite(group.mean_prediction))) return null
-  return { tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (params: any[]) => params.map(item => {
+  return { ...riskChartBase(), tooltip: riskTooltip({ trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (params: any[]) => params.map(item => {
     const group = groups[item.dataIndex]
     return html(group.label_zh) + '<br/>有效估计 ' + group.estimated_count + ' 人<br/>均值：' + formatPredictionNumber(group.mean_prediction) + ' ' + html(view.unit) + '<br/>组间描述，未调整混杂，不是因果效应'
-  }).join('<br/>') }, grid: { left: 50, right: 24, top: 30, bottom: 48 },
-    xAxis: { type: 'category', data: groups.map(group => groupBy === 'age' ? group.label_zh.split('（')[0] : group.label_zh), axisLabel: { interval: 0, fontSize: 10 } },
-    yAxis: { type: 'value', name: view.unit, splitLine: { lineStyle: { type: 'dashed' } } },
+  }).join('<br/>') }), grid: { left: 18, right: 24, top: 38, bottom: 38, containLabel: true },
+    xAxis: riskCategoryAxis({ data: groups.map(group => groupBy === 'age' ? group.label_zh.split('（')[0] : group.label_zh), axisLabel: { interval: 0, fontSize: 11, color: '#475569', margin: 12 } }),
+    yAxis: riskValueAxis({ name: view.unit }),
     series: [{ type: 'bar', name: view.label_zh + '均值', barMaxWidth: 48, data: groups.map(group => finite(group.mean_prediction) ? group.mean_prediction : null),
-      itemStyle: { color: (item: { dataIndex: number }) => (groupBy === 'gender' ? [RISK_PALETTE.blue, RISK_PALETTE.orange] : [RISK_PALETTE.green, RISK_PALETTE.blue, RISK_PALETTE.amber])[item.dataIndex % (groupBy === 'gender' ? 2 : 3)], borderRadius: [3, 3, 0, 0] }, label: { show: true, position: 'top', formatter: (item: any) => formatPredictionNumber(item.value) } }] }
+      itemStyle: { color: (item: { dataIndex: number }) => (groupBy === 'gender' ? [RISK_PALETTE.blue, RISK_PALETTE.orange] : [RISK_PALETTE.green, RISK_PALETTE.blue, RISK_PALETTE.amber])[item.dataIndex % (groupBy === 'gender' ? 2 : 3)], borderRadius: [5, 5, 0, 0] }, label: { show: true, position: 'top', distance: 8, color: '#475569', fontSize: 11, fontWeight: 600, formatter: (item: any) => formatPredictionNumber(item.value) } }] }
 }
 
 export function cohortSummaryCsv(result: CohortPredictionResponse): string {

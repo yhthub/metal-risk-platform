@@ -17,9 +17,9 @@ const warningParsed = compiler.parse(warningSource, { filename: warningFilename 
 const warningTemplate = warningParsed.descriptor.template.content
 const warningCss = warningParsed.descriptor.styles[0].content
 
-test('remaining cohort model cards retain the original red, orange, blue and amber roles', () => {
+test('cohort distribution uses the new blue accent while outcome and summary roles stay distinct', () => {
   for (const [accent, title] of [
-    ['accent-orange', '全群指标估计分布'],
+    ['accent-blue', '全群指标估计分布'],
     ['accent-blue', '12 项结局 · 全群概览'],
     ['accent-amber', '全群估计统计概览'],
   ]) assert.match(template, new RegExp('class="result-card [^"\\n]*' + accent + '"[\\s\\S]*?<h4>' + title))
@@ -82,10 +82,10 @@ test('white full-row warning merges ranking and a computed share beside a dashed
   assert.match(css, /\.stat-grid\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/)
   assert.match(css, /grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/)
   assert.match(css, /\.result-card\{background:white;/)
-  assert.match(css, /\.prototype-grid \.result-card\{border-color:#E2E8F0;background:#fff\}/)
-  assert.match(css, /\.prototype-empty\{[^}]*color:#94a3b8;[^}]*background:#f8fafc;/)
+  assert.match(css, /\.result-card\{border-color:#dce5f1;border-radius:14px;padding:24px;box-shadow:/)
+  assert.match(css, /\.r-head\{[^}]*border-bottom:1px dashed #e8eef7/)
   assert.match(template, /完整全群记录与排序/)
-  assert.match(template, /原图与功能边界（折叠保留/)
+  assert(!/原图与功能边界|prototype-fold|prototype-empty|prototypeImportanceRef|prototypeJointRef|buildOriginalUnavailableOption/.test(template + parsed.descriptor.scriptSetup.content))
 })
 
 test('palette-only template classes and scoped CSS compile offline', () => {

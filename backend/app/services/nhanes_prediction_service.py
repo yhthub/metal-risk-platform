@@ -30,7 +30,19 @@ from ..models.prediction_schemas import (
 
 RUN_ID = "nhanes_12outcomes_targeted_20261016_005"
 MODEL_VERSION = "NHANES-v5-basic"
-THREADS = 4
+
+
+def _configured_cpu_threads():
+    # Preserve the local four-thread default; a shared small host can opt in to
+    # fewer native threads. Reject bad deployment values at startup instead of
+    # silently ignoring an intended resource limit.
+    configured = os.getenv("NHANES_CPU_THREADS", "4")
+    if configured not in {"1", "2", "3", "4"}:
+        raise ValueError("NHANES_CPU_THREADS must be an integer from 1 to 4")
+    return int(configured)
+
+
+THREADS = _configured_cpu_threads()
 TARGETS = (
     "sbp", "dbp", "serum_creatinine_mg_dl", "bun_mg_dl", "uric_acid_mg_dl",
     "uacr_mg_g", "hba1c_percent", "total_cholesterol_mg_dl",

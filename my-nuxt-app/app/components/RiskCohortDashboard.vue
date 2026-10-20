@@ -8,7 +8,7 @@
     <p class="cohort-boundary">“全群”仅指本文件全部对象，并非总体人群代表性估计。汇总未加抽样权重或调整混杂；指标值降序不是疾病风险或干预优先级，数值越大不等于越危险。</p>
     <div class="results-grid">
       <RiskCohortWarning class="col-span-6" :result="result" :threshold="warningThreshold ?? 80" @update:threshold="emit('update:warningThreshold', $event)" />
-      <article class="result-card col-span-3 accent-orange"><div class="r-head"><div class="title-group"><h4>全群指标估计分布</h4><span class="sub-desc">{{ view.label_zh }} / {{ view.unit }} · 汇总全部 {{ view.estimated_count }} 个有效估计。</span></div></div><div class="chart-frame"><div class="chart-box" ref="distributionRef"></div><div v-if="!distributionOption" class="chart-empty">{{ view.reason || '暂无完整的全群估计值分布，不以零值代替缺测。' }}</div></div></article>
+      <article class="result-card col-span-3 accent-blue"><div class="r-head"><div class="title-group"><h4>全群指标估计分布</h4><span class="sub-desc">{{ view.label_zh }} / {{ view.unit }} · 汇总全部 {{ view.estimated_count }} 个有效估计。</span></div></div><div class="chart-frame"><div class="chart-box" ref="distributionRef"></div><div v-if="!distributionOption" class="chart-empty">{{ view.reason || '暂无完整的全群估计值分布，不以零值代替缺测。' }}</div></div></article>
       <article class="result-card col-span-3 accent-blue"><div class="r-head"><div class="title-group"><h4>12 项结局 · 全群概览</h4><span class="sub-desc">不同单位分别呈现；色条仅区分指标类别，不表示疾病风险。点击切换全群图表。</span></div></div><div class="outcome-list"><button v-for="item in result.summary" :key="item.target" class="outcome-row" :class="[{ selected: item.target === target, 'outcome-withheld': item.estimated_count === 0 }, 'outcome-' + item.target]" @click="emit('select-target', item.target)"><div><strong>{{ item.label_zh }}</strong><span>{{ item.estimated_count > 0 ? '全群均值 ' + formatPredictionNumber(item.mean_prediction) + ' ' + item.unit : '暂不出值' }}</span></div><small>{{ item.estimated_count }} 人有估计 · {{ item.withheld_count }} 人因模型准确性不足暂不出值</small></button></div></article>
       <article class="result-card col-span-6 accent-amber"><div class="r-head"><div class="title-group"><h4>全群估计统计概览</h4><span class="sub-desc">{{ view.label_zh }} / {{ view.unit }} · 仅汇总当前结局的实际模型估计值。</span></div></div><div class="stat-grid"><div class="stat-estimated"><span>均值 / {{ view.unit }}</span><strong>{{ formatPredictionNumber(view.statistics?.mean) }}</strong></div><div class="stat-neutral"><span>中位数 / {{ view.unit }}</span><strong>{{ formatPredictionNumber(view.statistics?.median) }}</strong></div><div class="stat-neutral"><span>下四分位数 / {{ view.unit }}</span><strong>{{ formatPredictionNumber(view.statistics?.q1) }}</strong></div><div class="stat-neutral"><span>上四分位数 / {{ view.unit }}</span><strong>{{ formatPredictionNumber(view.statistics?.q3) }}</strong></div><div class="stat-neutral"><span>最小值–最大值 / {{ view.unit }}</span><strong>{{ formatPredictionNumber(view.statistics?.min) }}–{{ formatPredictionNumber(view.statistics?.max) }}</strong></div><div class="stat-neutral"><span>标准差 / {{ view.unit }}</span><strong>{{ formatPredictionNumber(view.statistics?.std) }}</strong></div></div><p v-if="view.reason" class="small-note">{{ view.reason }}</p><p class="small-note">这是模型估计的未加权描述性汇总，不是实测检查结论。暂不出值与输入不合格的对象不会补零进入统计；原始人群构成与模型输入状态见上方基本信息。</p></article>
     </div>
@@ -19,7 +19,6 @@
       </tbody></table></div>
       <div class="table-pagination"><span>模型已处理全部 {{ result.total_records }} 条；当前表格显示 {{ pageStart }}–{{ pageEnd }} 条。</span><el-pagination v-model:current-page="tablePage" v-model:page-size="pageSize" :page-sizes="[20, 50, 100]" :total="tableRows.length" layout="total, sizes, prev, pager, next" /></div>
     </section>
-    <el-collapse class="prototype-fold" @change="renderCharts"><el-collapse-item title="原图与功能边界（折叠保留，不冒充全群风险模型）" name="original-prototypes"><div class="prototype-grid"><article class="result-card"><h4>致病元凶权重榜</h4><div class="chart-box" ref="prototypeImportanceRef"></div></article><article class="result-card"><h4>高发职业病靶向预测</h4><div class="prototype-empty">没有对应的疾病概率或纵向发病模型。连续指标回归不能给出患病概率，不能把全群覆盖率当成高危比例。</div></article><article class="result-card"><h4>毒物剂量-致病突变曲线</h4><div class="prototype-empty">尚无全群因果剂量反应模型。可选个人明细中的铅响应仅属于选中对象，不代表全群体致病效应。</div></article><article class="result-card"><h4>双毒物“狼狈为奸”协同放大效应</h4><div class="chart-box" ref="prototypeJointRef"></div></article><article class="result-card"><h4>风险推手与保护因素拆解</h4><div class="prototype-empty">没有为全群计算群体归因或因果贡献。不以首个对象的 SHAP 代替全群结论；个人局部贡献仅在主动查看个人明细后提供。</div></article></div></el-collapse-item></el-collapse>
     <p class="small-note">模型版本 {{ result.model_version }} · 本文件有效输入 {{ result.processed_records }} 人，跳过 {{ result.skipped_records }} 人 · 当次指标估计，非临床诊断或未来发病概率。</p>
   </section>
 </template>
@@ -29,7 +28,6 @@ import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMoun
 import * as echarts from 'echarts'
 import { buildCohortDistributionOption, buildCohortView } from '~/utils/riskCohort'
 import { cohortDisplayId } from '~/utils/cohortWarning'
-import { buildOriginalUnavailableOption } from '~/utils/riskDashboard'
 import { formatPredictionNumber, predictionHasValue, predictionReason } from '~/utils/riskPrediction'
 import type { CohortPredictionResponse } from '~/utils/riskCohort'
 import type { BatchPredictionOutcome } from '~/utils/riskPrediction'
@@ -57,8 +55,6 @@ function recordStatus(record: CohortPredictionResponse['records'][number], outco
   return !record.input ? '输入不满足：' + (record.reason || '必需字段不足') : outcome && predictionHasValue(outcome) ? '已估计 · 非诊断' : outcome ? '暂不出值：' + predictionReason(outcome) : '没有该结局结果'
 }
 const distributionRef = ref<HTMLElement | null>(null)
-const prototypeImportanceRef = ref<HTMLElement | null>(null)
-const prototypeJointRef = ref<HTMLElement | null>(null)
 let instances: echarts.ECharts[] = []
 let observer: ResizeObserver | null = null
 let active = false
@@ -69,7 +65,7 @@ async function renderCharts() {
   await nextTick()
   if (!active || !mounted) return
   clearCharts()
-  const options = [[distributionRef.value, distributionOption.value], [prototypeImportanceRef.value, buildOriginalUnavailableOption('rose', '未接入BKMR/PIP模型，不把个体SHAP当成群体致病权重')], [prototypeJointRef.value, buildOriginalUnavailableOption('heatmap', '没有砷输入或全群Pb×As因果协同模型')]] as const
+  const options = [[distributionRef.value, distributionOption.value]] as const
   if (typeof ResizeObserver !== 'undefined') observer = new ResizeObserver(resizeCharts)
   for (const [element, option] of options) if (element && option && element.clientWidth > 0 && element.clientHeight > 0) { const chart = echarts.init(element); chart.setOption(option); instances.push(chart); observer?.observe(element) }
 }
@@ -110,6 +106,43 @@ onBeforeUnmount(() => { pause(); mounted = false })
 .stat-estimated strong,.status-estimated{color:#10B981}
 .stat-withheld strong,.status-withheld{color:#B7790C}
 .stat-skipped strong,.status-skipped,.stat-neutral strong,.reason-list dd{color:#64748B}
-.prototype-grid .result-card{border-color:#E2E8F0;background:#fff}
-
+/* Shared desktop visual language: light cards and category colors, never invented risk. */
+.cohort-banner{background:linear-gradient(115deg,#eff6ff,#fff 78%);border-color:#dce7f4;padding:22px 24px;box-shadow:0 3px 14px #0f172a03}
+.cohort-banner h3{font-size:18px;margin-bottom:7px;color:#1e293b}
+.cohort-banner p{font-size:12px;color:#64748b;line-height:1.85}
+.model-results-heading h3{font-size:17px;color:#1e293b;font-weight:700}
+.model-results-heading span,.cohort-boundary{color:#7c8aa0}
+.cohort-controls{padding:16px 20px;background:#fff;border:1px solid #e2eaf4;border-radius:12px;margin-bottom:12px}
+.results-grid{gap:22px}
+.result-card{border-color:#dce5f1;border-radius:14px;padding:24px;box-shadow:0 4px 16px #102a4305}
+.r-head{align-items:flex-start;padding-bottom:16px;margin-bottom:16px;border-bottom:1px dashed #e8eef7;min-height:78px}
+.title-group{gap:6px;min-width:0}
+.r-head h4{font-size:16px;font-weight:700;line-height:1.55;color:#172033}
+.sub-desc{font-size:12px;line-height:1.75;color:#768399}
+.accent-blue .r-head h4,.accent-green .r-head h4,.accent-orange .r-head h4,.accent-amber .r-head h4{border-left:0;padding-left:0}
+.chart-box{height:330px}
+.chart-empty{font-size:12px;background:#f8fafc80;color:#8494a8;border-radius:10px}
+.outcome-list{max-height:330px;gap:9px;padding-right:5px;scrollbar-width:thin;scrollbar-color:#dce5f1 transparent}
+.outcome-row{position:relative;padding:11px 14px 11px 16px;border:1px solid #e8eef7;border-left:3px solid var(--outcome-accent);border-radius:9px;transition:background .18s,border-color .18s,box-shadow .18s}
+.outcome-row:hover{border-color:var(--outcome-accent);box-shadow:0 3px 10px #0f172a05}
+.outcome-row:focus-visible{outline:2px solid #93c5fd;outline-offset:2px}
+.outcome-row strong{font-weight:600;font-size:12px}
+.outcome-row span{font-weight:600;font-size:12px;font-variant-numeric:tabular-nums}
+.outcome-row small{font-size:10px;color:#8a98ab;margin-top:4px;line-height:1.7}
+.outcome-withheld{background:#fcfcfd}
+.stat-grid{gap:14px;margin-top:2px}
+.stat-grid>div{padding:18px 20px;border:1px solid #e8eef7;border-radius:10px;background:linear-gradient(140deg,#f9fbff,#fff);gap:10px}
+.stat-grid>div.stat-estimated{background:linear-gradient(140deg,#ecfdf5,#fff);border-color:#d9f5e8}
+.stat-grid span{font-size:11px;color:#7f8da3;line-height:1.6}
+.stat-grid strong{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.3}
+.all-records .r-head{min-height:0;align-items:flex-start}
+.table-scroll{border-color:#e1e9f3;border-radius:10px}
+th{background:#f6f9fe;color:#52657e;font-size:11px;padding:14px 14px}
+td{color:#62748d;padding:14px;border-color:#edf2f8}
+tbody tr:nth-child(even){background:#fbfdff}
+tbody tr:hover{background:#f5f9ff}
+td:nth-child(2){font-weight:600;color:#476e96;font-variant-numeric:tabular-nums}
+.small-note{color:#8796aa;line-height:1.85}
+@media(max-width:1200px){.stat-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.r-head{min-height:0}.chart-box{height:320px}}
+@media print{.result-card,.cohort-banner{box-shadow:none}.outcome-list{max-height:none;overflow:visible}}
 </style>

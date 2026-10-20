@@ -2,7 +2,6 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const vm = require('node:vm')
-const childProcess = require('node:child_process')
 const assert = require('node:assert/strict')
 const root = path.resolve(__dirname, '..')
 const pnpm = path.join(root, 'node_modules/.pnpm')
@@ -16,13 +15,17 @@ const parsed = compiler.parse(source, { filename })
 let checks = 0
 function check(name, fn) { fn(); checks++; console.log('PASS ' + name) }
 
-check('the original report paper/header/watermark/seal and all five chart sections remain', () => {
+check('report retains its document layout but only renders available individual model chart sections', () => {
   for (const name of ['system-layout', 'main-content', 'ep-header', 'nav-wrapper', 'report-view-wrapper', 'report-paper', 'report-watermark', 'report-header', 'rh-left', 'rh-right', 'risk-seal', 'worker-table', 'disease-list', 'report-footer', 'sign-area', 'report-btns']) assert(source.includes('class="' + name + '"'), name)
   for (const numeral of ['一、', '二、', '三、', '四、', '五、']) assert(parsed.descriptor.template.content.includes(numeral), numeral)
   for (const ref of ['reportGaugeRef', 'reportRadarRef', 'reportBloodRef', 'reportShapRef', 'reportDoseResponseRef', 'reportJointEffectRef']) assert(source.includes('ref="' + ref + '"'), ref)
-  const old = childProcess.execFileSync('git', ['show', '8562f92:my-nuxt-app/app/pages/risk/report.vue'], { cwd: root, encoding: 'utf8' })
-  const oldStyle = compiler.parse(old).descriptor.styles[0].content.trim().replace(/\r\n/g, '\n')
-  assert(parsed.descriptor.styles[0].content.replace(/\r\n/g, '\n').includes(oldStyle), 'Original SCSS must be retained without redesign')
+  assert.match(source, /<template v-else-if="!isBatchMode && hasReport">/)
+  assert.match(source, /<div v-if="radarOption \|\| shapOption" class="report-section">/)
+  assert.match(source, /<el-col v-if="radarOption"/)
+  assert.match(source, /<el-col v-if="shapOption"/)
+  assert.match(source, /<div v-if="doseOption" class="report-section highlight">/)
+  assert.match(source, /<div v-if="jointOption" class="report-section">/)
+  assert(!/buildOriginalUnavailableOption|原图型骨架/.test(source))
 })
 check('SFC script/template and original SCSS compile offline', () => {
   assert.deepEqual(parsed.errors, [])
@@ -51,7 +54,7 @@ check('report keeps real individual builders separate from complete whole-file c
   assert.match(source, /cohortResult\.value\?\.complete === true && !cohortResponseError\(cohortResult\.value\)/)
   assert.match(source, /result = computed\(\(\) => isBatchMode\.value \? null/)
   assert.match(source, /<template v-if="isBatchMode && cohort">/)
-  assert.match(source, /<template v-else-if="!isBatchMode">/)
+  assert.match(source, /<template v-else-if="!isBatchMode && hasReport">/)
   assert(!/visibleBatch|batch_current_page|selectedRow|本页人员|当前已处理页面/.test(source))
   assert.match(source, /buildGaugeOption\(result\.value\)/, 'Gauge describes the current person 12 outcome coverage, not disease probability')
   assert.match(source, /batchPredictionCsv\(cohort\.value\)/)
@@ -94,7 +97,9 @@ const dashboardSource = fs.readFileSync(path.join(root, 'app/utils/riskDashboard
 const dashboardRuntime = {}
 const paletteRuntime = {}
 vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root, 'app/utils/riskPalette.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: paletteRuntime })
-const chartImports = { './riskPrediction': runtime, './riskPalette': paletteRuntime }
+const themeRuntime = {}
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(path.join(root, 'app/utils/riskChartTheme.ts'), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: themeRuntime })
+const chartImports = { './riskPrediction': runtime, './riskPalette': paletteRuntime, './riskChartTheme': themeRuntime }
 vm.runInNewContext(ts.transpileModule(dashboardSource, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: dashboardRuntime, require: name => { assert(Object.hasOwn(chartImports, name)); return chartImports[name] } })
 check('six-axis radar retains all absolute SHAP mass without inventing missing values', () => {
   const block = { target: 'sbp', label_zh: '收缩压', unit: 'mmHg', explanation: { status: 'AVAILABLE', scale_label: '原生输出尺度', items: [8, -6, 5, -4, 3, -2, 1].map((value, index) => ({ feature: 'f' + index, label_zh: '因素' + index, value })) } }

@@ -55,20 +55,92 @@ test('red dose curve and radar preserve predictions, native units and current-in
   assert(Math.abs(radar.series[0].data[0].value.reduce((sum, value) => sum + value, 0) - 100) < 1e-10)
 })
 
-test('warm heatmap retains actual bounds and response values without safety thresholds', () => {
+test('blue heatmap retains actual bounds and response values without safety thresholds', () => {
   const input = { label_zh: '收缩压', unit: 'mmHg', joint_response: {
     status: 'AVAILABLE', x_values: [0, 1], y_values: [0, 2], x_unit: 'ug/dL', y_unit: 'ug/L', values: [[0, 0, 120], [1, 1, 132]] } }
   const option = charts.buildJointOption(input)
-  assert.deepEqual(plain(option.visualMap.inRange.color), ['#FFF7ED', '#FED7AA', '#FB923C', '#EF4444'])
+  assert.deepEqual(plain(option.visualMap.inRange.color), ['#EFF6FF', '#BFDBFE', '#60A5FA', '#1E40AF'])
   assert.equal(option.visualMap.min, 120); assert.equal(option.visualMap.max, 132)
   assert.deepEqual(plain(option.series[0].data), input.joint_response.values)
   assert.deepEqual(plain(option.visualMap.text), ['估计值高', '估计值低'])
   assert.equal(option.visualMap.pieces, undefined)
+  assert.equal(option.series[0].itemStyle.borderColor, '#fff')
+  assert.equal(option.series[0].itemStyle.borderRadius, 5)
+  assert.match(option.series[0].label.formatter({ value: [0, 0, 120] }), /\{dark\|120\}/)
+  assert.match(option.series[0].label.formatter({ value: [1, 1, 132] }), /\{light\|132\}/)
+})
+
+test('single and cohort chart builders share quiet gridlines, typography and white rounded tooltips', () => {
+  const theme = load('riskChartTheme')
+  const dose = charts.buildDoseOption({ label_zh: '收缩压', unit: 'mmHg', dose_response: { status: 'AVAILABLE', unit: 'ug/dL', values: [{ x: 0, prediction: 120 }, { x: 2, prediction: 123 }] } })
+  const cohortInput = { summary: [{ target: 'sbp', unit: 'mmHg', estimated_count: 7, histogram: { counts: [3, 4], bin_edges: [100, 120, 140] } }] }
+  const before = plain(cohortInput)
+  const distribution = cohort.buildCohortDistributionOption(cohortInput, 'sbp')
+  assert.equal(dose.animationEasing, 'cubicOut')
+  assert.match(dose.textStyle.fontFamily, /Microsoft YaHei/)
+  assert.equal(dose.tooltip.confine, true)
+  assert.match(dose.tooltip.backgroundColor, /255,255,255/)
+  assert.match(dose.tooltip.extraCssText, /box-shadow:.*border-radius:10px/)
+  assert.deepEqual(plain(dose.yAxis.splitLine), plain(theme.RISK_SPLIT_LINE))
+  assert.equal(dose.yAxis.axisLine.show, false)
+  assert.equal(dose.yAxis.axisTick.show, false)
+  assert.deepEqual(plain(distribution.series[0].data), [3, 4])
+  assert.deepEqual(plain(distribution.yAxis.splitLine), plain(dose.yAxis.splitLine))
+  assert.deepEqual(plain(distribution.textStyle), plain(dose.textStyle))
+  assert.equal(distribution.tooltip.extraCssText, dose.tooltip.extraCssText)
+  assert.equal(distribution.xAxis.name, 'mmHg')
+  assert.deepEqual(plain(cohortInput), before)
+})
+
+test('cohort histogram uses slim separated blue columns and readable two-line bin labels without changing counts', () => {
+  const input = { summary: [{ target: 'sbp', unit: 'mmHg', estimated_count: 20, histogram: {
+    counts: [2, 2, 1, 0, 0, 1, 2, 4, 3, 5],
+    bin_edges: [114.61, 116.667, 118.724, 120.781, 122.838, 124.895, 126.952, 129.009, 131.066, 133.123, 135.18],
+  } }] }
+  const before = plain(input)
+  const option = cohort.buildCohortDistributionOption(input, 'sbp')
+  const bars = option.series[0]
+  assert.equal(bars.barMaxWidth, 26)
+  assert.equal(bars.barCategoryGap, '44%')
+  assert.deepEqual(plain(bars.itemStyle.color.colorStops), [{ offset: 0, color: '#60A5FA' }, { offset: 1, color: '#2563EB' }])
+  assert.equal(bars.itemStyle.color.x2, 0)
+  assert.equal(bars.itemStyle.color.y2, 1)
+  assert.deepEqual(plain(bars.data), before.summary[0].histogram.counts)
+  assert.equal(bars.data.reduce((sum, count) => sum + count, 0), 20)
+  assert.equal(option.xAxis.axisLabel.rotate, 0)
+  assert.equal(option.xAxis.axisLabel.interval, 'auto')
+  assert.equal(option.xAxis.axisLabel.hideOverlap, true)
+  assert.equal(option.xAxis.axisLabel.formatter(option.xAxis.data[0]), '114.61–\n116.67')
+  assert.equal(option.xAxis.data[0], '114.61–116.67', 'Tooltip categories retain the complete original bin label')
+  assert.equal(option.xAxis.name, 'mmHg')
+  assert.equal(option.yAxis.name, '人数')
+  assert.equal(option.yAxis.minInterval, 1)
+  assert.equal(bars.label.formatter({ value: 0 }), '', 'A genuinely empty bin is not shown as a person')
+  assert.equal(String(bars.label.formatter({ value: 5 })), '5')
+  assert.match(option.tooltip.formatter([{ name: option.xAxis.data[0], value: 2 }]), /114\.61–116\.67 mmHg/)
+  assert.deepEqual(plain(input), before, 'Styling cannot alter interval boundaries or original count arrays')
+})
+
+test('histogram styling preserves invalid or missing distribution guards instead of creating zero-filled data', () => {
+  const input = { summary: [{ target: 'sbp', unit: 'mmHg', estimated_count: 7, histogram: { counts: [3, 4], bin_edges: [100, 120, 140] } }] }
+  for (const mutate of [
+    value => { value.summary[0].histogram = undefined },
+    value => { value.summary[0].estimated_count = 0 },
+    value => { value.summary[0].histogram.counts = [3, 3] },
+    value => { value.summary[0].histogram.bin_edges = [100, 140] },
+  ]) {
+    const changed = plain(input)
+    mutate(changed)
+    const before = plain(changed)
+    assert.equal(cohort.buildCohortDistributionOption(changed, 'sbp'), null)
+    assert.deepEqual(plain(changed), before)
+  }
+  assert.equal(cohort.buildCohortDistributionOption(input, 'missing-target'), null)
 })
 
 test('coverage green means input completeness, never a traffic-light risk classification', () => {
   const option = cohort.buildCohortCoverageOption({ total_records: 10, processed_records: 7 })
-  assert.equal(option.series[0].progress.itemStyle.color, '#10B981')
+  assert.deepEqual(plain(option.series[0].progress.itemStyle.color.colorStops), [{ offset: 0, color: '#6EE7B7' }, { offset: 1, color: '#10B981' }])
   assert.equal(option.series[0].data[0].value, 70)
   assert.deepEqual(plain(option.series[0].axisLine.lineStyle.color), [[1, '#E5EDF7']])
   assert.match(option.tooltip.formatter, /不是高危比例/)

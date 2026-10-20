@@ -87,7 +87,7 @@
             <div v-if="cohort.warnings?.length" class="report-section"><p class="report-desc"><strong>[全群适用性提示]：</strong><br /><span v-for="warning in cohort.warnings" :key="warning">{{ warning }}<br /></span></p></div>
           </template>
 
-          <template v-else-if="!isBatchMode">
+          <template v-else-if="!isBatchMode && hasReport">
           <div class="report-section">
             <h3 class="rs-title">一、 当前对象与当次指标估计</h3>
             <p class="report-desc">保留输入记录与原始单位，展示{{ selectedLabel }}的模型估计；不筛选“高危人员”，不推断临床危险等级。一次单人输入不能推导人群患病率。</p>
@@ -132,17 +132,15 @@
             <p class="report-desc"><strong>[结果说明]：</strong>{{ availableCount }} 项可提供探索性数值。其余项目保留暂不出值的原因；暂不出值既不表示正常，也不表示已经患病。{{ INTERVAL_NOTE }}</p>
           </div>
 
-          <div class="report-section">
-            <h3 class="rs-title">三、 当前模型局部贡献结构与特征解释</h3>
+          <div v-if="radarOption || shapOption" class="report-section">
+            <h3 class="rs-title">当前模型局部贡献结构与特征解释</h3>
             <el-row :gutter="40">
-              <el-col :span="12">
+              <el-col v-if="radarOption" :span="shapOption ? 12 : 24">
                 <div v-if="hasReport && radarOption" class="chart-box-report" ref="reportRadarRef"></div>
-                <div v-else class="chart-box-report report-empty">{{ radarEmptyReason }}</div>
-                <p class="chart-caption">原六轴雷达：绝对 SHAP 贡献前 5 项与其他项合计的同尺度份额（%）；不是金属浓度、疾病概率或因果作用</p>
+                <p class="chart-caption">绝对 SHAP 贡献前 5 项与其他项合计的同尺度份额（%）；不是金属浓度、疾病概率或因果作用</p>
               </el-col>
-              <el-col :span="12">
+              <el-col v-if="shapOption" :span="radarOption ? 12 : 24">
                 <div v-if="hasReport && shapOption" class="chart-box-report shap-chart" ref="reportShapRef"></div>
-                <div v-else class="chart-box-report report-empty">{{ chartReason(charts?.explanation, '当前对象尚无真实 SHAP 贡献结果') }}</div>
               </el-col>
             </el-row>
             <p class="report-desc"><strong>[模型解释]：</strong>{{ explanationText }} 带符号的 SHAP 值只解释本次模型输出，包含缺失输入分支；不表示金属的因果效应或人体毒性强弱。</p>
@@ -154,20 +152,18 @@
             </div>
           </div>
 
-          <div class="report-section highlight">
-            <h3 class="rs-title">四、 全血铅输入敏感性与模型响应</h3>
+          <div v-if="doseOption" class="report-section highlight">
+            <h3 class="rs-title">全血铅输入敏感性与模型响应</h3>
             <el-row :gutter="40"><el-col :span="24">
               <div v-if="hasReport && doseOption" class="chart-box-report" ref="reportDoseResponseRef" style="height: 300px;"></div>
-              <div v-else class="chart-box-report report-empty" style="height: 300px;">{{ chartReason(charts?.dose_response, '当前对象尚无铅输入敏感性计算') }}</div>
             </el-col></el-row>
             <p class="report-desc"><strong>[响应说明]：</strong>{{ charts?.dose_response.note || '固定当前对象其余模型输入，仅改变全血铅，查看当前所选指标的真实模型输出。' }} 横轴为全血铅浓度，纵轴为{{ selectedLabel }}估计值；不能据此认定致病阈值、未来发病率或干预效果。</p>
           </div>
 
-          <div class="report-section">
-            <h3 class="rs-title">五、 全血铅 × 镉联合输入响应</h3>
+          <div v-if="jointOption" class="report-section">
+            <h3 class="rs-title">全血铅 × 镉联合输入响应</h3>
             <el-row :gutter="40"><el-col :span="24">
               <div v-if="hasReport && jointOption" class="chart-box-report" ref="reportJointEffectRef" style="height: 300px;"></div>
-              <div v-else class="chart-box-report report-empty" style="height: 300px;">{{ chartReason(charts?.joint_response, '当前对象尚无联合输入响应计算') }}</div>
             </el-col></el-row>
             <p class="report-desc"><strong>[联合响应说明]：</strong>{{ charts?.joint_response.note || '固定当前对象其余输入，枚举全血铅与镉的组合，以所选指标原单位显示模型估计。' }} 颜色深浅只表示模型输出大小，不能证明协同致毒、独立风险叠加或因果交互作用。</p>
           </div>
@@ -235,9 +231,6 @@ const radarOption = computed(() => charts.value && modelChartAllowed.value ? bui
 const shapOption = computed(() => charts.value && modelChartAllowed.value ? buildShapOption(charts.value) : null)
 const doseOption = computed(() => charts.value && modelChartAllowed.value ? buildDoseOption(charts.value) : null)
 const jointOption = computed(() => charts.value && modelChartAllowed.value ? buildJointOption(charts.value) : null)
-const radarEmptyReason = computed(() => activeOutcome.value && !modelChartAllowed.value ? predictionReason(activeOutcome.value)
-  : charts.value?.explanation.status === 'AVAILABLE' ? '真实贡献组不足 5 项或总绝对贡献为零，无法形成六轴份额雷达；不补造维度。'
-    : chartReason(charts.value?.explanation, '当前对象尚无真实模型局部贡献结果'))
 const explanationText = computed(() => modelChartAllowed.value && charts.value?.explanation.status === 'AVAILABLE'
   ? '当前所选指标：' + selectedLabel.value + '；贡献尺度：' + (charts.value.explanation.scale_label || '未提供') + '。' + (charts.value.explanation.note || '')
   : activeOutcome.value && !modelChartAllowed.value ? predictionReason(activeOutcome.value) : chartReason(charts.value?.explanation, '本次尚无可用的模型解释结果。'))

@@ -179,9 +179,11 @@ check('existing batch visual-results and chart renderer remain intact beside exp
   assert.match(currentWithPublicSource, /图表为未加权描述性统计/)
   const publicDisclosure = /^            <details v-if="groupDemoSource && analysisData\?\.metadata\.warnings\?\.length" class="analysis-notes-details">[\s\S]*?^            <\/details>\n/gm
   assert.equal((currentWithPublicSource.match(publicDisclosure) || []).length, 1)
-  const current = currentWithPublicSource.replace(publicSourceLine, '').replace(publicDisclosure, '')
+  const normalize = text => text.replace(publicSourceLine, '').replace(publicDisclosure, '')
     .replace('ref="groupDashboardRef" ', '')
     .replace('v-if="!groupDemoSource && analysisData?.metadata.warnings?.length"', 'v-if="analysisData?.metadata.warnings?.length"')
+  const current = normalize(currentWithPublicSource)
+  const comparableBaseline = normalize(baseline)
   for (const [start, end] of [['          <!-- 群体模式大屏 -->', '          <!-- 单人模式科研图表 -->'], ['const initBatchECharts', '/* ==============================================']]) {
     const get = (text, first, last) => {
       const begin = text.indexOf(first)
@@ -190,7 +192,7 @@ check('existing batch visual-results and chart renderer remain intact beside exp
       return text.slice(begin, finish)
     }
     const currentEnd = end.includes('setTimeout') ? '\n  showDashboard.value = true\n  currentStep.value = 2' : end
-    assert.equal(get(current, start, currentEnd).trimEnd(), get(baseline, start, end).trimEnd())
+    assert.equal(get(current, start, currentEnd).trimEnd(), get(comparableBaseline, start, end).trimEnd())
   }
 })
 

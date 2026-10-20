@@ -25,7 +25,7 @@ function load(file, imports = {}) {
   return exports
 }
 const risk = load('riskPrediction.ts')
-const cohort = load('riskCohort.ts', { './riskPrediction': risk, './riskPalette': load('riskPalette.ts') })
+const cohort = load('riskCohort.ts', { './riskPrediction': risk, './riskPalette': load('riskPalette.ts'), './riskChartTheme': load('riskChartTheme.ts') })
 const targets = ['sbp', 'dbp', 'creatinine', 'bun', 'urate', 'uacr', 'hba1c', 'cholesterol', 'hdl', 'alt', 'ast', 'ggt']
 function fixture(n = 45, skipped = 2) {
   const records = Array.from({ length: n }, (_, index) => {
@@ -133,7 +133,7 @@ test('cohort component keeps the profile above one full-row merged warning and t
   assert.match(component, /:processed-records="result\.processed_records"/)
   assert.match(component, /:skipped-records="result\.skipped_records"/)
   assert.match(main, /<RiskCohortWarning class="col-span-6" :result="result" :threshold="warningThreshold \?\? 80" @update:threshold="emit\('update:warningThreshold', \$event\)"/)
-  assert.match(main, /class="result-card col-span-3 accent-orange"/)
+  assert.match(main, /class="result-card col-span-3 accent-blue"/)
   assert.match(main, /class="result-card col-span-3 accent-blue"/)
   assert.match(main, /class="result-card col-span-6 accent-amber"/)
   const remainingTitles = [...main.matchAll(/<h4>([^<]*)/g)].map(match => match[1].trim())
@@ -164,7 +164,7 @@ test('cohort component keeps the profile above one full-row merged warning and t
   assert.match(component, /\.stat-grid\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/)
   assert.match(component, /全量完成 · 非分页推理/)
   assert.match(component, /下方仅显示分页，不限制模型计算人群/)
-  assert.match(component, /原图与功能边界（折叠保留/)
+  assert(!/原图与功能边界|prototypeImportanceRef|prototypeJointRef|buildOriginalUnavailableOption/.test(parsed.descriptor.template.content + parsed.descriptor.scriptSetup.content), 'The cohort page must not restore uncomputed prototype chart cards')
   assert.match(component, /onDeactivated\(pause\)/)
   const warningParsed = compiler.parse(warningComponent, { filename: warningPath })
   assert.deepEqual(warningParsed.errors, [])

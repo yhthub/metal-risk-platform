@@ -1,8 +1,7 @@
-/** Offline original-dashboard/layout and real chart binding checks. */
+/** Offline computed-only dashboard/layout and real chart binding checks. */
 const fs = require('node:fs')
 const path = require('node:path')
 const vm = require('node:vm')
-const childProcess = require('node:child_process')
 const assert = require('node:assert/strict')
 const root = path.resolve(__dirname, '..')
 const pnpm = path.join(root, 'node_modules/.pnpm')
@@ -19,7 +18,7 @@ function load(name, imports = {}) {
   return exports
 }
 const risk = load('riskPrediction.ts')
-const charts = load('riskDashboard.ts', { './riskPrediction': risk, './riskPalette': load('riskPalette.ts') })
+const charts = load('riskDashboard.ts', { './riskPrediction': risk, './riskPalette': load('riskPalette.ts'), './riskChartTheme': load('riskChartTheme.ts') })
 const filename = path.join(root, 'app/pages/risk/index.vue')
 const source = fs.readFileSync(filename, 'utf8')
 const parsed = compiler.parse(source, { filename })
@@ -30,27 +29,35 @@ const row = { target: 'sbp', label_zh: '收缩压', unit: 'mmHg', prediction: 12
 const result = { person_id: '<img src=x onerror=alert(1)>', results: [row, { ...row, target: 'uacr', prediction: 999, status: 'INSUFFICIENT_VALIDATED_ACCURACY' }] }
 const fixture = { target: 'sbp', label_zh: '收缩压', unit: 'mmHg', status: 'AVAILABLE', model_family: ['xgboost'], explanation: { status: 'AVAILABLE', scale_label: 'mmHg', base_value: 120, raw_prediction: 123.4, additivity_error: 0, items: [{ feature: 'pb', label_zh: '血铅', value: 5 }, { feature: 'age', label_zh: '年龄', value: -2 }, { feature: 'other_unprovided_model_features', label_zh: '其他未提供特征的缺失分支', value: .4 }] }, dose_response: { status: 'AVAILABLE', feature: 'pb', unit: 'ug/dL', values: [{ x: 1, prediction: 122 }, { x: 2, prediction: 124 }], current_value: 1.5 }, joint_response: { status: 'AVAILABLE', x_feature: 'pb', y_feature: 'cd', x_unit: 'ug/dL', y_unit: 'ug/L', x_values: [1, 2], y_values: [.3, .5], values: [[0, 0, 122], [1, 0, 123], [0, 1, 124], [1, 1, 125]] } }
 
-check('single-person page excludes a population ranking while preserving six original and seven real diagrams', () => {
-  for (const name of ['system-layout', 'main-content', 'ep-header', 'pipeline-steps', 'data-source-banner', 'model-selector-card', 'gemini-thinking-container', 'results-dashboard', 'results-grid', 'bottom-action-bar', 'model-meta-footer']) assert(source.includes('class="' + name + '"'), name)
-  assert.equal((parsed.descriptor.template.content.match(/class="result-card /g) || []).length, 13)
-  const originalSection = parsed.descriptor.template.content.split('data-original-diagrams>')[1].split('<section class="supplementary-analysis">')[0]
-  assert.equal((originalSection.match(/class="result-card /g) || []).length, 6)
-  const originalTitles = ['高危预警对象人群占比', '致病元凶权重榜', '毒物剂量-致病突变曲线', '高发职业病靶向预测', '双毒物“狼狈为奸”协同放大效应', '风险推手与保护因素拆解']
-  const positions = originalTitles.map(title => originalSection.indexOf(title))
-  assert(positions.every(position => position >= 0))
-  assert.deepEqual(positions, [...positions].sort((a, b) => a - b))
-  for (const ref of ['originalGaugeRef', 'originalImportanceRef', 'originalDoseRef', 'originalJointRef']) assert(originalSection.includes('ref="' + ref + '"'))
+check('single-person page has one computed-only dashboard with no unsupported or repeated original diagrams', () => {
+  const template = parsed.descriptor.template.content
+  for (const name of ['system-layout', 'main-content', 'ep-header', 'pipeline-steps', 'data-source-banner', 'model-selector-card', 'gemini-thinking-container', 'results-dashboard', 'results-grid', 'bottom-action-bar', 'model-meta-footer']) assert(new RegExp('class="[^"]*\\b' + name + '\\b').test(template), name)
+  assert.equal((template.match(/class="result-card /g) || []).length, 7)
+  assert.equal((template.match(/data-computed-diagrams/g) || []).length, 1)
+  for (const name of ['高危预警对象人群占比', '致病元凶权重榜', '毒物剂量-致病突变曲线', '高发职业病靶向预测', '双毒物“狼狈为奸”协同放大效应', '风险推手与保护因素拆解']) assert(!template.includes(name), name + ' placeholder must be removed')
+  assert(!/data-original-diagrams|supplementary-analysis|原图保留|原图型骨架|待疾病概率模型/.test(template))
+  assert(!/originalGaugeRef|originalImportanceRef|originalDoseRef|originalJointRef|buildOriginalUnavailableOption/.test(source))
+  for (const [option, ref] of [['rankOption', 'warningRankRef'], ['importanceOption', 'toxinWeightRef'], ['doseOption', 'doseResponseRef'], ['jointOption', 'jointEffectRef'], ['shapOption', 'shapChartRef']]) {
+    assert.match(template, new RegExp('<div v-if="' + option + '" class="result-card[^>]*>[\\s\\S]*?ref="' + ref + '"'), option + ' must guard its entire card')
+    assert.equal((template.match(new RegExp('ref="' + ref + '"', 'g')) || []).length, 1, ref + ' must not repeat')
+    assert.match(source, new RegExp('\\[' + ref + '\\.value, ' + option + '\\.value\\]'))
+  }
+  assert.equal((template.match(/ref="dashGaugeRef"/g) || []).length, 1)
+  assert.match(template, /结局估计可用性/)
+  assert.match(template, /v-for="\(row, index\) in dashboard!\.prediction\.results"/)
+  assert.match(template, /withheld: !predictionHasValue\(row\)/)
+  assert.match(template, /predictionHasValue\(row\) \? formatPredictionNumber\(row\.prediction\) : '—'/)
+  assert.match(template, /: predictionReason\(row\)/)
+  assert.match(source, /if \(!element \|\| !option\) continue/)
   assert(!source.includes('特异性高危易感人群预警榜'))
   const cohortComponent = fs.readFileSync(path.join(root, 'app/components/RiskCohortDashboard.vue'), 'utf8')
   const compositeComponent = fs.readFileSync(path.join(root, 'app/components/RiskCohortWarning.vue'), 'utf8')
   assert.match(cohortComponent, /<RiskCohortWarning/)
   assert.match(compositeComponent, /特异性高危易感人群预警榜/)
   assert.match(compositeComponent, /buildWarningRankOption/)
-  assert.match(source, /模型实时计算 · 补充分析/)
-  for (const ref of ['warningRankRef', 'dashGaugeRef', 'toxinWeightRef', 'doseResponseRef', 'jointEffectRef']) assert(source.includes('ref="' + ref + '"'), ref)
-  const old = childProcess.execFileSync('git', ['show', '8562f92:my-nuxt-app/app/pages/risk/index.vue'], { cwd: root, encoding: 'utf8' })
-  const oldStyle = compiler.parse(old).descriptor.styles[0].content.trim().replace(/\r\n/g, '\n')
-  assert(parsed.descriptor.styles[0].content.replace(/\r\n/g, '\n').includes(oldStyle))
+  assert.match(template, /单人健康指标分析/)
+  assert.match(template, /所选结局暂不出值/)
+  assert.match(source, /buildShapOption\(charts\.value\)/)
   assert.match(source, /grid-template-columns: repeat\(6, 1fr\)/)
   assert.match(source, /<el-dialog/)
   assert(!/prediction-layout|input-panel|outcome-grid/.test(source))
@@ -67,7 +74,7 @@ check('original model dictionary retains twenty entries but nineteen prototype c
   assert.match(source, /原型 · 未接入/)
   assert.match(source, /selectedModel.value !== 'm1'/)
 })
-check('SFC script/template and original plus minimal additional SCSS compile offline', () => {
+check('computed-only SFC script/template and dashboard SCSS compile offline', () => {
   assert.deepEqual(parsed.errors, [])
   const script = compiler.compileScript(parsed.descriptor, { id: 'risk-original-dashboard' })
   const compiled = compiler.compileTemplate({ source: parsed.descriptor.template.content, filename, id: 'risk-original-dashboard', compilerOptions: { bindingMetadata: script.bindings, expressionPlugins: ['typescript'] } })
@@ -102,24 +109,27 @@ check('batch rank contains only this page valid selected-outcome predictions, at
   assert.equal(option.series[0].data[0], 114)
   assert.equal(option.series[0].data[9], 105)
 })
-check('gauge encodes actual available outcomes or page-record coverage, never a disease rate', () => {
+check('coverage donut encodes actual available outcomes or page-record coverage, never a disease rate', () => {
   const single = charts.buildGaugeOption(result)
-  assert.equal(single.series[0].data[0].value, 50)
-  assert.match(single.series[0].data[0].name, /1 \/ 2 项可估计/)
-  assert.deepEqual(plain(single.series[0].detail.offsetCenter), [0, '10%'])
-  assert.deepEqual(plain(single.series[0].data[0].title.offsetCenter), [0, '38%'])
+  assert.equal(single.series[0].type, 'pie')
+  assert.deepEqual(plain(single.series[0].data.map(item => item.value)), [1, 1])
+  assert.equal(single.graphic[0].style.text, '50%')
+  assert.match(single.graphic[1].style.text, /1 \/ 2 项可估计/)
+  assert.equal(single.series[0].itemStyle.borderColor, '#fff')
+  assert.match(single.tooltip.formatter({ name: '可估计结局', value: 1 }), /不是患病概率/)
   const batch = charts.buildGaugeOption(result, { records: [{}, {}, {}, {}], processed_records: 3 })
-  assert.equal(batch.series[0].data[0].value, 75)
-  assert.match(batch.series[0].data[0].name, /3 \/ 4 条有效记录/)
+  assert.deepEqual(plain(batch.series[0].data.map(item => item.value)), [3, 1])
+  assert.equal(batch.graphic[0].style.text, '75%')
+  assert.match(batch.graphic[1].style.text, /3 \/ 4 条有效记录/)
 })
-check('rose chart uses all absolute local SHAP contributions, including missing branches, not PIP', () => {
+check('SHAP donut uses all absolute local contributions, including missing branches, not PIP', () => {
   const option = charts.buildImportanceOption(fixture)
   assert.deepEqual(plain(option.series[0].data.map(item => item.value)), [5, 2, .4])
   assert(option.series[0].data.some(item => /缺失分支/.test(item.name)))
   assert.match(option.series[0].name, /不是 PIP/)
   assert.equal(charts.buildImportanceOption({ ...fixture, explanation: { status: 'UNAVAILABLE' } }), null)
 })
-check('rose chart shows top five plus conserved other magnitude; signed chart retains every feature', () => {
+check('SHAP donut shows top five plus conserved other magnitude; signed chart retains every feature', () => {
   const items = Array.from({ length: 11 }, (_, index) => ({ feature: 'f' + index, label_zh: '特征' + index, value: index === 10 ? 0 : (index % 2 ? -1 : 1) * (11 - index) }))
   const many = { ...fixture, explanation: { ...fixture.explanation, items } }
   const option = charts.buildImportanceOption(many)
@@ -142,6 +152,8 @@ check('signed SHAP stays in native log scale and retains negative contributions'
   const option = charts.buildShapOption(log)
   assert.equal(option.xAxis.name, 'log1p(U/L)')
   assert.deepEqual(plain(option.series[0].data.map(item => item.value)), [5, -2, .4])
+  assert.deepEqual(plain(option.series[0].data.map(item => item.label.position)), ['right', 'left', 'right'])
+  assert(option.xAxis.min < -5 && option.xAxis.max > 5, 'Signed values and labels have visible space on both sides of zero')
   assert.equal(charts.availableShapItems({ ...fixture, explanation: { status: 'INSUFFICIENT_VALIDATED_ACCURACY', items: fixture.explanation.items } }).length, 0)
 })
 check('line and heatmap values are the actual supplied model responses and original outcome units', () => {

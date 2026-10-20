@@ -47,49 +47,41 @@
         </section>
         <div class="results-dashboard" v-if="(mode === 'individual' || showIndividualDetail) && reasoningComplete && !isReasoning">
           <el-alert v-if="mode === 'batch'" class="scope-alert" type="warning" :closable="false" :title="'个人明细：以下所有曲线和贡献图仅属于' + selectedPersonName + '，不能替代上方全群体统计。'" />
-          <div class="alert-conclusion-banner research-banner"><div class="a-icon"><el-icon><WarningFilled /></el-icon></div><div class="a-content"><h4>本次真实模型结果：<span>{{ charts?.label_zh }} · {{ selectedPersonName }}</span></h4><p>共 {{ dashboard!.prediction.results.length }} 项结局，{{ availableCount }} 项提供探索性估计，其余暂不出值。下方区分原图保留与实时计算补充：灰色骨架没有模型输出；已计算图反映回归响应与局部贡献，不代表因果效应、安全阈值或职业病风险等级。</p></div></div>
-          <div class="original-section-heading"><h3>单人原图保留 · 风险分析</h3><p>单人不显示人群预警榜；没有对应风险或因果模型的原图明确显示待模型，不用指标估计或覆盖率冒充。</p></div>
-          <div class="results-grid" data-original-diagrams>
-            <div class="result-card col-span-2"><div class="r-head"><div class="title-group"><h4>高危预警对象人群占比</h4><span class="sub-desc">原图保留 · 待经过验证的风险分类模型与定义；不把可估计结局占比当成高危比例。</span></div></div><div class="chart-box" ref="originalGaugeRef" style="height: 320px;"></div></div>
-            <div class="result-card col-span-2"><div class="r-head"><div class="title-group"><h4>致病元凶权重榜</h4><span class="sub-desc">原玫瑰图保留 · 尚无 BKMR / PIP 计算；真实 absSHAP 在补充分析单独呈现，不冒充致病权重。</span></div></div><div class="chart-box" ref="originalImportanceRef"></div></div>
-            <div class="result-card col-span-2"><div class="r-head"><div class="title-group"><h4>毒物剂量-致病突变曲线</h4><span class="sub-desc">原图保留 · 当前实际计算为全血铅输入与指标估计的回归响应，不是致病突变、因果曲线或安全阈值。</span></div></div><div class="chart-frame"><div class="chart-box" ref="originalDoseRef"></div><div v-if="!doseOption" class="chart-empty">{{ chartReason(charts?.dose_response) }}</div></div></div>
-            <div class="result-card col-span-2"><div class="r-head"><div class="title-group"><h4>高发职业病靶向预测</h4><span class="sub-desc">原列表 / 进度条图型保留 · 这些疾病概率及未来发病结局尚无对应模型，不能从12项回归值推导。</span></div></div><div class="disease-list original-disease-empty"><div class="d-item" v-for="name in originalDiseaseNames" :key="name"><div class="d-info"><span class="d-name">{{ name }}</span></div><div class="empty-probability-track" aria-hidden="true"></div><small>待疾病概率模型 · 未生成概率或等级</small></div></div></div>
-            <div class="result-card col-span-2"><div class="r-head"><div class="title-group"><h4>双毒物“狼狈为奸”协同放大效应</h4><span class="sub-desc">原 Pb × As 热图保留 · 当前模型没有砷输入，也没有协同致病效应模型；不以 Pb × Cd 响应偷换。</span></div></div><div class="chart-box" ref="originalJointRef"></div></div>
-            <div class="result-card col-span-2"><div class="r-head"><div class="title-group"><h4>风险推手与保护因素拆解</h4><span class="sub-desc">原带符号条形图保留 · 实际显示本次模型输出贡献，尺度为 {{ charts?.explanation.scale_label || '尚无输出' }}；不能据此称为致病或保护因素。</span></div></div><div v-if="shapItems.length" class="shap-chart native-scale"><div class="shap-row" v-for="item in shapItems" :key="item.feature"><span class="s-label" :title="item.label_zh">{{ item.label_zh }}</span><div class="s-track"><div class="zero-line"></div><div class="s-bar" :class="item.value >= 0 ? 'pos' : 'neg'" :style="{ width: contributionWidth(item.value) + '%' }"><span class="s-val">{{ item.value > 0 ? '+' : '' }}{{ formatPredictionNumber(item.value, 3) }}</span></div></div></div></div><div v-else class="chart-empty standalone">{{ chartReason(charts?.explanation) }}</div><p class="chart-note" v-if="shapItems.length">基准 {{ formatPredictionNumber(charts?.explanation.base_value, 3) }} + 全部贡献 ≈ 原生输出 {{ formatPredictionNumber(charts?.explanation.raw_prediction, 3) }}。未对log尺度的各项贡献做反变换。</p></div>
-          </div>
-          <section class="supplementary-analysis"><div class="original-section-heading"><h3>模型实时计算 · 补充分析</h3><p>以下保留全部已实现的真实图表，与上述原型风险图分开；它们回答指标估计、数据覆盖和模型输入响应问题。</p></div>
-          <div class="results-grid supplemental-grid">
-            <div class="result-card col-span-4 border-danger">
-              <div class="r-head"><div class="title-group"><h4>当前对象指标估计 <el-tag size="small" type="primary" effect="plain" round>{{ charts?.label_zh }}</el-tag></h4><span class="sub-desc">仅根据当前单人实际输入计算；保留原单位，不转为患病概率，也不作为全群体分析。</span></div></div>
-              <div class="chart-frame"><div class="chart-box" ref="warningRankRef" style="height: 320px;"></div><div v-if="!rankOption" class="chart-empty">{{ selectedTargetReason }}</div></div>
+          <div class="alert-conclusion-banner research-banner"><div class="a-icon"><el-icon><WarningFilled /></el-icon></div><div class="a-content"><h4>本次真实模型结果：<span>{{ charts?.label_zh }} · {{ selectedPersonName }}</span></h4><p>共 {{ dashboard!.prediction.results.length }} 项结局，{{ availableCount }} 项提供探索性估计，其余保留未出值原因。图表仅展示本次可计算的指标、输入响应和局部贡献，不代表因果效应、安全阈值或职业病风险等级。</p></div></div>
+          <div class="analysis-section-heading"><div><span class="section-eyebrow">INDIVIDUAL INSIGHTS</span><h3>单人健康指标分析</h3></div><span class="live-result-badge"><i></i>本次模型计算</span></div>
+          <p v-if="!rankOption" class="calculation-notice">所选结局暂不出值：{{ selectedTargetReason }}。可在下方切换其他结局。</p>
+          <details v-if="unavailableChartNotes.length && rankOption" class="calculation-details"><summary>部分分析未展示 · 查看原因</summary><p v-for="note in unavailableChartNotes" :key="note">{{ note }}</p></details>
+          <div class="results-grid individual-grid" data-computed-diagrams>
+            <div v-if="rankOption" class="result-card col-span-4 estimate-card">
+              <div class="r-head"><div class="title-group"><h4>当前对象指标估计 <el-tag size="small" type="primary" effect="plain" round>{{ charts?.label_zh }}</el-tag></h4><span class="sub-desc">根据本次实际输入计算，保留指标原单位；不是患病概率。</span></div></div>
+              <div class="chart-box estimate-chart" ref="warningRankRef"></div>
             </div>
-            <div class="result-card col-span-2">
-              <div class="r-head"><div class="title-group"><h4>当前对象可估计结局占比</h4><span class="sub-desc">反映此人的模型可用性，不是高危人群比例或全群体覆盖率</span></div></div>
-              <div class="chart-box" ref="dashGaugeRef" style="height: 320px;"></div>
+            <div class="result-card coverage-card" :class="rankOption ? 'col-span-2' : 'col-span-6'">
+              <div class="r-head"><div class="title-group"><h4>结局估计可用性</h4><span class="sub-desc">已提供数值 / 全部结局，不是健康风险比例。</span></div></div>
+              <div class="chart-box coverage-chart" ref="dashGaugeRef"></div>
             </div>
-            <div class="result-card col-span-2">
+            <div v-if="importanceOption" class="result-card col-span-3">
               <div class="r-head"><div class="title-group"><h4>局部特征贡献份额</h4><span class="sub-desc">绝对 SHAP 份额，含协变量和缺失分支；不是 PIP 或因果重要性。</span></div></div>
-              <div class="chart-frame"><div class="chart-box" ref="toxinWeightRef"></div><div v-if="!importanceOption" class="chart-empty">{{ chartReason(charts?.explanation) }}</div></div>
+              <div class="chart-box" ref="toxinWeightRef"></div>
             </div>
-            <div class="result-card col-span-2">
+            <div v-if="doseOption" class="result-card col-span-3">
               <div class="r-head"><div class="title-group"><h4>全血铅输入敏感性</h4><span class="sub-desc">仅改变铅、其余输入固定的实际模型响应；非因果剂量反应。</span></div></div>
-              <div class="chart-frame"><div class="chart-box" ref="doseResponseRef"></div><div v-if="!doseOption" class="chart-empty">{{ chartReason(charts?.dose_response) }}</div></div>
+              <div class="chart-box" ref="doseResponseRef"></div>
             </div>
-            <div class="result-card col-span-2">
-              <div class="r-head"><div class="title-group"><h4>多结局指标估计</h4><span class="sub-desc">点击切换目标；12项保留原单位与不足提示，不混为一个风险分数。</span></div></div>
-              <div class="disease-list actual-outcomes"><button class="d-item" :class="{ chosen: row.target === selectedTarget }" v-for="row in dashboard!.prediction.results" :key="row.target" @click="selectedTarget = row.target"><div class="d-info"><span class="d-name">{{ row.label_zh }}</span><span class="d-val">{{ predictionHasValue(row) ? formatPredictionNumber(row.prediction) + ' ' + row.unit : '暂不出值' }}</span></div><small>{{ predictionHasValue(row) ? '测试集MAE ' + formatPredictionNumber(row.test_metrics.MAE) + ' ' + row.unit : predictionReason(row) }}</small></button></div>
-            </div>
-            <div class="result-card col-span-3">
+            <div v-if="jointOption" class="result-card col-span-3">
               <div class="r-head"><div class="title-group"><h4>双金属联合输入响应</h4><span class="sub-desc">全血铅 × 全血镉的实际模型网格；颜色仅表示估计值大小，不证明协同致病。</span></div></div>
-              <div class="chart-frame"><div class="chart-box" ref="jointEffectRef"></div><div v-if="!jointOption" class="chart-empty">{{ chartReason(charts?.joint_response) }}</div></div>
+              <div class="chart-box joint-chart" ref="jointEffectRef"></div>
             </div>
-            <div class="result-card col-span-3">
+            <div v-if="shapOption" class="result-card col-span-3">
               <div class="r-head"><div class="title-group"><h4>本次对象的局部贡献拆解</h4><span class="sub-desc">带符号 SHAP · {{ charts?.explanation.scale_label || '未取得尺度' }}；不解释为致病或保护作用。</span></div></div>
-              <div v-if="shapItems.length" class="shap-chart native-scale"><div class="shap-row" v-for="item in shapItems" :key="item.feature"><span class="s-label" :title="item.label_zh">{{ item.label_zh }}</span><div class="s-track"><div class="zero-line"></div><div class="s-bar" :class="item.value >= 0 ? 'pos' : 'neg'" :style="{ width: contributionWidth(item.value) + '%' }"><span class="s-val">{{ item.value > 0 ? '+' : '' }}{{ formatPredictionNumber(item.value, 3) }}</span></div></div></div></div><div v-else class="chart-empty standalone">{{ chartReason(charts?.explanation) }}</div>
-              <p class="chart-note" v-if="shapItems.length">基准 {{ formatPredictionNumber(charts?.explanation.base_value, 3) }} + 全部贡献 ≈ 原生输出 {{ formatPredictionNumber(charts?.explanation.raw_prediction, 3) }}。{{ charts?.explanation.note }}</p>
+              <div class="chart-box contribution-chart" ref="shapChartRef" :style="{ height: Math.max(320, shapItems.length * 30 + 76) + 'px' }"></div>
+              <p class="chart-note">基准 {{ formatPredictionNumber(charts?.explanation.base_value, 3) }} + 全部贡献 ≈ 原生输出 {{ formatPredictionNumber(charts?.explanation.raw_prediction, 3) }}。{{ charts?.explanation.note }}</p>
+            </div>
+            <div class="result-card col-span-6 outcomes-card">
+              <div class="r-head"><div class="title-group"><h4>多结局指标估计 <span class="heading-count">{{ availableCount }} / {{ dashboard!.prediction.results.length }} 项可估计</span></h4><span class="sub-desc">点击切换目标，联动更新上方图表；各指标使用独立单位，不合成单人风险分数。</span></div></div>
+              <div class="actual-outcomes"><button class="outcome-item" :class="{ chosen: row.target === selectedTarget, withheld: !predictionHasValue(row) }" v-for="(row, index) in dashboard!.prediction.results" :key="row.target" @click="selectedTarget = row.target" :style="{ '--outcome-accent': outcomeAccents[index % outcomeAccents.length] }"><div class="outcome-top"><span class="outcome-name">{{ row.label_zh }}</span><span class="outcome-status">{{ predictionHasValue(row) ? '已估计' : '暂不出值' }}</span></div><strong class="outcome-value">{{ predictionHasValue(row) ? formatPredictionNumber(row.prediction) : '—' }}<small v-if="predictionHasValue(row)">{{ row.unit }}</small></strong><small class="outcome-note">{{ predictionHasValue(row) ? '测试集MAE ' + formatPredictionNumber(row.test_metrics.MAE) + ' ' + row.unit : predictionReason(row) }}</small></button></div>
             </div>
           </div>
-          </section>
           <el-alert v-if="dashboard!.prediction.warnings.length" type="info" :closable="false" :title="dashboard!.prediction.warnings.join('；')" />
           <p class="chart-note">{{ INTERVAL_NOTE }}</p>
           <div class="bottom-action-bar"><el-button type="success" size="large" plain :icon="Download" @click="goToReportPage" style="margin-right: 12px;">下载风险评估报告（本次真实结果）</el-button><el-button type="primary" size="large" class="final-run-btn" @click="goToPlan">查看干预策略原型（非本模型建议）➔</el-button></div>
@@ -117,7 +109,8 @@ import { ArrowLeft, ArrowDown, Document, WarningFilled, Download } from '@elemen
 import { ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import { EDUCATION_OPTIONS, INTERVAL_NOTE, MARITAL_OPTIONS, METAL_FIELDS, PREDICTION_SCOPE_NOTE, SMOKING_OPTIONS, batchPredictionCsv, buildPredictionRequest, clonePrediction, createPredictionDraft, downloadPrediction, formatPredictionNumber, measurementErrors, predictionHasValue, predictionReason } from '~/utils/riskPrediction'
-import { availableShapItems, buildDoseOption, buildGaugeOption, buildImportanceOption, buildJointOption, buildOriginalUnavailableOption, buildRankOption, chartReason, selectedOutcome } from '~/utils/riskDashboard'
+import { availableShapItems, buildDoseOption, buildGaugeOption, buildImportanceOption, buildJointOption, buildRankOption, buildShapOption, chartReason, selectedOutcome } from '~/utils/riskDashboard'
+import { RISK_CHART_COLORS } from '~/utils/riskChartTheme'
 import { cohortRankingCsv, cohortResponseError, cohortSummaryCsv } from '~/utils/riskCohort'
 import { buildCohortWarning, warningRankingCsv } from '~/utils/cohortWarning'
 import type { MetalKey, PredictionRequest, PredictionStatus } from '~/utils/riskPrediction'
@@ -186,13 +179,18 @@ const targetOptions = [
   { value: 'hdl_cholesterol_mg_dl', label: '高密度脂蛋白胆固醇 / mg/dL' }, { value: 'alt_u_l', label: 'ALT / U/L' },
   { value: 'ast_u_l', label: 'AST / U/L' }, { value: 'ggt_u_l', label: 'GGT / U/L' }
 ]
-const originalDiseaseNames = ['退行性中枢神经系统疾病', '慢性肾病与尿毒症', '骨质疏松与骨折', '心脑血管病']
+const outcomeAccents = RISK_CHART_COLORS
 const rankOption = computed(() => dashboard.value ? buildRankOption(dashboard.value.prediction, selectedTarget.value) : null)
 const importanceOption = computed(() => charts.value ? buildImportanceOption(charts.value) : null)
 const doseOption = computed(() => charts.value ? buildDoseOption(charts.value) : null)
 const jointOption = computed(() => charts.value ? buildJointOption(charts.value) : null)
 const shapItems = computed(() => availableShapItems(charts.value))
-const contributionWidth = (value: number) => Math.abs(value) / Math.max(...shapItems.value.map(item => Math.abs(item.value)), 1e-12) * 43
+const shapOption = computed(() => charts.value ? buildShapOption(charts.value) : null)
+const unavailableChartNotes = computed(() => [
+  !shapOption.value ? '局部特征贡献：' + chartReason(charts.value?.explanation) : '',
+  !doseOption.value ? '全血铅输入响应：' + chartReason(charts.value?.dose_response) : '',
+  !jointOption.value ? '双金属联合响应：' + chartReason(charts.value?.joint_response) : ''
+].filter(Boolean))
 const selectedTargetReason = computed(() => { const outcome = selectedOutcome(dashboard.value?.prediction, selectedTarget.value); return outcome && !predictionHasValue(outcome) ? predictionReason(outcome) : chartReason(charts.value) })
 const unitsFor = (key: MetalKey) => [...new Set(['ug/L', 'ug/dL', 'ng/mL', draft.value.measurements[key].unit].filter(Boolean))]
 const goToDatainput = async () => { await router.push('/datainput') }
@@ -219,10 +217,7 @@ const dashGaugeRef = ref<HTMLElement | null>(null)
 const toxinWeightRef = ref<HTMLElement | null>(null)
 const doseResponseRef = ref<HTMLElement | null>(null)
 const jointEffectRef = ref<HTMLElement | null>(null)
-const originalGaugeRef = ref<HTMLElement | null>(null)
-const originalImportanceRef = ref<HTMLElement | null>(null)
-const originalDoseRef = ref<HTMLElement | null>(null)
-const originalJointRef = ref<HTMLElement | null>(null)
+const shapChartRef = ref<HTMLElement | null>(null)
 let chartInstances: echarts.ECharts[] = []
 let resizeObserver: ResizeObserver | null = null
 let active = false
@@ -236,17 +231,13 @@ async function initDashboardCharts() {
   if (!active || !dashboard.value || isReasoning.value) return
   clearCharts()
   const options = [
-    [originalGaugeRef.value, buildOriginalUnavailableOption('gauge', '缺少风险分类模型及已验证的高危定义')],
-    [originalImportanceRef.value, buildOriginalUnavailableOption('rose', '尚未接入BKMR模型，不能计算PIP或致病权重')],
-    [originalDoseRef.value, doseOption.value],
-    [originalJointRef.value, buildOriginalUnavailableOption('heatmap', '没有砷输入，也没有Pb×As协同致病效应模型')],
     [warningRankRef.value, rankOption.value], [dashGaugeRef.value, buildGaugeOption(dashboard.value.prediction)],
-    [toxinWeightRef.value, importanceOption.value], [doseResponseRef.value, doseOption.value], [jointEffectRef.value, jointOption.value]
+    [toxinWeightRef.value, importanceOption.value], [doseResponseRef.value, doseOption.value], [jointEffectRef.value, jointOption.value], [shapChartRef.value, shapOption.value]
   ] as const
   if (typeof ResizeObserver !== 'undefined') resizeObserver = new ResizeObserver(resizeCharts)
   for (const [element, option] of options) {
     if (!element || !option) continue
-    const chart = echarts.init(element)
+    const chart = echarts.init(element, undefined, { devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2) })
     chart.setOption(option)
     chartInstances.push(chart)
     resizeObserver?.observe(element)
@@ -651,18 +642,28 @@ $color-danger: #EF4444;
 .col-span-6 { grid-column: span 6; }
 
 .result-card {
-  background: #fff; border: 1px solid $border-color; border-radius: 12px; padding: 24px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);
+  background: #fff; border: 1px solid #DFE7F2; border-radius: 14px; padding: 24px; box-shadow: 0 3px 14px rgba(30, 64, 110, 0.025);
   &.border-danger { border-color: #FCA5A5; border-top: 4px solid #EF4444; }
 }
 
 .r-head {
-  margin-bottom: 16px; border-bottom: 1px solid #F8FAFC; padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px; border-bottom: 1px dashed #EAF0F8; padding-bottom: 16px; display: flex; justify-content: space-between; align-items: center;
   .title-group { display: flex; flex-direction: column; gap: 6px; }
-  h4 { margin: 0; font-size: 1.05rem; font-weight: 800; color: $text-main; display: flex; align-items: center; gap: 8px;}
-  .sub-desc { font-size: 0.85rem; color: $text-muted; }
+  h4 { margin: 0; font-size: 16px; font-weight: 750; color: #172033; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; line-height: 1.6; }
+  .sub-desc { font-size: 12px; color: #7B879A; line-height: 1.85; }
 }
 
-.chart-box { width: 100%; height: 260px; }
+.chart-box { width: 100%; height: 320px; }
+.estimate-chart, .coverage-chart { height: 240px; }
+.joint-chart { height: 370px; }
+.individual-grid { grid-auto-flow: row dense; align-items: start; }
+.estimate-card { background: linear-gradient(120deg, #F8FBFF 0%, #FFFFFF 70%); }
+.analysis-section-heading { margin: 30px 0 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; h3 { margin: 5px 0 0; font-size: 21px; color: #172033; font-weight: 750; } }
+.section-eyebrow { color: #8A9AB2; font-size: 10px; letter-spacing: 1.8px; font-weight: 650; }
+.live-result-badge { display: inline-flex; align-items: center; gap: 8px; border-radius: 20px; padding: 7px 12px; background: #ECFDF5; color: #059669; font-size: 11px; i { width: 6px; height: 6px; border-radius: 50%; background: #10B981; } }
+.calculation-notice, .calculation-details { color: #758399; background: #F1F6FC; border: 1px solid #E2EAF5; border-radius: 9px; padding: 13px 18px; font-size: 12px; line-height: 1.9; margin: 0 0 20px; }
+.calculation-details { summary { cursor: pointer; } p { margin: 8px 0 0; } }
+.heading-count { font-size: 11px; font-weight: 500; color: #6E809B; background: #F1F5FB; border-radius: 12px; padding: 2px 9px; }
 
 .disease-list { display: flex; flex-direction: column; gap: 12px; }
 .d-item { display: flex; flex-direction: column; gap: 6px; }
@@ -730,7 +731,13 @@ $color-danger: #EF4444;
 .chart-empty { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:25px; text-align:center; font-size:13px; line-height:1.9; color:#94A3B8; background:#F8FAFC; border:1px dashed #E2E8F0; border-radius:8px; }
 .chart-empty.standalone { position:static; min-height:260px; }
 .chart-note { font-size:11px; line-height:1.9; color:#94A3B8; margin-top:16px; overflow-wrap:anywhere; }
-.actual-outcomes { max-height:260px; overflow-y:auto; .d-item { border:0; background:#F8FAFC; padding:10px; border-radius:6px; cursor:pointer; text-align:left; font:inherit; .d-info { gap:10px; font-size:12px; } .d-val { white-space:nowrap; color:#2563EB; font-weight:600; } small { font-size:10px; color:#94A3B8; line-height:1.8; } &.chosen { background:#EFF6FF; } } }
+.actual-outcomes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.outcome-item { position: relative; overflow: hidden; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 17px 16px; border: 1px solid #E6ECF5; border-radius: 10px; background: #FBFCFE; cursor: pointer; text-align: left; font: inherit; transition: background .18s, border-color .18s; &::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--outcome-accent); opacity: .75; } &:hover { border-color: #AFCBF6; background: #F6FAFF; } &:focus-visible { outline: 2px solid #3B82F6; outline-offset: 2px; } &.chosen { border-color: #93BFFA; background: #F0F6FF; } &.withheld { background: #F9FAFC; &::before { background: #CBD5E1; } .outcome-status { color: #94A3B8; background: #EEF2F6; } .outcome-value { color: #A8B4C5; } } }
+.outcome-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 7px; }
+.outcome-name { color: #42516A; font-size: 12px; font-weight: 600; line-height: 1.6; }
+.outcome-status { flex-shrink: 0; color: #059669; background: #EAF9F2; font-size: 9px; padding: 2px 6px; border-radius: 9px; }
+.outcome-value { color: #223A60; font-size: 25px; line-height: 1.3; font-weight: 700; font-variant-numeric: tabular-nums; small { font-size: 10px; font-weight: 500; color: #8290A5; margin-left: 7px; } }
+.outcome-note { color: #8A99AD; font-size: 10px; line-height: 1.8; }
 .native-scale { min-height:260px; justify-content:center; gap:14px; .s-label { width:130px; overflow:hidden; text-overflow:ellipsis; font-size:11px; } .zero-line { left:50%; border-left-width:1px; } .s-bar.pos { left:50%; } .s-bar.neg { right:50%; } .s-val { font-size:10px; } .s-bar { animation:none; } }
 .batch-page-bar { display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin:15px 0 24px; span { color:#64748B; font-size:12px; } }
 .meta-item small { font-weight:400; color:#94A3B8; }
@@ -738,10 +745,9 @@ $color-danger: #EF4444;
 .input-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin:15px 0; label { display:flex; flex-direction:column; gap:7px; font-size:12px; color:#475569; } }
 .dialog-metals { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; margin:20px 0; section { min-width:0; padding:16px; border:1px solid #E2E8F0; border-radius:9px; background:#F8FAFC; h4 { margin:0 0 14px; font-size:14px; color:#334155; } label { display:flex; flex-direction:column; gap:6px; margin:12px 0; font-size:12px; color:#64748B; } :deep(.el-checkbox__label) { font-size:11px; white-space:normal; } } }
 .dialog-optional { margin:20px 0; summary { font-size:12px; color:#64748B; cursor:pointer; } .input-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-.original-section-heading { margin:24px 0 18px; h3 { font-size:18px; color:#334155; margin:0 0 9px; } p { margin:0; font-size:12px; line-height:1.9; color:#8191A5; } }
-.supplementary-analysis { border-top:1px solid #E2E8F0; margin-top:30px; padding-top:8px; }
-.original-disease-empty { .d-item { gap:8px; margin-bottom:8px; .d-info { font-size:12px; color:#7B8B9F; } small { font-size:10px; color:#9AA8B9; } } .empty-probability-track { height:9px; border-radius:6px; border:1px solid #E2E8F0; background:#F1F5F9; } }
 .cohort-action-bar { justify-content:flex-end; flex-wrap:wrap; gap:12px; margin:22px 0 30px; }
 @media (max-width:1400px) { .data-source-banner { align-items:flex-start; gap:16px; } .data-source-banner .file-chips { max-width:420px; } .native-scale .s-label { width:110px; } }
+@media (min-width: 1201px) and (max-width: 1450px) { .actual-outcomes { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1200px) { .individual-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); .col-span-3 { grid-column: span 1; } .col-span-2 { grid-column: span 1; } .col-span-4 { grid-column: span 1; } .col-span-6 { grid-column: span 2; } } .actual-outcomes { grid-template-columns: repeat(3, minmax(0, 1fr)); } .result-card { padding: 20px; } }
 
 </style>

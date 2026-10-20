@@ -4,6 +4,7 @@ import type { CohortPredictionResponse } from './riskCohort'
 import type { ChartOption } from './riskDashboard'
 import { csvCell, formatPredictionNumber, predictionHasValue } from './riskPrediction'
 import { RISK_PALETTE, rankingGradient } from './riskPalette'
+import { riskChartBase, riskTooltip, riskValueAxis, riskCategoryAxis } from './riskChartTheme'
 
 export type WarningDirection = 'HIGH' | 'LOW'
 export type CohortWarningStatus = 'ALERT' | 'CLEAR' | 'INSUFFICIENT_DATA'
@@ -153,24 +154,25 @@ export function buildWarningRankOption(warning: CohortWarning, limit = 10): Char
   const displayLimit = finite(limit) ? Math.max(1, Math.min(50, Math.floor(limit))) : 10
   const rows = warning.rankings.filter(row => row.is_warning).slice(0, displayLimit)
   if (!rows.length) return null
-  return { tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (params: Array<{ dataIndex: number }>) => params.map(item => {
+  return { ...riskChartBase(), tooltip: riskTooltip({ trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (params: Array<{ dataIndex: number }>) => params.map(item => {
     const row = rows[item.dataIndex]
     return row ? html(row.display_id) + '<br/>原始编号：' + html(row.person_id) + '<br/>综合相对分：' + formatPredictionNumber(row.score) + ' / 100<br/>综合名次：' + formatPredictionNumber(row.rank, 1) + '<br/>参与结局：' + row.used_count + ' / 12<br/>批次内相对排序，非疾病概率或临床高危诊断' : ''
-  }).join('<br/>') }, grid: { left: '3%', right: '12%', top: '5%', bottom: '15%', containLabel: true },
-    xAxis: { type: 'value', min: 0, max: 100, name: '综合相对分', nameLocation: 'middle', nameGap: 28, splitLine: { lineStyle: { type: 'dashed' } } },
-    yAxis: { type: 'category', inverse: true, data: rows.map(row => row.display_id), axisTick: { show: false }, axisLabel: { width: 90, overflow: 'truncate' } },
-    series: [{ type: 'bar', name: '综合相对分', data: rows.map(row => row.score), barMaxWidth: 26,
-      itemStyle: { color: rankingGradient(), borderRadius: [0, 4, 4, 0] }, label: { show: true, position: 'right', color: RISK_PALETTE.red, formatter: (item: { value: number }) => formatPredictionNumber(item.value) } }] }
+  }).join('<br/>') }), grid: { left: 4, right: 56, top: 18, bottom: 45, containLabel: true },
+    xAxis: riskValueAxis({ min: 0, max: 100, name: '综合相对分', nameLocation: 'middle', nameGap: 29 }),
+    yAxis: riskCategoryAxis({ inverse: true, data: rows.map(row => row.display_id), axisLabel: { color: '#475569', fontSize: 11, fontWeight: 500, width: 90, overflow: 'truncate', margin: 12 } }),
+    series: [{ type: 'bar', name: '综合相对分', data: rows.map(row => row.score), barMaxWidth: 24,
+      itemStyle: { color: rankingGradient(), borderRadius: [0, 6, 6, 0] }, emphasis: { itemStyle: { shadowBlur: 14, shadowColor: 'rgba(239,68,68,.22)' } }, label: { show: true, position: 'right', distance: 9, fontWeight: 600, fontSize: 11, color: RISK_PALETTE.red, formatter: (item: { value: number }) => formatPredictionNumber(item.value) } }] }
 }
 
 /** Warning proportion has an explicit evaluated-person denominator, not the upload or a fake probability. */
 export function buildWarningShareOption(warning: CohortWarning): ChartOption | null {
   if (warning.status === 'INSUFFICIENT_DATA' || warning.percentage === null) return null
   const color = warning.status === 'ALERT' ? RISK_PALETTE.red : RISK_PALETTE.green
-  return { tooltip: { trigger: 'item', formatter: (item: { name: string; value: number }) => html(item.name) + '：' + item.value + '人<br/>分母：已评估' + warning.evaluated_count + '人；未评估' + warning.not_evaluated_count + '人另列<br/>批次内相对预警，不是疾病概率' },
-    graphic: [{ type: 'text', left: 'center', top: '42%', style: { text: formatPredictionNumber(warning.percentage, 1) + '%', fill: color, fontSize: 29, fontWeight: 700, textAlign: 'center' } },
-      { type: 'text', left: 'center', top: '58%', style: { text: warning.warning_count + ' / ' + warning.evaluated_count + ' 人', fill: '#64748B', fontSize: 12, textAlign: 'center' } }],
-    series: [{ type: 'pie', radius: ['64%', '83%'], center: ['50%', '50%'], startAngle: 90, label: { show: false }, labelLine: { show: false },
+  return { ...riskChartBase(), tooltip: riskTooltip({ trigger: 'item', formatter: (item: { name: string; value: number }) => html(item.name) + '：' + item.value + '人<br/>分母：已评估' + warning.evaluated_count + '人；未评估' + warning.not_evaluated_count + '人另列<br/>批次内相对预警，不是疾病概率' }),
+    legend: { bottom: 0, left: 'center', icon: 'roundRect', itemWidth: 9, itemHeight: 9, itemGap: 16, textStyle: { color: '#64748B', fontSize: 10 }, formatter: (name: string) => name === '达到相对预警阈值' ? '达到阈值' : '未达阈值' },
+    graphic: [{ type: 'text', left: 'center', top: '35%', style: { text: formatPredictionNumber(warning.percentage, 1) + '%', fill: color, fontSize: 31, fontWeight: 700, textAlign: 'center' } },
+      { type: 'text', left: 'center', top: '52%', style: { text: warning.warning_count + ' / ' + warning.evaluated_count + ' 人', fill: '#64748B', fontSize: 11, textAlign: 'center' } }],
+    series: [{ type: 'pie', radius: ['56%', '75%'], center: ['50%', '44%'], startAngle: 90, avoidLabelOverlap: true, padAngle: 1, label: { show: false }, labelLine: { show: false }, itemStyle: { borderColor: '#FFF', borderWidth: 3, borderRadius: 6 }, emphasis: { scaleSize: 4, itemStyle: { shadowBlur: 16, shadowColor: 'rgba(15,23,42,.12)' } },
       data: [{ name: '达到相对预警阈值', value: warning.warning_count, itemStyle: { color } },
         { name: '未达到相对预警阈值', value: warning.evaluated_count - warning.warning_count, itemStyle: { color: '#E5EDF7' } }] }] }
 }
