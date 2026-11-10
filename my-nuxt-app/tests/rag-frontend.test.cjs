@@ -19,6 +19,7 @@ const evaluate = (source, context = {}) => {
   return exports
 }
 const helpers = evaluate(fs.readFileSync(path.join(root, 'app/utils/ragPresentation.ts'), 'utf8'))
+const product = evaluate(fs.readFileSync(path.join(root, 'app/utils/product.ts'), 'utf8'))
 let checks = 0
 const check = (name, run) => { run(); checks++; console.log(`PASS ${name}`) }
 
@@ -192,6 +193,7 @@ check('starter prompts and placeholder use the three verified focused topics', (
           if (name === 'vue') return { ref, computed, nextTick: async () => {}, onMounted: () => {} }
           if (name === 'element-plus') return { ElMessage: {} }
           if (name === '~/utils/ragPresentation') return helpers
+          if (name === '~/utils/product') return product
           if (name === '@element-plus/icons-vue') return {}
           throw new Error(`Unexpected import ${name}`)
         },
@@ -217,6 +219,7 @@ check('starter prompts and placeholder use the three verified focused topics', (
       if (name === 'vue') return { ref, computed, nextTick: async () => {}, onMounted: () => {} }
       if (name === 'element-plus') return { ElMessage: { warning: () => {}, error: () => {}, success: () => {} } }
       if (name === '~/utils/ragPresentation') return helpers
+      if (name === '~/utils/product') return product
       if (name === '@element-plus/icons-vue') return {}
       throw new Error(`Unexpected import ${name}`)
     },
@@ -406,6 +409,7 @@ check('starter prompts and placeholder use the three verified focused topics', (
       if (name === 'vue') return { ref, computed, nextTick: async () => {}, onMounted() {} }
       if (name === 'element-plus') return { ElMessage: { success: text => copyNotices.push(['success', text]), error: text => copyNotices.push(['error', text]) } }
       if (name === '~/utils/ragPresentation') return helpers
+      if (name === '~/utils/product') return product
       if (name === '@element-plus/icons-vue') return {}
       throw new Error(`Unexpected import ${name}`)
     },

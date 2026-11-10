@@ -56,12 +56,12 @@
 
           <section v-else class="message-list" aria-label="问答记录" aria-live="polite" aria-relevant="additions text">
             <article v-for="msg in chatHistory" :key="msg.id" :class="['message', msg.role]">
-              <div class="message-body">
-                <div v-if="msg.role === 'assistant'" class="assistant-heading">
+              <div class="message-body" :class="{ 'pending-body': msg.loading }">
+                <div v-if="msg.role === 'assistant' && !msg.loading" class="assistant-heading">
                   <RagAvatar role="assistant" class="assistant-avatar" />
                   <div class="message-label">医学知识助手</div>
                 </div>
-                <div v-else class="message-label">你</div>
+                <div v-else-if="msg.role === 'user'" class="message-label">你</div>
                 <RagPending v-if="msg.loading" />
                 <div v-else-if="msg.error" class="answer-error" role="alert">
                   <strong>这次回答未能完成</strong><p>{{ friendlyError(msg.error) }}</p><button @click="retryQuestion(msg)">重新提问 <span aria-hidden="true">↗</span></button>
@@ -416,6 +416,13 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .prompt-label { margin-bottom: 0; color: var(--prompt-color); }
 .prompt-arrow { color: var(--prompt-color); }
 .assistant .message-body { padding: 22px 28px 20px; font-size: 15px; border: 1px solid #e0e9f2; border-radius: 18px; background: linear-gradient(145deg, #fff, #fcfdff); box-shadow: 0 4px 18px #2c5c8205; }
+.assistant .message-body.pending-body {
+  flex: 0 1 auto;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 12px 18px 12px 14px;
+  border-radius: 15px;
+}
 .assistant .message-label { display: flex; align-items: center; gap: 12px; margin: 0; font-size: 13px; color: #537793; font-weight: 600; }
 .assistant .message-label::after { content: ''; width: 34px; height: 1px; background: linear-gradient(90deg, #d1e1ef, transparent); }
 .user-text { background: linear-gradient(125deg, #eaf2fc, #e9f4f8); box-shadow: inset 0 1px 0 #ffffff8c; }
