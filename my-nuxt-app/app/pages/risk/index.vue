@@ -195,7 +195,7 @@ const contributionWidth = (value: number) => Math.abs(value) / Math.max(...shapI
 const selectedTargetReason = computed(() => { const outcome = selectedOutcome(dashboard.value?.prediction, selectedTarget.value); return outcome && !predictionHasValue(outcome) ? predictionReason(outcome) : chartReason(charts.value) })
 const unitsFor = (key: MetalKey) => [...new Set(['ug/L', 'ug/dL', 'ng/mL', draft.value.measurements[key].unit].filter(Boolean))]
 const goToDatainput = async () => { await router.push('/datainput') }
-const goToPlan = async () => { await router.push('/plan') }
+const goToPlan = async () => { await router.push({ path: '/plan', query: { view: 'coverage', from: 'risk', mode: mode.value } }) }
 const goToReportPage = async () => { if (dashboard.value || cohortResult.value) await router.push({ path: '/risk/report', query: { mode: mode.value } }) }
 const downloadCohortCsv = (content: string, label: string) => {
   if (typeof document === 'undefined') return
