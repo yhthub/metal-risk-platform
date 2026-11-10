@@ -1,7 +1,10 @@
 """Offline federation checks using stubs and tiny real read-only SQLite fixtures."""
 import hashlib
 import os
+import threading
+import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import Mock, patch
 
 from app.services import combined_bm25_service as combined
@@ -25,8 +28,8 @@ class FakeRetriever:
     def status(self):
         return self.state
 
-    def search(self, query, top_k, candidate_k, sources):
-        self.log.append((self.name, query, top_k, candidate_k, sources, self.timeout_seconds))
+    def search(self, query, top_k, candidate_k, sources, *, deadline):
+        self.log.append((self.name, query, top_k, candidate_k, sources, deadline))
         key = "medrr" if self.name == "medrr" else sources[0]
         if key in self.errors:
             raise self.errors[key]
@@ -197,13 +200,18 @@ class CombinedRoutingTests(unittest.TestCase):
         with self.assertRaises(CorpusUnavailable):
             self.service.search("cadmium", sources=["pubmed"])
 
-    def test_single_concurrency_and_shared_deadline_restore_child_timeout(self):
+    def test_queue_timeout_is_bounded_and_starts_no_query(self):
+        self.service.queue_timeout_seconds = .01
         self.service.capacity.acquire()
         try:
-            with self.assertRaises(CorpusUnavailable):
+            with self.assertRaisesRegex(RetrievalTimeout, "waiting for a BM25 search slot"):
                 self.service.search("cadmium")
         finally:
             self.service.capacity.release()
+        self.assertEqual(self.log, [])
+        self.assertTrue(self.service.search("cadmium")["hits"])
+
+    def test_shared_deadline_stops_later_partitions_without_mutating_child_timeout(self):
         now = [100.0]
         original_search = self.old.search
         def consumes_budget(*args, **kwargs):
@@ -214,10 +222,24 @@ class CombinedRoutingTests(unittest.TestCase):
         with patch.object(combined.time, "monotonic", side_effect=lambda: now[0]):
             result = self.service.search("cadmium")
         self.assertEqual(len(self.log), 1)
+        self.assertEqual(self.log[0][5], 100 + self.service.timeout_seconds)
         self.assertTrue(result["partial"])
         self.assertEqual(result["diagnostics"]["failed_sources"], list(combined.LOCAL_SOURCES))
         self.assertEqual(self.old.timeout_seconds, 8)
         self.assertEqual(self.local.timeout_seconds, 8)
+
+    def test_queue_wait_does_not_consume_sqlite_execution_budget(self):
+        now = [100.0]
+        def wait_for_slot(*, timeout):
+            now[0] += 15.0
+            return True
+        with patch.object(self.service, "capacity") as capacity, \
+             patch.object(combined.time, "monotonic", side_effect=lambda: now[0]):
+            capacity.acquire.side_effect = wait_for_slot
+            result = self.service.search("cadmium", sources=["pubmed"])
+        self.assertEqual(result["diagnostics"]["queue_wait_ms"], 15000)
+        self.assertEqual(result["diagnostics"]["elapsed_ms"], 0)
+        self.assertEqual(self.log[0][5], 115 + self.service.timeout_seconds)
 
     def test_status_keeps_declared_old_count_separate_from_unknown_local_count(self):
         self.old.state.update(total_chunks=24139516, source_counts={"pubmed": 23902851}, counts_basis="fixture catalog")
@@ -242,7 +264,7 @@ class CombinedRoutingTests(unittest.TestCase):
             service = create_retriever()
         self.assertIsInstance(service, combined.CombinedBm25RetrievalService)
         corpus.assert_called_once_with(medcpt_rerank=False, lexical_term_limit=None)
-        local.assert_called_once_with()
+        local.assert_called_once_with(concurrency=service.search_concurrency)
         self.assertEqual({item["id"] for item in service.knowledge_bases}, set(combined.ALL_SOURCES))
 
 
@@ -279,6 +301,56 @@ class CombinedRealSqliteTests(unittest.TestCase):
         self.assertTrue(cards)
         self.assertTrue(all(row["score"] < 0 and row["dense_score"] is None for row in result["hits"]))
         self.assertEqual(self.hashes(), before)
+
+    def test_twenty_overlapping_requests_share_two_slots_and_keep_their_own_hits(self):
+        with patch.dict(os.environ, {"RAG_BM25_SEARCH_CONCURRENCY": "2"}):
+            service = combined.CombinedBm25RetrievalService(self.old.service, self.local.service)
+        cases = [("cadmium kidney", ["pubmed", "scientific"]),
+                 ("lead hypertension", ["pubmed", "normative"])] * 10
+        def search(case):
+            return service.search(case[0], sources=case[1])
+        def signature(result):
+            return [(hit["chunk_id"], hit["score"]) for hit in result["hits"]]
+        expected = [signature(search(case)) for case in cases[:2]]
+        self.assertNotEqual(expected[0], expected[1])
+
+        ready = threading.Barrier(20, timeout=10)
+        paired = threading.Barrier(2, timeout=5)
+        original = self.old.service.search
+        lock = threading.Lock()
+        active = peak = 0
+        def concurrent_query(*args, **kwargs):
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            try:
+                paired.wait()
+                return original(*args, **kwargs)
+            finally:
+                with lock:
+                    active -= 1
+        def run(case):
+            ready.wait()
+            return search(case)
+        with patch.object(self.old.service, "search", side_effect=concurrent_query):
+            with ThreadPoolExecutor(max_workers=20) as pool:
+                results = list(pool.map(run, cases))
+        self.assertEqual(service.search_concurrency, 2)
+        self.assertEqual(peak, 2)
+        self.assertTrue(any(item["diagnostics"]["queue_wait_ms"] > 0 for item in results))
+        for index, item in enumerate(results):
+            self.assertEqual(item["diagnostics"]["search_state"], "complete")
+            self.assertEqual(signature(item), expected[index % 2])
+
+    def test_child_queries_enforce_request_deadlines_without_changing_config(self):
+        for service, source in [(self.old.service, "pubmed"), (self.local.service, "scientific")]:
+            with self.subTest(source=source):
+                configured = service.timeout_seconds
+                with self.assertRaises(RetrievalTimeout):
+                    service.search("cadmium kidney", sources=[source], deadline=time.monotonic() - 1)
+                self.assertEqual(service.timeout_seconds, configured)
+                self.assertTrue(service.search("cadmium kidney", sources=[source])["hits"])
 
     def test_medrr_query_after_18th_term_is_not_truncated(self):
         query = ("cadmium kidney injury exposure blood pressure hypertension diabetes cancer anemia "

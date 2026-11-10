@@ -4,6 +4,8 @@ Citation checking here is mechanical, NOT an entailment/clinical validation.
 No fake expert templates, fabricated DOI, or rank-derived dense scores.
 """
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 import hashlib
 import html
 import os
@@ -13,7 +15,7 @@ import time
 from typing import Dict, List
 from ..rag_config import RagSettings, env_bool
 from .corpus_retrieval_service import CorpusUnavailable, RetrievalTimeout
-from .local_llm_service import LocalLlmService
+from .local_llm_service import LocalLlmService, ModelKeyPool
 from .hybrid_retrieval_service import HybridRetrievalService
 from .prompt_budget import PromptBudget
 from .retrieval_text import term_aliases, term_present
@@ -332,8 +334,15 @@ class RagAgentService:
     def __init__(self, retriever=None, llm_factory=None, settings=None, *, allow_general_fallback=None):
         self.settings = settings or RagSettings.from_env()
         self.retriever = retriever or create_retriever()
-        self.llm_factory = llm_factory or (lambda: LocalLlmService(self.settings))
+        key_pool = (ModelKeyPool((self.settings.model_api_key, *self.settings.extra_model_keys))
+                    if self.settings.extra_model_keys else None)
+        self.llm_factory = llm_factory or (lambda: LocalLlmService(self.settings, key_pool=key_pool))
+        self._model_status_lock = threading.Lock()
+        self._model_status = None
+        self._model_status_until = 0.0
         self.capacity = threading.BoundedSemaphore(self.settings.concurrency)
+        self.chat_executor = ThreadPoolExecutor(max_workers=self.settings.concurrency,
+                                                thread_name_prefix="medical-qa")
         self.prompt_budget = PromptBudget(self.settings.model)
         # Research probes may explicitly retain strict abstention; the website
         # defaults to a visibly ungrounded, model-generated explanation.
@@ -342,15 +351,24 @@ class RagAgentService:
         self.knowledge_synthesis = (self.settings.answer_strategy == "knowledge_evidence_synthesis"
                                     and self.allow_general_fallback)
 
+    def model_status(self):
+        """Share one upstream model probe between status and model-list requests."""
+        with self._model_status_lock:
+            if self._model_status is None or time.monotonic() >= self._model_status_until:
+                client = self.llm_factory()
+                try:
+                    status = client.status()
+                finally:
+                    client.close()
+                self._model_status = status
+                self._model_status_until = time.monotonic() + (5.0 if status["ready"] else 1.0)
+            return deepcopy(self._model_status)
+
     def status(self):
         retrieval_status = self.retriever.status()
         corpus = {**retrieval_status, "ready": retrieval_status.get("corpus_ready", retrieval_status.get("ready")),
                   "name": retrieval_status.get("name") or "MedRR 医学检索库"}
-        client = self.llm_factory()
-        try:
-            model = client.status()
-        finally:
-            client.close()
+        model = self.model_status()
         ready = bool(corpus.get("ready") and model.get("ready") and retrieval_status.get("ready"))
         general_only = bool(model.get("ready") and self.allow_general_fallback and not ready)
         return {"status": "ready" if ready else ("general_only" if general_only else "not_ready"),
@@ -367,15 +385,16 @@ class RagAgentService:
     async def chat(self, message, history=None, model=None, enable_deep_think=True, sources=None):
         if model and model != self.settings.model:
             raise ValueError("Requested model is not the configured generation model")
-        return await asyncio.to_thread(self._chat_sync, message, history or [], enable_deep_think, sources)
-
-    def _chat_sync(self, message, history, extended, sources):
         if not self.capacity.acquire(blocking=False):
             raise RagBusyError("RAG service is at its configured concurrent request limit")
         try:
-            return self._run(message, history, extended, sources)
-        finally:
+            future = self.chat_executor.submit(self._run, message, history or [], enable_deep_think, sources)
+        except BaseException:
             self.capacity.release()
+            raise
+        # A disconnected browser cannot free a slot that is still running inference.
+        future.add_done_callback(lambda _: self.capacity.release())
+        return await asyncio.wrap_future(future)
 
     def _run(self, message, history, extended, sources):
         started = time.monotonic()

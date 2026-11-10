@@ -36,13 +36,19 @@ class CombinedBm25RetrievalService:
         # gate below bounds the complete query at 24 concepts before any I/O.
         self.medrr = medrr if medrr is not None else CorpusRetrievalService(
             medcpt_rerank=False, lexical_term_limit=None)
-        self.local = local if local is not None else LocalEvidenceRetrievalService()
+        self.search_concurrency = max(1, min(int(os.getenv("RAG_BM25_SEARCH_CONCURRENCY", "1")), 20))
+        self.local = local if local is not None else LocalEvidenceRetrievalService(
+            concurrency=self.search_concurrency)
         value = float(timeout_seconds if timeout_seconds is not None else os.getenv(
             "RAG_COMBINED_RETRIEVAL_TIMEOUT_SECONDS", os.getenv("RAG_RETRIEVAL_TIMEOUT_SECONDS", "8")))
         if not math.isfinite(value):
             raise ValueError("Combined retrieval timeout must be finite")
         self.timeout_seconds = max(.1, min(value, 30.0))
-        self.capacity = threading.BoundedSemaphore(1)
+        wait = float(os.getenv("RAG_BM25_QUEUE_TIMEOUT_SECONDS", "90"))
+        if not math.isfinite(wait):
+            raise ValueError("Combined retrieval queue timeout must be finite")
+        self.queue_timeout_seconds = max(0.0, min(wait, 180.0))
+        self.capacity = threading.BoundedSemaphore(self.search_concurrency)
 
     def status(self):
         medrr, local = self.medrr.status(), self.local.status()
@@ -62,6 +68,7 @@ class CombinedBm25RetrievalService:
         return {"ready": ready, "corpus_ready": ready,
                 "name": "MedRR 医学库＋职业金属暴露证据库", "backend": "combined_bm25",
                 "mode": "bm25", "engine": "federated_sqlite_fts5_bm25", "read_only": True,
+                "search_concurrency": self.search_concurrency, "queue_timeout_seconds": self.queue_timeout_seconds,
                 "degraded": some_ready and not ready, "partial": some_ready and not ready,
                 "total_chunks": None, "counts": counts,
                 "libraries": {"medrr": medrr, "local_evidence": local},
@@ -73,10 +80,14 @@ class CombinedBm25RetrievalService:
                 "warnings": [QUALITY_NOTICE]}
 
     def search(self, query, top_k=8, candidate_k=32, sources=None, mode=None):
-        if not self.capacity.acquire(blocking=False):
-            raise CorpusUnavailable("Combined retrieval is busy; only one request is allowed")
+        queued = time.monotonic()
+        if not self.capacity.acquire(timeout=self.queue_timeout_seconds):
+            raise RetrievalTimeout("Timed out waiting for a BM25 search slot")
         try:
-            return self._search(query, top_k, candidate_k, sources, mode)
+            waited_ms = (time.monotonic() - queued) * 1000
+            result = self._search(query, top_k, candidate_k, sources, mode)
+            result["diagnostics"]["queue_wait_ms"] = round(waited_ms, 2)
+            return result
         finally:
             self.capacity.release()
 
@@ -190,17 +201,10 @@ class CombinedBm25RetrievalService:
 
     @staticmethod
     def _search_one(service, query, candidate_k, sources, deadline):
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
+        if deadline <= time.monotonic():
             raise RetrievalTimeout("Shared combined retrieval budget exhausted before this partition")
-        # Instances belong to this adapter and all searches share its semaphore.
-        # Give each SQLite progress handler only the remaining request budget.
-        original_timeout = service.timeout_seconds
-        service.timeout_seconds = min(original_timeout, remaining)
-        try:
-            return service.search(query, top_k=candidate_k, candidate_k=candidate_k, sources=sources)
-        finally:
-            service.timeout_seconds = original_timeout
+        return service.search(query, top_k=candidate_k, candidate_k=candidate_k, sources=sources,
+                              deadline=deadline)
 
     @staticmethod
     def _hit(hit, partition, rank, terms, allowed_sources):

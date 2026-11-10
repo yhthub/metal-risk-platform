@@ -57,7 +57,7 @@ class BatchMissingAnalysisTests(unittest.TestCase):
         analysis = asyncio.run(data.get_dataset_analysis(imported.file_id))
         # Strict JSON rejects NaN/Infinity; source is saved byte-for-byte unchanged.
         json.dumps(analysis, allow_nan=False)
-        saved_source = Path(self.directory.name, f"{imported.file_id}_missing.csv")
+        saved_source = Path(self.directory.name, f"{imported.file_id}_dataset.csv")
         self.assertEqual(saved_source.read_bytes(), payload)
         analysis_path = Path(self.directory.name, f"{imported.file_id}_analysis.json")
         self.assertEqual(json.loads(analysis_path.read_text(encoding="utf-8")), analysis)

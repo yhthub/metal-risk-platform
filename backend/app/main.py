@@ -8,6 +8,7 @@ from .api import datainput, data_cleaning, risk, prediction, causal, plan, agent
 from .services.data_service import UPLOAD_DIR
 from .security import ApiGuard, api_keys
 from .rag_config import env_bool
+from .site_admission import SiteAdmissionMiddleware
 
 # 配置日志
 logging.basicConfig(
@@ -30,6 +31,7 @@ if "*" in cors_origins:
     raise RuntimeError("CORS_ORIGINS must contain explicit origins, not '*'")
 if env_bool("RAG_REQUIRE_API_KEY") and not api_keys():
     raise RuntimeError("Production RAG requires a configured non-empty API key")
+app.add_middleware(SiteAdmissionMiddleware)
 app.middleware("http")(ApiGuard())
 app.add_middleware(
     CORSMiddleware,

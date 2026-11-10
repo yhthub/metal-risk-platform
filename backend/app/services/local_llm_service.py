@@ -1,4 +1,6 @@
 """A real local model client; no model download or fabricated answer fallback."""
+from contextlib import contextmanager, nullcontext
+import threading
 from typing import Dict, List
 import requests
 from ..rag_config import RagSettings
@@ -33,13 +35,37 @@ def generation_error_message(error):
     return "Model inference failed: " + type(error).__name__
 
 
+class ModelKeyPool:
+    """Distribute in-flight calls for the same configured endpoint and model."""
+
+    def __init__(self, keys):
+        self._active = dict.fromkeys((key for key in keys if key), 0)
+        if not self._active:
+            raise ValueError("Model key pool needs a configured key")
+        self._lock = threading.Lock()
+
+    @contextmanager
+    def lease(self):
+        with self._lock:
+            key = min(self._active, key=self._active.get)
+            # Move ties to the back so consecutive single calls rotate too.
+            self._active[key] = self._active.pop(key) + 1
+        try:
+            yield key
+        finally:
+            with self._lock:
+                self._active[key] -= 1
+
+
 class LocalLlmService:
-    def __init__(self, settings=None):
+    def __init__(self, settings=None, key_pool=None):
         self.settings = settings or RagSettings.from_env()
+        self.key_pool = key_pool
         self.session = requests.Session()
         self.session.trust_env = False  # local/private model traffic must not use desktop proxies
-        if self.settings.model_api_key:
-            self.session.headers["Authorization"] = "Bearer " + self.settings.model_api_key
+        default_key = self.settings.model_api_key or next(iter(self.settings.extra_model_keys), "")
+        if default_key:
+            self.session.headers["Authorization"] = "Bearer " + default_key
 
     def status(self) -> Dict:
         native = self.settings.provider == "ollama"
@@ -86,10 +112,13 @@ class LocalLlmService:
                 # budget must not be consumed entirely by hidden reasoning.
                 if self.settings.enable_thinking is not None:
                     payload["enable_thinking"] = self.settings.enable_thinking
-            response = self.session.post(
-                self.settings.base_url + ("/api/chat" if native else "/chat/completions"),
-                json=payload, timeout=(5, self.settings.timeout), allow_redirects=False,
-            )
+            lease = self.key_pool.lease() if self.key_pool else nullcontext(None)
+            with lease as key:
+                response = self.session.post(
+                    self.settings.base_url + ("/api/chat" if native else "/chat/completions"),
+                    json=payload, timeout=(5, self.settings.timeout), allow_redirects=False,
+                    **({"headers": {"Authorization": "Bearer " + key}} if key else {}),
+                )
             response.raise_for_status()
             if isinstance(response.status_code, int) and not 200 <= response.status_code < 300:
                 raise requests.HTTPError("Model endpoint did not return HTTP success")

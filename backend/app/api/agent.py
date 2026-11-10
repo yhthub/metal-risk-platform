@@ -41,11 +41,7 @@ async def status():
 @router.get("/models")
 async def models():
     service = get_rag_service()
-    client = service.llm_factory()
-    try:
-        result = await asyncio.to_thread(client.status)
-    finally:
-        client.close()
+    result = await asyncio.to_thread(service.model_status)
     return {"models": [{"name": service.settings.model, "ready": result["ready"]}],
             "default": service.settings.model}
 

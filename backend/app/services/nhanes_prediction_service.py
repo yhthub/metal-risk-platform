@@ -95,6 +95,7 @@ CONTRACT = {
 
 _capacity = threading.BoundedSemaphore(1)
 _bundle_cache = None
+_last_status = None
 
 
 class PredictionError(ValueError):
@@ -424,7 +425,16 @@ def _provenance():
             "calibration_note": "历史2015标签曾被既往模型使用；探索性残差范围不作个体覆盖率保证。"}
 
 
+def last_verified_status():
+    """Read the last model verification while a native worker owns the slot."""
+    snapshot = _last_status
+    if snapshot is None:
+        return None
+    return {**deepcopy(snapshot), "readiness_source": "last_verification_while_busy"}
+
+
 def get_prediction_status():
+    global _last_status
     status = {"ready": False, "model_version": MODEL_VERSION, "run_id": RUN_ID, "profile": "basic",
               "target_count": 12, "estimate_target_count": 0, "withheld_target_count": 12,
               "contract": deepcopy(CONTRACT), "scope": SCOPE}
@@ -437,6 +447,8 @@ def get_prediction_status():
     except PredictionError as exc:
         status["reason"] = str(exc)
         status["error_status"] = exc.status_code
+    if status.get("error_status") != 429:
+        _last_status = {**deepcopy(status), "verified_at_unix": time.time()}
     return status
 
 

@@ -65,17 +65,20 @@ class LocalEvidenceRetrievalService:
     medcpt_rerank = False
     knowledge_bases = [{"id": key, "name": label} for key, (_, label) in DATABASES.items()]
 
-    def __init__(self, root=None, *, timeout_seconds=None):
+    def __init__(self, root=None, *, timeout_seconds=None, concurrency=1):
         self.root = Path(root or os.getenv("RAG_EVIDENCE_DB_DIR", str(DEFAULT_DB_DIR))).expanduser().resolve()
         self.timeout_seconds = max(.1, min(float(timeout_seconds if timeout_seconds is not None else
                                                os.getenv("RAG_LOCAL_DB_TIMEOUT_SECONDS", "3")), 10.0))
-        self.capacity = threading.BoundedSemaphore(1)
+        self.capacity = threading.BoundedSemaphore(concurrency)
 
     def _connect(self, path, deadline):
         # mode=ro refuses to create a missing file and respects existing WAL.
         if not path.is_file():
             raise CorpusUnavailable("Local evidence database is missing: " + path.name)
-        connection = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=.2)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RetrievalTimeout("Local retrieval deadline expired before opening SQLite")
+        connection = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=min(.2, remaining))
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA query_only=ON")
         connection.execute("PRAGMA cache_size=-2048")
@@ -111,15 +114,18 @@ class LocalEvidenceRetrievalService:
                              "medcpt": {"ready": False, "scope": "disabled in local lightweight mode"}},
                 "independent_dense_recall": False, "warnings": [QUALITY_NOTICE]}
 
-    def search(self, query, top_k=8, candidate_k=32, sources=None, mode=None):
-        if not self.capacity.acquire(blocking=False):
-            raise CorpusUnavailable("Local retrieval is busy; only one request is allowed")
+    def search(self, query, top_k=8, candidate_k=32, sources=None, mode=None, *, deadline=None):
+        if deadline is None:
+            if not self.capacity.acquire(blocking=False):
+                raise CorpusUnavailable("Local retrieval is busy")
+        elif not self.capacity.acquire(timeout=max(0, deadline - time.monotonic())):
+            raise RetrievalTimeout("Local retrieval did not acquire a search slot before its deadline")
         try:
-            return self._search(query, top_k, candidate_k, sources, mode)
+            return self._search(query, top_k, candidate_k, sources, mode, deadline)
         finally:
             self.capacity.release()
 
-    def _search(self, query, top_k, candidate_k, sources, mode):
+    def _search(self, query, top_k, candidate_k, sources, mode, deadline):
         if mode not in {None, "bm25"}:
             raise ValueError("Local evidence mode supports BM25 only; dense retrieval is disabled")
         if not isinstance(query, str) or not query.strip() or len(query) > 2000:
@@ -130,7 +136,8 @@ class LocalEvidenceRetrievalService:
         candidate_k = max(top_k, min(int(candidate_k), 32))
         selected_sources = list(dict.fromkeys(sources or DATABASES))
         started = time.monotonic()
-        deadline = started + self.timeout_seconds
+        budget_end = started + self.timeout_seconds
+        deadline = budget_end if deadline is None else min(deadline, budget_end)
         terms, translations = query_terms(query)
         diagnostics = {"query_terms": terms, "terminology_expansion": translations,
                        "prepared_query": query, "translation_method": "explicit bilingual lexical expansion; original concepts retained",

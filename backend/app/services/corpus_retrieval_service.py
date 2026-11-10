@@ -235,7 +235,7 @@ class CorpusRetrievalService:
                     "restore_receipt_required": self.require_restore_receipt,
                     "restore_receipt_verified": False}
 
-    def _connect(self, db: Path) -> sqlite3.Connection:
+    def _connect(self, db: Path, deadline: float | None = None) -> sqlite3.Connection:
         if self.require_restore_receipt:
             # Do not cache PASS across an atomic receipt replacement or bypass
             # the gate when this low-level opener is called directly.
@@ -247,8 +247,10 @@ class CorpusRetrievalService:
             self._verify_restore_receipt(metadata.st_size)
             if os.name == "posix" and metadata.st_mode & 0o222:
                 raise CorpusUnavailable("Restored corpus database is not published read-only")
-        connection = sqlite3.connect(db.as_uri() + "?mode=ro&immutable=1", uri=True,
-                                     timeout=self.timeout_seconds)
+        timeout = self.timeout_seconds if deadline is None else deadline - time.monotonic()
+        if timeout <= 0:
+            raise RetrievalTimeout("Corpus retrieval deadline expired before opening SQLite")
+        connection = sqlite3.connect(db.as_uri() + "?mode=ro&immutable=1", uri=True, timeout=timeout)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA query_only=ON")
         connection.execute("PRAGMA temp_store=MEMORY")
@@ -256,7 +258,7 @@ class CorpusRetrievalService:
         return connection
 
     def search(self, query: str, top_k: int = 8, candidate_k: int = 48,
-               sources: list[str] | None = None) -> dict[str, Any]:
+               sources: list[str] | None = None, *, deadline: float | None = None) -> dict[str, Any]:
         query = query.strip()
         if not query or len(query) > 2000:
             raise ValueError("Retrieval query must contain 1 to 2000 characters")
@@ -280,8 +282,9 @@ class CorpusRetrievalService:
         # operators. AND first improves precision, then OR only if insufficient.
         literals = ['"' + token.replace('"', '""') + '"' for token in tokens]
         started = time.monotonic()
-        deadline = started + self.timeout_seconds
-        connection = self._connect(db)
+        budget_end = started + self.timeout_seconds
+        deadline = budget_end if deadline is None else min(deadline, budget_end)
+        connection = self._connect(db, deadline)
         connection.set_progress_handler(lambda: int(time.monotonic() >= deadline), 1000)
         try:
             fts_schema = connection.execute("SELECT sql FROM sqlite_master WHERE name='chunks_fts'").fetchone()
