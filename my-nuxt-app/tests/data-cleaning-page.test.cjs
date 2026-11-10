@@ -29,6 +29,7 @@ function createPage(overrides = {}, browser = {}) {
     ...overrides
   }
   const context = vm.createContext({
+    PRODUCT_SHORT_NAME: '智能干预与决策支持系统',
     ref: vue.ref, reactive: vue.reactive, computed: vue.computed, watch: vue.watch,
     onMounted: () => {}, nextTick: vue.nextTick, useHead: () => {}, useApi: () => api,
     useRuntimeConfig: () => ({ app: { baseURL: '/zhiwei/' } }),

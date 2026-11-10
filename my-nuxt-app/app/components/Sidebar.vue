@@ -4,7 +4,7 @@
       :aria-expanded="mobileOpen" :aria-controls="navigationId" @click="openMobile">
       <el-icon><Menu /></el-icon>
     </button>
-    <NuxtLink to="/" class="mobile-brand">AI Intervention <span>智能风险预警系统</span></NuxtLink>
+    <NuxtLink to="/" class="mobile-brand" :title="PRODUCT_NAME">AI Intervention <span>{{ PRODUCT_SHORT_NAME }}</span></NuxtLink>
   </div>
   <div v-if="isMobile && mobileOpen" class="navigation-backdrop" aria-hidden="true" @click="closeMobile()" />
   <aside :id="navigationId" ref="sidebarElement" class="sidebar" :class="{ 'is-collapsed': compact, 'is-mobile': isMobile, 'is-open': mobileOpen }"
@@ -15,9 +15,9 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
       </svg>
-      <div class="brand-text">
+      <div class="brand-text" :title="PRODUCT_NAME">
         <span class="title-en">AI Intervention</span>
-        <span class="title-cn">智能风险预警系统</span>
+        <span class="title-cn">{{ PRODUCT_SHORT_NAME }}</span>
       </div>
       <button ref="collapseTrigger" type="button" class="navigation-toggle sidebar-toggle"
         :aria-label="isMobile ? '关闭导航菜单' : compact ? '展开侧边栏' : '收起侧边栏'"
@@ -31,35 +31,33 @@
     <div class="menu-container">
       <el-menu :default-active="defaultActive" class="custom-el-menu" :unique-opened="true" :collapse="compact" :collapse-transition="false">
         <div class="menu-group-title">DATA PIPELINE 数据管道</div>
-        <el-sub-menu index="1" aria-label="数据接入与特征工程">
-          <template #title><el-icon><Coin /></el-icon><span>数据接入与特征工程</span></template>
-          <el-menu-item index="1-1" @click="goTo('/datainput')">职业暴露特征录入</el-menu-item>
-          <el-menu-item index="1-2">外部 LIS 系统接口</el-menu-item>
+        <el-sub-menu index="1" aria-label="数据接入">
+          <template #title><el-icon><Coin /></el-icon><span>数据接入</span></template>
+          <el-menu-item index="1-1" @click="goTo('/datainput')">单人录入与群体导入</el-menu-item>
         </el-sub-menu>
-        <el-sub-menu index="2" aria-label="数据集智能治理">
-          <template #title><el-icon><DataLine /></el-icon><span>数据集智能治理</span></template>
+        <el-sub-menu index="2" aria-label="数据整理">
+          <template #title><el-icon><DataLine /></el-icon><span>数据整理</span></template>
           <el-menu-item index="2-1" @click="goTo('/data-cleaning')">数据清洗与格式转换</el-menu-item>
-          <el-menu-item index="2-2">特征降维与标准化</el-menu-item>
         </el-sub-menu>
 
         <div class="menu-group-title">MODEL LAYER 模型层</div>
-        <el-sub-menu index="3" aria-label="风险量化与预警">
-          <template #title><el-icon><TrendCharts /></el-icon><span>风险量化与预警</span></template>
-          <el-menu-item index="3-1" @click="goTo('/risk?mode=individual')">单人当次指标估计</el-menu-item>
-          <el-menu-item index="3-2" @click="goTo('/risk?mode=batch')">群体指标估计</el-menu-item>
+        <el-sub-menu index="3" aria-label="风险分析">
+          <template #title><el-icon><TrendCharts /></el-icon><span>风险分析</span></template>
+          <el-menu-item index="3-1" @click="goTo('/risk?mode=individual')">单人风险分析</el-menu-item>
+          <el-menu-item index="3-2" @click="goTo('/risk?mode=batch')">群体风险分析</el-menu-item>
         </el-sub-menu>
         
         <el-menu-item index="4" aria-label="因果知识推理" @click="goTo('/causal')">
           <el-icon><Share /></el-icon><span>因果知识推理</span>
         </el-menu-item>
         
-        <el-menu-item index="5" aria-label="智能干预策略推荐" @click="goTo('/plan')">
-          <el-icon><DocumentChecked /></el-icon><span>智能干预策略推荐</span>
+        <el-menu-item index="5" aria-label="方案推荐" @click="goTo('/plan')">
+          <el-icon><DocumentChecked /></el-icon><span>方案推荐</span>
         </el-menu-item>
         
         <div class="menu-group-title">KNOWLEDGE BASE 知识库</div>
-        <el-menu-item index="6" aria-label="AI 知识库助手" @click="goTo('/agent')">
-          <el-icon><ChatDotRound /></el-icon><span>AI 知识库助手</span>
+        <el-menu-item index="6" aria-label="医学知识问答" @click="goTo('/agent')">
+          <el-icon><ChatDotRound /></el-icon><span>医学知识问答</span>
         </el-menu-item>
       </el-menu>
     </div>
@@ -68,6 +66,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, useId, watch } from 'vue'
+import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from '~/utils/product'
 import { 
   Coin, DataLine, TrendCharts, Share, DocumentChecked, ChatDotRound, Menu, Close, Fold, Expand
 } from '@element-plus/icons-vue'
@@ -282,7 +281,7 @@ $border-light: #E2E8F0;
 .sidebar .brand-logo > svg { width: 27px; height: 27px; }
 .sidebar .brand-text { min-width: 0; flex: 1; }
 .sidebar .title-en { font-size: 16px; white-space: nowrap; }
-.sidebar .title-cn { font-size: 11px; letter-spacing: .5px; }
+.sidebar .title-cn { font-size: 11px; letter-spacing: 0; line-height: 1.5; white-space: normal; }
 .navigation-toggle { width: 40px; height: 40px; padding: 0; flex-shrink: 0; display: inline-flex; justify-content: center; align-items: center; border: 1px solid #e0e8f1; border-radius: 10px; color: #4c7195; background: #fff; cursor: pointer; }
 .navigation-toggle:hover { background: #eff6ff; border-color: #bed8f3; color: #2563eb; }
 .navigation-toggle:focus-visible, .mobile-brand:focus-visible { outline: 2px solid #4295d6; outline-offset: 3px; }

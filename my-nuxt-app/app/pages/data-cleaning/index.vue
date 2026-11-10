@@ -98,8 +98,9 @@
 <script setup>
 import { computed, ref, reactive, watch, onMounted, nextTick } from 'vue'
 import { ArrowLeft, UploadFilled, DocumentChecked, MagicStick, Loading, Download } from '@element-plus/icons-vue'
+import { PRODUCT_SHORT_NAME } from '~/utils/product'
 
-useHead({ title: '数据清洗与格式转换 · 智能风险预警系统' })
+useHead({ title: `数据清洗与格式转换 · ${PRODUCT_SHORT_NAME}` })
 const api = useApi()
 const runtimeConfig = useRuntimeConfig()
 const demoFileUrl = `${runtimeConfig.app.baseURL.replace(/\/?$/, '/')}examples/cleaning_demo_synthetic.xlsx`

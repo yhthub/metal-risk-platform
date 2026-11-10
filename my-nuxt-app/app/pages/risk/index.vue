@@ -4,18 +4,18 @@
     <main class="main-content">
       <header class="ep-header">
         <div class="nav-wrapper">
-          <div class="back-link" @click="goToDatainput"><el-icon class="back-icon"><ArrowLeft /></el-icon><span class="back-text">返回工作台</span><span class="divider">|</span><span class="page-title-top">风险量化与预警</span></div>
-          <div class="ep-right-zone"><el-tag :type="serviceStatus?.ready ? 'success' : 'info'" effect="plain">{{ serviceStatus?.ready ? '真实模型已就绪' : '模型未就绪' }}</el-tag><div class="user-profile"><div class="avatar">Dr.</div><span>职业卫生评估员</span></div></div>
+          <div class="workspace-heading"><button type="button" class="back-link" @click="goToDatainput"><el-icon class="back-icon"><ArrowLeft /></el-icon><span class="back-text">返回数据接入</span></button><span class="divider">|</span><span class="page-title-top">风险分析</span></div>
+          <div class="ep-right-zone"><el-tag :type="serviceStatus?.ready ? 'success' : 'info'" effect="plain">{{ serviceStatus?.ready ? '分析服务可用' : '分析服务未就绪' }}</el-tag><div class="user-profile"><div class="avatar">Dr.</div><span>职业卫生评估员</span></div></div>
         </div>
       </header>
       <div class="page-container">
-        <div class="pipeline-steps"><div class="step active"><span class="step-num">1</span> 数据接入配置</div><div class="step-line active-line"></div><div class="step active"><span class="step-num">2</span> 多维可视化分析</div><div class="step-line active-line"></div><div class="step active"><span class="step-num">3</span> 风险预警模型</div></div>
+        <PipelineSteps :current="3" />
         <div class="data-source-banner">
           <div class="ds-left"><span class="ds-label">当前评估对象 / 数据来源：</span><div class="file-chips"><el-tag size="large" effect="plain" round class="custom-tag" :closable="hasSource" @close="handleFileRemove"><el-icon><Document /></el-icon>{{ sourceName }}</el-tag></div></div>
           <div class="ds-right"><el-button link type="primary" @click="goToDatainput">查看特征明细</el-button><el-button type="primary" plain @click="inputDialog = true">核对本次输入</el-button></div>
         </div>
         <div class="model-selector-card">
-          <div class="selector-content"><label class="s-label">指定风险评估预训练模型：</label><div class="selector-actions"><el-select v-model="selectedModel" size="large" placeholder="选择模型" class="custom-el-select" style="width: 330px;" filterable><el-option v-for="model in availableModels" :key="model.id" :label="model.type + (model.disabled ? '（原型 · 未接入）' : '')" :value="model.id" :disabled="model.disabled" /></el-select><el-button type="primary" size="large" @click="startReasoning" :loading="isReasoning" :disabled="!serviceStatus?.ready || groupDemoLoading" class="run-btn">{{ isReasoning ? '真实模型计算中…' : mode === 'batch' ? '运行全群体分析' : '运行单人分析' }}</el-button></div></div>
+          <div class="selector-content"><label class="s-label">分析模型：</label><div class="selector-actions"><el-select v-model="selectedModel" size="large" placeholder="选择模型" class="custom-el-select" style="width: 330px;" filterable><el-option v-for="model in availableModels" :key="model.id" :label="model.type + (model.disabled ? '（原型 · 未接入）' : '')" :value="model.id" :disabled="model.disabled" /></el-select><el-button type="primary" size="large" @click="startReasoning" :loading="isReasoning" :disabled="!serviceStatus?.ready || groupDemoLoading" class="run-btn">{{ isReasoning ? '正在分析…' : mode === 'batch' ? '运行全群体分析' : '运行单人分析' }}</el-button></div></div>
         </div>
         <div class="dashboard-controls">
           <el-button-group><el-button :type="mode === 'individual' ? 'primary' : 'default'" @click="selectMode('individual')">单人分析</el-button><el-button :type="mode === 'batch' ? 'primary' : 'default'" @click="selectMode('batch')">群体分析</el-button></el-button-group>
@@ -50,7 +50,7 @@
         </div>
         <section v-if="mode === 'batch' && cohortResult" class="cohort-results">
           <RiskCohortDashboard :result="cohortResult" :target="selectedTarget" :target-options="targetOptions" :warning-threshold="cohortWarningThreshold" @update:warning-threshold="cohortWarningThreshold = $event" @select-target="selectedTarget = $event" @inspect-person="inspectCohortPerson" />
-          <div class="bottom-action-bar cohort-action-bar"><el-button type="primary" @click="goToPlan">进入方案推荐（演示）</el-button><el-button type="success" plain :icon="Download" @click="goToReportPage">群体分析报告</el-button><el-button @click="downloadCompositeWarning">下载综合预警排序</el-button><el-button @click="downloadCohortSummary">下载全群汇总</el-button><el-button @click="downloadCohortRanking">下载所选结局排序</el-button><el-button @click="downloadAllCohortRecords">下载全部对象结果</el-button></div>
+          <div class="bottom-action-bar cohort-action-bar"><el-button type="primary" @click="goToPlan">进入方案推荐（演示）</el-button><el-button type="success" plain :icon="Document" @click="goToReportPage">群体分析报告</el-button><el-button @click="downloadCompositeWarning">下载综合预警排序</el-button><el-button @click="downloadCohortSummary">下载全群汇总</el-button><el-button @click="downloadCohortRanking">下载所选结局排序</el-button><el-button @click="downloadAllCohortRecords">下载全部对象结果</el-button></div>
         </section>
         <div class="results-dashboard" v-if="(mode === 'individual' || showIndividualDetail) && reasoningComplete && !isReasoning">
           <el-alert v-if="mode === 'batch'" class="scope-alert" type="warning" :closable="false" :title="'个人明细：以下所有曲线和贡献图仅属于' + selectedPersonName + '，不能替代上方全群体统计。'" />
@@ -90,7 +90,7 @@
           </section>
           <el-alert v-if="dashboard!.prediction.warnings.length" type="info" :closable="false" :title="dashboard!.prediction.warnings.join('；')" />
           <p class="chart-note">{{ INTERVAL_NOTE }}</p>
-          <div class="bottom-action-bar"><el-button type="success" size="large" plain :icon="Download" @click="goToReportPage" style="margin-right: 12px;">下载风险评估报告（本次真实结果）</el-button><el-button type="primary" size="large" class="final-run-btn" @click="goToPlan">进入方案推荐（演示）</el-button></div>
+          <div class="bottom-action-bar"><el-button type="success" size="large" plain :icon="Document" @click="goToReportPage" style="margin-right: 12px;">查看分析报告</el-button><el-button type="primary" size="large" class="final-run-btn" @click="goToPlan">进入方案推荐（演示）</el-button></div>
         </div>
         <el-empty v-if="!isReasoning && !requestLogs.length && !cohortResult && !dashboard" description="请核对输入后运行：群体将完成整份文件全部对象预测，默认展示全群统计，而非逐人翻页。" />
       </div>
@@ -104,12 +104,13 @@
       <details v-if="mode === 'individual'" class="dialog-optional"><summary>可选个人因素（NHANES训练口径；不匹配则未知）</summary><div class="input-grid"><label>教育程度<el-select v-model="draft.covariates.education" placeholder="未知" clearable @clear="draft.covariates.education = null"><el-option v-for="item in EDUCATION_OPTIONS" :key="item.value" :label="item.label" :value="item.value" /></el-select></label><label>婚姻<el-select v-model="draft.covariates.marital" placeholder="未知" clearable @clear="draft.covariates.marital = null"><el-option v-for="item in MARITAL_OPTIONS" :key="item.value" :label="item.label" :value="item.value" /></el-select></label><label>终生100支口径吸烟<el-select v-model="draft.covariates.smoking" placeholder="未知" clearable @clear="draft.covariates.smoking = null"><el-option v-for="item in SMOKING_OPTIONS" :key="item.value" :label="item.label" :value="item.value" /></el-select></label><label>过去一年饮酒<el-select v-model="draft.covariates.alcohol_any_past_year" placeholder="未知" clearable @clear="draft.covariates.alcohol_any_past_year = null"><el-option label="是" :value="true" /><el-option label="否" :value="false" /></el-select></label></div></details>
       <el-alert v-if="inputErrors.length" type="error" :closable="false" :title="inputErrors.join('；')" />
       <p class="dialog-note">仅接受18–80岁成人，80为NHANES顶码。规范输入为铅 μg/dL、镉和总汞 μg/L；仅同全血明确单位可由后端记录换算，不改变原始录入值。</p>
-      <template #footer><div class="input-dialog-actions"><el-button @click="goToDatainput">返回数据工作台</el-button><el-button type="primary" @click="confirmInputs">完成核对</el-button></div></template>
+      <template #footer><div class="input-dialog-actions"><el-button @click="goToDatainput">返回数据接入</el-button><el-button type="primary" @click="confirmInputs">完成核对</el-button></div></template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
+import { PRODUCT_SHORT_NAME } from '~/utils/product'
 import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { ArrowLeft, ArrowDown, Document, WarningFilled, Download } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
@@ -121,6 +122,7 @@ import { buildCohortWarning, warningRankingCsv } from '~/utils/cohortWarning'
 import type { MetalKey, PredictionRequest, PredictionStatus } from '~/utils/riskPrediction'
 import type { DashboardResponse } from '~/utils/riskDashboard'
 
+useHead({ title: `风险分析 · ${PRODUCT_SHORT_NAME}` })
 const router = useRouter()
 const route = useRoute()
 const api = useApi()

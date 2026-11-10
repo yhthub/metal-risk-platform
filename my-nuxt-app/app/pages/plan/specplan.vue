@@ -5,11 +5,10 @@
     <main class="main-content">
       <header class="ep-header">
         <div class="nav-wrapper">
-          <div class="back-link" @click="goBack">
-            <el-icon class="back-icon"><ArrowLeft /></el-icon>
-            <span class="back-text">返回干预方案</span>
-            <span class="divider">|</span>
-            <span class="page-title-top">个人化干预方案报告</span>
+          <div class="workspace-heading">
+            <button type="button" class="back-link" @click="goBack"><el-icon class="back-icon"><ArrowLeft /></el-icon><span class="back-text">返回方案推荐</span></button>
+            <span class="divider" aria-hidden="true">|</span>
+            <span class="page-title-top">方案示例报告</span>
           </div>
           <div class="ep-right-zone">
             <div class="user-profile">
@@ -21,8 +20,9 @@
       </header>
 
       <div class="report-view-wrapper">
-        <div class="report-paper">
-          <div class="report-watermark">AI INTERVENTION REPORT</div>
+        <div v-if="person" class="report-paper">
+          <div class="report-watermark">DEMO · 方案示例</div>
+          <p class="report-demo-note">预设案例演示 · 人物、数值和措施仅用于展示，尚未根据本次分析生成，不作为诊疗或用药依据。</p>
 
           <div class="report-header">
             <div class="rh-left">
@@ -30,13 +30,13 @@
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
               </svg>
               <div class="rh-text">
-                <h1>{{ person.id }} · {{ person.name }} 个人化干预方案</h1>
-                <p>预防级别：{{ person.level === 'level2' ? '二级预防（早期筛查与临床干预）' : '一级预防（健康教育与环境阻断）' }} | 生成时间：2026-05-12 15:40</p>
+                <h1>{{ person.name }} · 方案示例报告</h1>
+                <p>案例 {{ person.id }} · {{ person.level === 'level2' ? '二级预防（早期筛查与临床干预）' : '一级预防（健康教育与环境阻断）' }}</p>
               </div>
             </div>
             <div class="rh-right">
               <div class="risk-seal" :class="person.level === 'level2' ? 'seal-danger' : 'seal-warn'">
-                <span>{{ person.level === 'level2' ? '高危' : '中危' }}</span>
+                <span>示例风险增幅</span>
                 <strong>{{ person.score }}%</strong>
               </div>
             </div>
@@ -46,40 +46,40 @@
 
           <!-- 一、干预对象信息 -->
           <div class="report-section">
-            <h3 class="rs-title">一、干预对象基本信息</h3>
+            <h3 class="rs-title">一、案例对象信息</h3>
             <el-descriptions :column="2" border class="custom-descriptions">
               <el-descriptions-item label="工号">{{ person.id }}</el-descriptions-item>
               <el-descriptions-item label="姓名">{{ person.name }}</el-descriptions-item>
               <el-descriptions-item label="所属部门">{{ person.dept }}</el-descriptions-item>
               <el-descriptions-item label="暴露工龄">{{ person.years }} 年</el-descriptions-item>
-              <el-descriptions-item label="风险驱动因子">
+              <el-descriptions-item label="案例涉及因素">
                 <el-tag size="small" :type="person.level === 'level2' ? 'danger' : 'warning'" effect="dark" round>{{ person.factors }}</el-tag>
               </el-descriptions-item>
-              <el-descriptions-item label="因果风险增幅">
+              <el-descriptions-item label="示例风险增幅">
                 <el-tag size="small" :type="person.level === 'level2' ? 'danger' : 'warning'" effect="dark" round>{{ person.score }}%</el-tag>
               </el-descriptions-item>
             </el-descriptions>
           </div>
 
-          <!-- 二、AI 智能推荐算法依据 -->
+          <!-- 二、案例推荐说明 -->
           <div class="report-section">
-            <h3 class="rs-title">二、AI 智能推荐算法依据</h3>
+            <h3 class="rs-title">二、案例推荐说明</h3>
 
             <!-- 核心结论（置顶突出） -->
             <div class="recommendation-hero">
-              <div class="rh-badge">核心推荐依据</div>
+              <div class="rh-badge">预设推荐说明</div>
               <p class="rh-text">{{ person.recommendationSummary }}</p>
               <div class="rh-meta">
-                <span>算法：G-computation + SHAP 特征归因</span>
+                <span>展示内容：预设归因与因素说明</span>
                 <span>对象：{{ person.id }} ({{ person.name }})</span>
-                <span>风险增幅：{{ person.score }}%</span>
+                <span>示例风险增幅：{{ person.score }}%</span>
               </div>
             </div>
 
             <!-- 支撑论据：SHAP + 混杂因素 + 雷达图 -->
             <div class="evidence-grid">
               <div class="shap-analysis">
-                <h4>SHAP 特征归因分解</h4>
+                <h4>归因展示（预设值）</h4>
                 <div class="shap-bars">
                   <div class="shap-row" v-for="s in person.shapBreakdown" :key="s.factor">
                     <span class="shap-label">{{ s.factor }}</span>
@@ -94,7 +94,7 @@
               </div>
 
               <div class="confounders-analysis">
-                <h4>混杂因素校正</h4>
+                <h4>案例因素说明</h4>
                 <ul>
                   <li v-for="c in person.confounders" :key="c.factor">
                     <strong>{{ c.factor }}：</strong>{{ c.impact }}
@@ -104,13 +104,13 @@
             </div>
           </div>
 
-          <!-- 三、干预目标 -->
+          <!-- 三、案例目标 -->
           <div class="report-section">
-            <h3 class="rs-title">三、干预目标</h3>
+            <h3 class="rs-title">三、案例目标</h3>
             <div class="goals-grid">
               <div class="goal-item" v-for="o in person.outcomes" :key="o.label">
                 <el-icon><CircleCheckFilled /></el-icon>
-                将 {{ o.label }} 从当前 {{ o.before }}% 降低至 {{ o.after }}% 以下
+                {{ o.label }}：示例值 {{ o.before }}% → {{ o.after }}%
               </div>
             </div>
           </div>
@@ -146,7 +146,8 @@
 
           <!-- 五、预期成效 -->
           <div class="report-section">
-            <h3 class="rs-title">五、预期干预成效评估</h3>
+            <h3 class="rs-title">五、成效展示示例</h3>
+            <p class="section-note">以下为预设展示值，不是本次分析的预测结果或疗效承诺。</p>
             <div class="outcome-report">
               <div class="or-item" v-for="o in person.outcomes" :key="o.label">
                 <span class="or-label">{{ o.label }}</span>
@@ -155,22 +156,20 @@
                   <span class="or-arrow">→</span>
                   <div class="or-bar after" :style="{ width: o.after + '%' }"><span>{{ o.after }}%</span></div>
                 </div>
-                <span class="or-delta">-{{ (o.before - o.after).toFixed(0) }}%</span>
+                <span class="or-delta">减少 {{ (o.before - o.after).toFixed(0) }} 个百分点</span>
               </div>
             </div>
           </div>
 
           <div class="report-footer">
-            <div class="sign-area">
-              <p>审核医生：<span class="sign">Dr. Li Hua</span></p>
-              <p>系统认证：<span class="sign-system">AI Decision Engine v3.2</span></p>
-            </div>
+            <div class="sign-area"><p>方案示例 · 仅供功能体验</p><p>实际方案需结合完整资料，由专业人员评估。</p></div>
             <div class="report-btns">
-              <el-button type="success" size="large" @click="handlePrint"><el-icon><Printer /></el-icon> 打印并导出正式报告</el-button>
-              <el-button type="info" size="large" plain @click="goBack">返回方案列表</el-button>
+              <el-button type="success" size="large" @click="handlePrint"><el-icon><Printer /></el-icon> 打印 / 保存 PDF</el-button>
+              <el-button type="info" size="large" plain @click="goBack">返回方案推荐</el-button>
             </div>
           </div>
         </div>
+        <section v-else class="report-empty" aria-live="polite"><el-icon><Document /></el-icon><h1>未找到这个案例</h1><p>请返回方案推荐页，重新选择案例后查看报告。</p><el-button type="primary" @click="goBack">返回方案推荐</el-button></section>
       </div>
     </main>
   </div>
@@ -178,13 +177,16 @@
 
 <script setup>
 import { computed } from 'vue'
-import { ArrowLeft, CircleCheckFilled, Printer } from '@element-plus/icons-vue'
+import { ArrowLeft, CircleCheckFilled, Document, Printer } from '@element-plus/icons-vue'
+import { PRODUCT_SHORT_NAME } from '~/utils/product'
+
+useHead({ title: `方案示例报告 · ${PRODUCT_SHORT_NAME}` })
 
 const router = useRouter()
 const route = useRoute()
 
-const goBack = () => { router.back() }
-const handlePrint = () => { setTimeout(() => { window.print() }, 500) }
+const goBack = () => router.push({ path: '/plan', query: person.value ? { person: person.value.id } : {} })
+const handlePrint = () => window.print()
 
 const getTagType = (type) => {
   if (type === 'danger') return 'danger'
@@ -494,8 +496,8 @@ const allPersons = {
   }
 }
 
-const personId = route.query.person || 'SZ-284'
-const person = computed(() => allPersons[personId] || allPersons['SZ-284'])
+const personId = computed(() => route.query.person == null ? 'SZ-284' : (typeof route.query.person === 'string' ? route.query.person : ''))
+const person = computed(() => Object.prototype.hasOwnProperty.call(allPersons, personId.value) ? allPersons[personId.value] : null)
 
 </script>
 
@@ -673,4 +675,25 @@ $color-warn: #F59E0B;
   .report-btns :deep(.el-button) { width: 100%; min-height: 44px; height: auto; padding: 12px; font-size: 13px; white-space: normal; }
   .report-btns :deep(.el-button > span) { white-space: normal; }
 }
+
+/* Report presentation keeps the printed example clear and the return action usable. */
+.workspace-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
+.workspace-heading .back-link { font: inherit; font-size: 13px; background: none; border: 0; padding: 4px 0; color: #68859b; }
+.workspace-heading .page-title-top { font-size: 15px; font-weight: 700; }
+.workspace-heading .divider { color: #c9d6e1; }
+.report-view-wrapper { background: #f3f7fb; }
+.report-paper { border: 1px solid #e3ebf3; border-radius: 12px; box-shadow: 0 8px 30px rgba(57, 91, 119, .06); padding: 48px 56px; }
+.report-demo-note { font-size: 11px; line-height: 1.8; color: #7c93a6; background: #f0f6fb; padding: 12px 14px; border-radius: 7px; margin: 0 0 28px; }
+.report-header .risk-seal { transform: none; border: 1px solid #d6e7f3; border-radius: 12px; background: #f4f9fd; width: 112px; height: 80px; }
+.report-header .risk-seal.seal-danger, .report-header .risk-seal.seal-warn { border-color: #d6e7f3; }
+.report-header .risk-seal.seal-danger span, .report-header .risk-seal.seal-warn span { color: #7c9bb1; font-size: 10px; }
+.report-header .risk-seal.seal-danger strong, .report-header .risk-seal.seal-warn strong { color: #4388b6; font-size: 22px; }
+.report-section .rs-title { border-bottom: 1px solid #e3ecf4; color: #35546c; font-size: 17px; padding-bottom: 12px; }
+.section-note { color: #899eaf; font-size: 12px; line-height: 1.7; }
+.report-empty { width: min(520px, calc(100% - 32px)); background: #fff; border: 1px solid #e2eaf2; border-radius: 12px; padding: 48px 24px; text-align: center; color: #58758b; }
+.report-empty > .el-icon { font-size: 38px; color: #7db3d6; }
+.report-empty h1 { font-size: 22px; margin-top: 20px; }
+.report-empty p { font-size: 13px; line-height: 1.8; color: #899baa; margin-bottom: 22px; }
+@media (max-width: 700px) { .report-paper { padding: 22px 18px; } .report-demo-note { font-size: 10px; margin-bottom: 22px; } .report-header h1 { font-size: 21px; } .report-header .risk-seal { width: 104px; height: 68px; } .report-section .rs-title { font-size: 16px; } .workspace-heading { gap: 10px; } .report-section { margin-top: 28px; } .or-item .or-delta { white-space: normal; font-size: 11px; } }
+@media print { .report-paper { border: none; border-radius: 0; box-shadow: none; padding: 20px; } .report-demo-note { border: 1px solid #cbd5e1; background: none; color: #475569; } .report-watermark { color: rgba(0,0,0,.035); } }
 </style>

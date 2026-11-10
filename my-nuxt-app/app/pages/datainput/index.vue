@@ -6,13 +6,15 @@
     <main class="main-content">
      <header class="ep-header">
         <div class="nav-wrapper">
-          <div class="back-link" @click="goToHome">
+          <div class="workspace-heading">
+          <NuxtLink class="back-link" to="/" aria-label="返回系统首页">
             <el-icon class="back-icon">
               <ArrowLeft />
             </el-icon>
             <span class="back-text">系统首页</span>
+          </NuxtLink>
             <span class="divider">|</span>
-            <span class="page-title-top">职业暴露数据接入与特征工程</span>
+            <span class="page-title-top">数据接入与分析</span>
           </div>
 
           <div class="ep-right-zone">
@@ -25,13 +27,7 @@
       </header>
 
       <div class="page-container">
-        <div class="pipeline-steps">
-          <div class="step" :class="{ 'active': currentStep >= 1 }"><span class="step-num">1</span> 数据接入配置</div>
-          <div class="step-line" :class="{ 'active-line': currentStep >= 2 }"></div>
-          <div class="step" :class="{ 'active': currentStep >= 2 }"><span class="step-num">2</span> 多维可视化分析</div>
-          <div class="step-line" :class="{ 'active-line': currentStep >= 3 }"></div>
-          <div class="step pending"><span class="step-num">3</span> 风险分析模型</div>
-        </div>
+        <PipelineSteps :current="currentStep" :completed="currentStep > 1 ? currentStep - 1 : 0" />
 
         <div class="input-dashboard">
           <div v-if="formData.mode === 'single'" class="single-intro">
@@ -52,10 +48,10 @@
                   <div class="config-group flex-2">
                     <label>目标监测工种</label>
                     <div class="radio-cards">
-                      <div class="radio-card" :class="{'selected': formData.job === 'smelting'}" @click="formData.job = 'smelting'">冶炼工</div>
-                      <div class="radio-card" :class="{'selected': formData.job === 'mining'}" @click="formData.job = 'mining'">采矿工</div>
-                      <div class="radio-card" :class="{'selected': formData.job === 'welding'}" @click="formData.job = 'welding'">电焊工</div>
-                      <div class="radio-card" :class="{'selected': formData.job === 'other'}" @click="formData.job = 'other'">其他</div>
+                      <button type="button" class="radio-card" :class="{'selected': formData.job === 'smelting'}" :aria-pressed="formData.job === 'smelting'" @click="formData.job = 'smelting'">冶炼工</button>
+                      <button type="button" class="radio-card" :class="{'selected': formData.job === 'mining'}" :aria-pressed="formData.job === 'mining'" @click="formData.job = 'mining'">采矿工</button>
+                      <button type="button" class="radio-card" :class="{'selected': formData.job === 'welding'}" :aria-pressed="formData.job === 'welding'" @click="formData.job = 'welding'">电焊工</button>
+                      <button type="button" class="radio-card" :class="{'selected': formData.job === 'other'}" :aria-pressed="formData.job === 'other'" @click="formData.job = 'other'">其他</button>
                     </div>
                   </div>
                   <div class="config-group flex-1">
@@ -566,6 +562,7 @@
 </template>
 
 <script setup>
+import { PRODUCT_SHORT_NAME } from '~/utils/product'
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { renderBatchAnalysisCharts } from '~/composables/useBatchAnalysisCharts'
@@ -578,6 +575,7 @@ import {
 } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 
+useHead({ title: `数据接入与分析 · ${PRODUCT_SHORT_NAME}` })
 const router = useRouter()
 const currentStep = ref(1)
 const { getOutcomeConfigs, uploadBatchData, getDatasetAnalysis, getCleaningSchema, getGroupDemo, importGroupDemo } = useApi()
@@ -879,7 +877,7 @@ const runAnalysis = async () => {
     currentStep.value = 2
     await nextTick()
     initBatchECharts()
-    window.scrollTo({ top: 800, behavior: 'smooth' })
+    groupDashboardRef.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
     return
   }
   if (formData.value.mode === 'batch' && !hasFile.value) {
@@ -917,7 +915,7 @@ const runAnalysis = async () => {
       ElMessage.success(`已完成 ${formatNumber(upload.data.analysis_records)} 人的真实数据分析`)
       await nextTick()
       initBatchECharts()
-      window.scrollTo({ top: 800, behavior: 'smooth' })
+      groupDashboardRef.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
     } catch (error) {
       batchImportError.value = '群体数据分析失败，请检查后端服务和上传文件。'
       console.error('群体数据分析失败:', error)
@@ -944,7 +942,6 @@ const goToRiskWarning = async () => {
       return
     }
     predictionState.batchIntake.value = { file_id: uploadResult.value.file_id, filename: uploadResult.value.filename }
-    currentStep.value = 3
     await navigateTo('/risk?mode=batch')
     return
   }
@@ -963,12 +960,7 @@ const goToRiskWarning = async () => {
     // Old education/frequency labels do not define the training categories.
     covariates: { education: null, marital: null, smoking: null, alcohol_any_past_year: null },
   })
-  currentStep.value = 3
   await navigateTo('/risk?mode=individual')
-}
-
-const goToHome = async () => {
-  await navigateTo('/')
 }
 
 let batchCharts = []

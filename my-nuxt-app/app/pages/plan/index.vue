@@ -1,332 +1,104 @@
 <template>
   <div class="system-layout">
     <Sidebar default-active="5" />
-
     <main class="main-content">
       <header class="ep-header">
         <div class="nav-wrapper">
-          <div class="back-link" @click="goToWorkspace">
-            <el-icon class="back-icon"><ArrowLeft /></el-icon>
-            <span class="back-text">返回工作台</span>
-            <span class="divider">|</span>
-            <span class="page-title-top">智能干预与阻断策略推荐</span>
-          </div>
-          <div class="ep-right-zone">
-            <div class="user-profile">
-              <div class="avatar">Dr.</div>
-              <span>职业卫生评估员</span>
-            </div>
+          <div class="nav-left">
+            <NuxtLink to="/" class="back-link"><el-icon><ArrowLeft /></el-icon> 系统首页</NuxtLink>
+            <span class="divider" aria-hidden="true"></span>
+            <span class="page-title-top">方案推荐</span>
           </div>
         </div>
       </header>
 
       <div class="page-container">
-        <div class="pipeline-steps">
-          <div class="step success"><span class="step-num"><el-icon><Check /></el-icon></span> 数据接入配置</div>
-          <div class="step-line success-line"></div>
-          <div class="step success"><span class="step-num"><el-icon><Check /></el-icon></span> 多维可视化分析</div>
-          <div class="step-line success-line"></div>
-          <div class="step success"><span class="step-num"><el-icon><Check /></el-icon></span> 风险预警模型</div>
-          <div class="step-line success-line"></div>
-          <div class="step active"><span class="step-num">4</span> 智能阻断策略</div>
+        <PipelineSteps :current="4" />
+        <section class="plan-heading" aria-labelledby="plan-title">
+          <div>
+            <h1 id="plan-title">干预方案案例</h1>
+            <p>选择预防场景与案例，浏览管理措施、实施安排和方案报告。</p>
+          </div>
+          <div class="heading-meta"><span><strong>2</strong> 个预防场景</span><span><strong>{{ highRiskPersons.length + mediumRiskPersons.length }}</strong> 个预设案例</span></div>
+        </section>
+        <p class="demo-notice"><el-icon><InfoFilled /></el-icon><span>以下为预设案例，供了解干预流程。个体诊疗与用药需由专业人员评估。</span></p>
+
+        <section class="scenario-section" aria-labelledby="scenario-title">
+          <div class="section-heading"><h2 id="scenario-title">选择预防场景</h2></div>
+          <div class="scenario-options" role="group" aria-label="预防场景">
+            <button type="button" class="scenario-option" :class="{ selected: selectedLevel === 'level2' }" :aria-pressed="selectedLevel === 'level2'" @click="selectedLevel = 'level2'">
+              <span class="scenario-icon"><el-icon><FirstAidKit /></el-icon></span>
+              <span class="scenario-copy"><strong>二级预防</strong><span>早期筛查 · 专业评估 · 随访管理</span></span>
+              <span class="scenario-count">{{ highRiskPersons.length }} 个案例</span><el-icon v-if="selectedLevel === 'level2'" class="selected-mark"><CircleCheck /></el-icon>
+            </button>
+            <button type="button" class="scenario-option" :class="{ selected: selectedLevel === 'level1' }" :aria-pressed="selectedLevel === 'level1'" @click="selectedLevel = 'level1'">
+              <span class="scenario-icon"><el-icon><Sunny /></el-icon></span>
+              <span class="scenario-copy"><strong>一级预防</strong><span>健康教育 · 暴露管理 · 持续监测</span></span>
+              <span class="scenario-count">{{ mediumRiskPersons.length }} 个案例</span><el-icon v-if="selectedLevel === 'level1'" class="selected-mark"><CircleCheck /></el-icon>
+            </button>
+          </div>
+        </section>
+
+        <div class="plan-workspace">
+          <aside class="case-panel" aria-labelledby="case-title">
+            <div class="case-heading"><h2 id="case-title">案例对象</h2><span>{{ currentPersons.length }} 个</span></div>
+            <div class="case-list" role="group" aria-label="选择案例对象">
+              <button v-for="person in currentPersons" :key="person.id" type="button" class="case-option" :class="{ selected: selectedPerson.id === person.id }" :aria-pressed="selectedPerson.id === person.id" @click="selectPerson(person.id)">
+                <span class="case-avatar" aria-hidden="true">{{ person.name.slice(0, 1) }}</span>
+                <span class="case-copy"><strong>{{ person.name }}</strong><span>{{ person.id }}</span></span>
+                <el-icon class="case-arrow"><ArrowRight /></el-icon>
+              </button>
+            </div>
+            <p class="case-hint">点击姓名切换。每个案例包含独立的步骤与报告。</p>
+          </aside>
+
+          <section :key="selectedPerson.id" class="plan-detail" aria-label="当前案例方案">
+            <div class="person-summary">
+              <div class="person-summary-top">
+                <div><span class="detail-kicker">{{ selectedLevel === 'level2' ? '二级预防' : '一级预防' }} · 方案示例</span><h2>{{ selectedPerson.name }} <span>{{ selectedPerson.id }}</span></h2></div>
+                <el-button type="primary" :icon="Document" @click="goToReport">查看方案报告</el-button>
+              </div>
+              <div class="person-meta"><span>{{ selectedPerson.dept }}</span><span>暴露工龄 {{ selectedPerson.years }} 年</span><span>涉及因素 {{ selectedPerson.factors }}</span><span class="example-score">示例风险增幅 {{ selectedPerson.score }}%</span></div>
+            </div>
+
+            <div class="section-heading workflow-heading"><h2>实施步骤</h2><span>共 {{ selectedPerson.workflow.length }} 步 · 展开查看操作与指标</span></div>
+            <div class="workflow-grid">
+              <article v-for="(step, index) in selectedPerson.workflow" :key="index" class="workflow-card">
+                <div class="workflow-card-header"><span class="step-index">{{ String(index + 1).padStart(2, '0') }}</span><span class="step-tag">{{ step.tag }}</span></div>
+                <h3>{{ step.title }}</h3>
+                <p class="step-description">{{ step.desc }}</p>
+                <div class="step-meta"><span><el-icon><Clock /></el-icon>{{ step.period }}</span><span v-if="step.cost">费用等级：{{ step.cost }}</span></div>
+                <details v-if="step.detail || step.indicator" class="step-more">
+                  <summary>查看操作与指标 <span aria-hidden="true">＋</span></summary>
+                  <div v-if="step.detail" class="step-extra"><strong>操作示例</strong><p>{{ step.detail }}</p></div>
+                  <div v-if="step.indicator" class="step-extra"><strong>观察指标示例</strong><p>{{ step.indicator }}</p></div>
+                </details>
+              </article>
+            </div>
+
+            <details class="outcomes-panel">
+              <summary><span><el-icon><TrendCharts /></el-icon>成效展示示例</span><span class="outcomes-toggle">展开查看</span></summary>
+              <div class="outcomes-body">
+                <p>以下百分比为预设展示值，不是本次分析的预测结果或疗效承诺。</p>
+                <div class="outcome-grid"><div v-for="outcome in selectedPerson.outcomes" :key="outcome.label" class="outcome-item"><h3>{{ outcome.label }}</h3><div class="outcome-row"><span>干预前</span><div class="outcome-track"><i :style="{ width: outcome.before + '%' }"></i></div><strong>{{ outcome.before }}%</strong></div><div class="outcome-row after"><span>干预后</span><div class="outcome-track"><i :style="{ width: outcome.after + '%' }"></i></div><strong>{{ outcome.after }}%</strong></div></div></div>
+              </div>
+            </details>
+            <div class="detail-footer"><span>完整案例、步骤与成效示例均可在报告中查看。</span><button type="button" @click="goToReport">查看方案报告 <el-icon><ArrowRight /></el-icon></button></div>
+          </section>
         </div>
-
-        <div class="data-verification-banner">
-          <div class="dv-top">
-            <div class="dv-left">
-              <span class="dv-label">当前评估对象挂载特征文件：</span>
-              <div class="file-chips">
-                <el-tag size="large" effect="plain" round class="custom-tag"><el-icon><Document /></el-icon> 第一熔炼车间_全体环境与生物监测表.csv</el-tag>
-              </div>
-            </div>
-            <div class="dv-right">
-              <span class="meta-item"><el-icon><User /></el-icon> 提交人: Dr. 李华 (职防所)</span>
-              <span class="meta-divider">|</span>
-              <span class="meta-item"><el-icon><Clock /></el-icon> 2026-05-12 14:30:22</span>
-            </div>
-          </div>
-          <div class="dv-bottom">
-            <span class="dv-label">全链路状态核验：</span>
-            <div class="pipeline-tags">
-              <el-tag type="success" effect="dark" round size="small"><el-icon><CircleCheck /></el-icon> 数据接入配置已完成</el-tag>
-              <el-icon class="p-arrow"><ArrowRight /></el-icon>
-              <el-tag type="success" effect="dark" round size="small"><el-icon><CircleCheck /></el-icon> 多维可视化分析已完成</el-tag>
-              <el-icon class="p-arrow"><ArrowRight /></el-icon>
-              <el-tag type="warning" effect="dark" round size="small"><el-icon><Warning /></el-icon> 已识别 10 名高危易感个体</el-tag>
-            </div>
-            <el-button link type="primary" class="detail-btn" @click="goToWorkspace">查看特征明细</el-button>
-          </div>
-        </div>
-
-        <!-- 预警人群分级选择 -->
-        <div class="warning-level-section">
-          <div class="wls-header">
-            <h3><el-icon><UserFilled /></el-icon> 预警人群分级与干预策略匹配</h3>
-            <p class="wls-desc">系统已根据因果风险评估将预警对象分为两级，不同级别对应不同预防策略：</p>
-          </div>
-          <div class="wls-cards">
-            <div class="wls-card" :class="{ active: selectedLevel === 'level2' }" @click="selectedLevel = 'level2'">
-              <div class="wls-badge danger">二级预防</div>
-              <div class="wls-info">
-                <h4>高危易感人群 <span class="wls-count">4 人</span></h4>
-                <p>因果风险增幅 > 45%，需早期筛查、进一步诊断与临床干预</p>
-                <div class="wls-workers">SZ-284 · SZ-105 · SZ-032 · SZ-142</div>
-              </div>
-            </div>
-            <div class="wls-card" :class="{ active: selectedLevel === 'level1' }" @click="selectedLevel = 'level1'">
-              <div class="wls-badge warn">一级预防</div>
-              <div class="wls-info">
-                <h4>中危预警人群 <span class="wls-count">6 人</span></h4>
-                <p>因果风险增幅 18%~45%，以健康教育、环境改善、营养干预为主</p>
-                <div class="wls-workers">SZ-089 · SZ-311 · SZ-402 · SZ-175 · SZ-219 · SZ-056</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="action-card" v-if="!isGenerated">
-          <div class="action-content">
-            <div class="a-text">
-              <h3>智能干预策略矩阵生成</h3>
-              <p>系统将基于风险评估结果，为{{ selectedLevel === 'level2' ? '高危易感人群（二级预防：早期筛查 + 临床干预）' : '中危预警人群（一级预防：健康教育 + 环境改善）' }}生成针对性干预预案。</p>
-            </div>
-            <el-button type="primary" size="large" class="btn-generate" @click="startGeneration" :loading="isGenerating">
-              ✨ {{ isGenerating ? 'AI 多维策略推演中...' : '一键推演干预矩阵与成效' }}
-            </el-button>
-          </div>
-        </div>
-
-        <div class="gemini-thinking-container" v-if="isGenerating || isGenerated">
-          <div class="thinking-header" @click="isThinkingExpanded = !isThinkingExpanded">
-            <div class="t-left">
-              <svg class="sparkle-icon" :class="{'spinning': isGenerating}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z" fill="currentColor"/>
-              </svg>
-              <span class="t-text">{{ isGenerating ? '大模型深度推演策略中...' : '查看完整推演过程 (Show thinking)' }}</span>
-            </div>
-            <el-icon class="chevron-icon" :class="{'rotated': isThinkingExpanded}"><ArrowDown /></el-icon>
-          </div>
-          
-          <div class="thinking-body" v-show="isThinkingExpanded">
-            <ul class="think-steps">
-              <li class="t-step active">锁定靶点：识别靶器官【中枢神经系统、肾脏】与致病因子【Pb, As, Cd】...</li>
-              <li class="t-step" :class="{'active': genProgress >= 1}">匹配预防级别：{{ selectedLevel === 'level2' ? '高危人群 → 二级预防策略（早期筛查 + 临床干预）' : '中危人群 → 一级预防策略（健康教育 + 环境阻断）' }}...</li>
-              <li class="t-step" :class="{'active': genProgress >= 2}">查询文献库：匹配《国家职业病防治指南》及《职业健康监护技术规范》...</li>
-              <li class="t-step" :class="{'active': genProgress >= 3}">制定干预矩阵：生成针对性阻断方案，并分配实施权重...</li>
-              <li class="t-step" :class="{'active': genProgress >= 4}">渲染就绪：多维阻断策略及预测对比图表已生成。</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="results-dashboard" v-if="isGenerated && !isGenerating">
-          
-          <div class="alert-conclusion-banner">
-            <div class="a-icon"><el-icon><Check /></el-icon></div>
-            <div class="a-content">
-              <h4>干预策略池生成完毕：<span class="level-safe">【{{ selectedLevel === 'level2' ? '二级预防：高危人群早期筛查与临床干预' : '一级预防：中危人群健康教育与环境阻断' }}】</span></h4>
-              <p>{{ selectedLevel === 'level2'
-                ? '以下方案面向因果风险增幅 > 45% 的 4 名高危个体，重点在于进一步检查确认、早期临床干预和高频随访，防止疾病进展。'
-                : '以下方案面向全体 10 名预警对象，重点在于健康教育、暴露源阻断和营养支持，防止疾病发生。' }}</p>
-            </div>
-          </div>
-
-          <!-- 二级预防：高危人群个人化干预流程 -->
-          <div v-if="selectedLevel === 'level2'">
-            <div class="person-tabs">
-              <div
-                v-for="person in highRiskPersons"
-                :key="person.id"
-                class="person-tab"
-                :class="{ active: activePerson === person.id }"
-                @click="activePerson = person.id"
-              >
-                <span class="pt-id">{{ person.id }}</span>
-                <span class="pt-score" :class="person.levelClass">{{ person.score }}%</span>
-              </div>
-            </div>
-
-            <div v-for="person in highRiskPersons" :key="person.id" v-show="activePerson === person.id" class="person-workflow">
-              <div class="pw-profile">
-                <div class="pw-info">
-                  <h3>{{ person.id }} · {{ person.name }}</h3>
-                  <div class="pw-meta">
-                    <el-tag size="small" effect="plain" round>{{ person.dept }}</el-tag>
-                    <el-tag size="small" effect="plain" round>工龄 {{ person.years }} 年</el-tag>
-                    <el-tag size="small" :type="person.levelClass === 'danger' ? 'danger' : 'warning'" effect="dark" round>风险因子: {{ person.factors }}</el-tag>
-                    <el-tag size="small" type="danger" effect="dark" round>因果风险增幅 {{ person.score }}%</el-tag>
-                  </div>
-                </div>
-              </div>
-
-              <div class="workflow-steps">
-                <div class="wf-step" v-for="(step, idx) in person.workflow" :key="idx">
-                  <div class="wf-step-header">
-                    <div class="wf-step-num" :class="step.type">{{ idx + 1 }}</div>
-                    <div class="wf-step-title">
-                      <h4>{{ step.title }}</h4>
-                      <span class="wf-step-tag">{{ step.tag }}</span>
-                    </div>
-                  </div>
-                  <div class="wf-step-body">
-                    <p class="wf-desc">{{ step.desc }}</p>
-                    <div class="wf-detail" v-if="step.detail">
-                      <strong>具体操作：</strong>{{ step.detail }}
-                    </div>
-                    <div class="wf-indicator" v-if="step.indicator">
-                      <strong>关键指标：</strong>{{ step.indicator }}
-                    </div>
-                    <div class="wf-timeline">
-                      <el-tag size="small" type="info" effect="light">⏱ {{ step.period }}</el-tag>
-                      <el-tag size="small" effect="light" v-if="step.cost">费用: {{ step.cost }}</el-tag>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="pw-outcome">
-                <h4><el-icon><Check /></el-icon> 预期干预成效</h4>
-                <div class="outcome-grid">
-                  <div class="outcome-item" v-for="o in person.outcomes" :key="o.label">
-                    <span class="o-label">{{ o.label }}</span>
-                    <div class="o-bar-wrap">
-                      <div class="o-bar-before" :style="{ width: o.before + '%' }"><span>{{ o.before }}%</span></div>
-                      <div class="o-arrow">→</div>
-                      <div class="o-bar-after" :style="{ width: o.after + '%' }"><span>{{ o.after }}%</span></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- 一级预防：中危人群个人化干预流程 -->
-          <div v-if="selectedLevel === 'level1'">
-            <div class="person-tabs level1-tabs">
-              <div
-                v-for="person in mediumRiskPersons"
-                :key="person.id"
-                class="person-tab level1-tab"
-                :class="{ active: activeMediumPerson === person.id }"
-                @click="activeMediumPerson = person.id"
-              >
-                <span class="pt-id">{{ person.id }}</span>
-                <span class="pt-score level1-score">{{ person.score }}%</span>
-              </div>
-            </div>
-
-            <div v-for="person in mediumRiskPersons" :key="person.id" v-show="activeMediumPerson === person.id" class="person-workflow">
-              <div class="pw-profile level1-profile">
-                <div class="pw-info">
-                  <h3>{{ person.id }} · {{ person.name }}</h3>
-                  <div class="pw-meta">
-                    <el-tag size="small" effect="plain" round>{{ person.dept }}</el-tag>
-                    <el-tag size="small" effect="plain" round>工龄 {{ person.years }} 年</el-tag>
-                    <el-tag size="small" type="warning" effect="dark" round>风险因子: {{ person.factors }}</el-tag>
-                    <el-tag size="small" type="warning" effect="dark" round>因果风险增幅 {{ person.score }}%</el-tag>
-                  </div>
-                </div>
-              </div>
-
-              <div class="workflow-steps">
-                <div class="wf-step" v-for="(step, idx) in person.workflow" :key="idx">
-                  <div class="wf-step-header">
-                    <div class="wf-step-num" :class="step.type">{{ idx + 1 }}</div>
-                    <div class="wf-step-title">
-                      <h4>{{ step.title }}</h4>
-                      <span class="wf-step-tag">{{ step.tag }}</span>
-                    </div>
-                  </div>
-                  <div class="wf-step-body">
-                    <p class="wf-desc">{{ step.desc }}</p>
-                    <div class="wf-detail" v-if="step.detail">
-                      <strong>具体操作：</strong>{{ step.detail }}
-                    </div>
-                    <div class="wf-indicator" v-if="step.indicator">
-                      <strong>关键指标：</strong>{{ step.indicator }}
-                    </div>
-                    <div class="wf-timeline">
-                      <el-tag size="small" type="info" effect="light">⏱ {{ step.period }}</el-tag>
-                      <el-tag size="small" effect="light" v-if="step.cost">费用: {{ step.cost }}</el-tag>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="pw-outcome level1-outcome">
-                <h4><el-icon><Check /></el-icon> 预期干预成效</h4>
-                <div class="outcome-grid">
-                  <div class="outcome-item" v-for="o in person.outcomes" :key="o.label">
-                    <span class="o-label">{{ o.label }}</span>
-                    <div class="o-bar-wrap">
-                      <div class="o-bar-before level1-before" :style="{ width: o.before + '%' }"><span>{{ o.before }}%</span></div>
-                      <div class="o-arrow">→</div>
-                      <div class="o-bar-after level1-after" :style="{ width: o.after + '%' }"><span>{{ o.after }}%</span></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <h2 class="section-title mt-10"><el-icon><Connection /></el-icon> 核心致病机制靶向阻断验证网络</h2>
-          <el-card class="chart-card" shadow="never">
-            <div class="graph-scroll-region" tabindex="0" aria-label="干预路径图，可左右滚动">
-            <div class="causal-graph">
-              <svg class="graph-svg" viewBox="0 0 1000 200">
-                <defs>
-                  <marker id="arrowRed" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0 0, 6 3, 0 6" fill="#EF4444" /></marker>
-                  <marker id="arrowGreen" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0 0, 6 3, 0 6" fill="#10B981" /></marker>
-                  <marker id="arrowGrey" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><polygon points="0 0, 6 3, 0 6" fill="#9CA3AF" /></marker>
-                </defs>
-                <path d="M 150 150 C 350 150, 350 50, 550 50" stroke="#E5E7EB" stroke-width="2" fill="none" marker-end="url(#arrowGrey)"/>
-                <path d="M 150 50 C 250 50, 300 50, 350 50" stroke="#EF4444" stroke-width="3" stroke-dasharray="8" fill="none" />
-                <path class="path-safe" d="M 350 50 C 450 50, 500 50, 550 50" fill="none" marker-end="url(#arrowGreen)"/>
-                <path class="path-safe delay-1" d="M 550 50 C 750 50, 750 100, 900 100" fill="none" marker-end="url(#arrowGreen)"/>
-              </svg>
-              
-              <div class="c-node source danger" style="left: 150px; top: 50px;">Pb 暴露异常</div>
-              <div class="c-node source warn" style="left: 150px; top: 150px;">Cd 暴露临界</div>
-              
-              <div class="c-node blocking" style="left: 350px; top: 50px;">
-                <el-icon><FirstAidKit /></el-icon> AI 推荐综合干预
-              </div>
-
-              <div class="c-node mechanism safe" style="left: 550px; top: 50px;">血脑屏障恢复稳态</div>
-              <div class="c-node mechanism warn" style="left: 550px; top: 150px;">肾近曲小管氧化应激</div>
-              <div class="c-node target safe" style="left: 900px; top: 100px;">神经病变风险解除</div>
-            </div>
-            </div>
-          </el-card>
-
-          <div class="bottom-action-bar">
-            <el-button type="success" size="large" plain class="mr-3" @click="goToPdfReport">
-              导出当前选中人员干预报告
-            </el-button>
-            <el-button type="warning" size="large" plain :icon="Position" class="mr-3">
-              预案推送至 EHS 车间系统
-            </el-button>
-            <el-button type="primary" size="large" class="final-run-btn">
-              一键下发至 HIS 临床诊疗系统 ➔
-            </el-button>
-          </div>
-        </div>
-
       </div>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { ArrowLeft, ArrowDown, ArrowRight, User, Clock, CircleCheck, Warning, Document, UserFilled, Check, Connection, Position, FirstAidKit } from '@element-plus/icons-vue'
+import { computed, ref, watch } from 'vue'
+import { ArrowLeft, ArrowRight, CircleCheck, Clock, Document, FirstAidKit, InfoFilled, Sunny, TrendCharts } from '@element-plus/icons-vue'
+import { PRODUCT_SHORT_NAME } from '~/utils/product'
 
+useHead({ title: `方案推荐 · ${PRODUCT_SHORT_NAME}` })
 const router = useRouter()
-const isGenerating = ref(false)
-const isGenerated = ref(false)
-const isThinkingExpanded = ref(false)
-const genProgress = ref(0)
-
+const route = useRoute()
 const selectedLevel = ref('level2')
 const activePerson = ref('SZ-284')
 const activeMediumPerson = ref('SZ-089')
@@ -398,18 +170,6 @@ const highRiskPersons = ref([
     ]
   }
 ])
-
-const goToWorkspace = async () => {
-  router.push('/datainput')
-}
-
-const goToPdfReport = async () => {
-  const personId = selectedLevel.value === 'level2' ? activePerson.value : activeMediumPerson.value
-  router.push({
-    path: '/plan/specplan',
-    query: { person: personId }
-  })
-}
 
 const mediumRiskPersons = ref([
   {
@@ -516,311 +276,125 @@ const mediumRiskPersons = ref([
   }
 ])
 
-
-const startGeneration = () => {
-  isGenerating.value = true
-  isGenerated.value = false
-  isThinkingExpanded.value = true
-  genProgress.value = 0
-
-  const interval = setInterval(() => {
-    genProgress.value++
-    if (genProgress.value >= 4) clearInterval(interval)
-  }, 600)
-
-  setTimeout(() => {
-    isGenerating.value = false
-    isGenerated.value = true
-    isThinkingExpanded.value = false
-    if (selectedLevel.value === 'level1') {
-      activeMediumPerson.value = mediumRiskPersons.value[0].id
-    } else {
-      activePerson.value = highRiskPersons.value[0].id
-    }
-  }, 3500)
+const currentPersons = computed(() => selectedLevel.value === 'level2' ? highRiskPersons.value : mediumRiskPersons.value)
+const selectedPerson = computed(() => {
+  const id = selectedLevel.value === 'level2' ? activePerson.value : activeMediumPerson.value
+  return currentPersons.value.find(person => person.id === id) || currentPersons.value[0]
+})
+const selectPerson = (id) => {
+  if (selectedLevel.value === 'level2') activePerson.value = id
+  else activeMediumPerson.value = id
 }
-
+watch(() => route.query.person, (value) => {
+  const id = typeof value === 'string' ? value : ''
+  if (highRiskPersons.value.some(person => person.id === id)) {
+    selectedLevel.value = 'level2'
+    activePerson.value = id
+  } else if (mediumRiskPersons.value.some(person => person.id === id)) {
+    selectedLevel.value = 'level1'
+    activeMediumPerson.value = id
+  }
+}, { immediate: true })
+const goToReport = () => router.push({ path: '/plan/specplan', query: { person: selectedPerson.value.id } })
 </script>
 
-<style lang="scss" scoped>
-:deep(.el-icon svg) {
-  max-width: 1em;
-  max-height: 1em;
-  width: 1em;
-  height: 1em;
-}
-
-$color-primary: #1D4ED8;
-$color-primary-light: #EFF6FF;
-$color-bg: #F8FAFC; 
-$text-main: #0F172A;
-$text-muted: #64748B;
-$border-color: #E2E8F0;
-$color-safe: #10B981; 
-$color-warn: #F59E0B; 
-$color-danger: #EF4444; 
-
+<style scoped>
 * { box-sizing: border-box; }
-.system-layout { display: flex; height: 100vh; background-color: $color-bg; font-family: 'Inter', sans-serif; overflow: hidden; }
-
-/* 主内容区 */
-.main-content { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow-y: auto; scroll-behavior: smooth; }
-
-/* 顶栏 */
-.ep-header { height: 64px; background: #fff; border-bottom: 1px solid $border-color; position: sticky; top: 0; z-index: 50; display: flex !important; justify-content: center; flex-shrink: 0; }
-.nav-wrapper { width: 100%; padding: 0 32px; display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; justify-content: space-between !important; align-items: center !important; height: 100%; max-width: none; }
-.back-link { display: flex; flex-direction: row; align-items: center; gap: 12px; cursor: pointer; color: $text-main; transition: color 0.2s; &:hover { color: $color-primary; } .back-icon { font-size: 1.2rem; font-weight: bold;} .back-text { font-size: 1.05rem; font-weight: 700; letter-spacing: 1px;} .divider { color: #D1D5DB; font-weight: 300; margin: 0 8px; } .page-title-top { font-size: 1.1rem; font-weight: 800; color: $text-main; } }
-.ep-right-zone { display: flex; align-items: center; flex-direction: row; }
-.user-profile { display: flex; flex-direction: row; align-items: center; gap: 12px; font-weight: 600; color: $text-main; font-size: 0.95rem; white-space: nowrap; .avatar { width: 32px; height: 32px; border-radius: 50%; background: $color-primary-light; color: $color-primary; display: flex; justify-content: center; align-items: center; font-weight: 700; font-size: 0.9rem;} }
-
-.page-container { flex: 1 0 auto; padding: 40px; max-width: 1500px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; padding-bottom: 80px;}
-
-.pipeline-steps { display: flex; align-items: center; margin-bottom: 30px; background: transparent; padding: 0; .step { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; font-weight: 600; color: $text-muted; .step-num { width: 24px; height: 24px; border-radius: 50%; background: #E5E7EB; display: flex; justify-content: center; align-items: center; font-size: 0.85rem; } &.active { color: $color-primary; .step-num { background: $color-primary; color: #FFF; } } &.success { color: $color-safe; .step-num { background: $color-safe; color: #FFF; font-size: 1rem;} } } .step-line { flex: 1; height: 2px; background: #E5E7EB; margin: 0 16px; &.active-line { background: $color-primary; } &.success-line { background: $color-safe; } } }
-
-.data-verification-banner { background: #fff; border-radius: 12px; border: 1px solid #93C5FD; border-left: 4px solid $color-primary; margin-bottom: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); overflow: hidden; .dv-top { display: flex; justify-content: space-between; padding: 16px 24px; border-bottom: 1px dashed #E2E8F0; } .dv-bottom { display: flex; align-items: center; padding: 12px 24px; background: #F8FAFC; .dv-label { font-weight: 700; font-size: 0.9rem; margin-right: 12px; } } .dv-left { display: flex; align-items: center; gap: 16px; } .dv-label { font-size: 0.95rem; font-weight: 700; color: $text-main; } .file-chips { display: flex; gap: 12px; flex-wrap: wrap; align-items: center;} .custom-tag { font-size: 0.9rem; font-weight: 600; color: $color-primary; background: #EFF6FF; border: none; padding: 4px 12px; height: auto; .el-icon { margin-right: 6px; font-size: 1rem; color: $color-primary;} :deep(.el-tag__close) { color: $color-primary; &:hover{background:$color-primary; color:#fff;} } } .no-file-tip { font-size: 0.9rem; color: $color-danger; font-weight: 600;} .dv-right { display: flex; align-items: center; gap: 12px; font-size: 0.9rem; color: $text-muted; font-weight: 500; .meta-item { display: flex; align-items: center; gap: 6px; } .meta-divider { color: #CBD5E1; } } .pipeline-tags { display: flex; align-items: center; gap: 8px; flex: 1; } .p-arrow { color: #9CA3AF; font-size: 0.8rem; margin: 0 4px;} }
-
-.warning-level-section { background: #fff; border-radius: 12px; border: 1px solid $border-color; padding: 24px 28px; margin-bottom: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);
-  .wls-header { margin-bottom: 20px; h3 { margin: 0 0 8px 0; font-size: 1.15rem; font-weight: 800; color: $text-main; display: flex; align-items: center; gap: 8px; .el-icon { color: $color-primary; } } .wls-desc { margin: 0; font-size: 0.9rem; color: $text-muted; line-height: 1.5; } }
-  .wls-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .wls-card { display: flex; gap: 16px; padding: 18px 20px; border: 2px solid $border-color; border-radius: 10px; cursor: pointer; transition: all 0.25s; &:hover { border-color: #93C5FD; background: #F8FAFC; } &.active { border-color: $color-primary; background: #EFF6FF; box-shadow: 0 0 0 3px rgba(29,78,216,0.1); } }
-  .wls-badge { flex-shrink: 0; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 800; height: fit-content; margin-top: 2px; &.danger { background: #FEF2F2; color: #EF4444; border: 1px solid #FECACA; } &.warn { background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; } }
-  .wls-info { h4 { margin: 0 0 6px 0; font-size: 1rem; font-weight: 700; color: $text-main; .wls-count { font-size: 0.85rem; color: $text-muted; font-weight: 600; margin-left: 8px; } } p { margin: 0 0 8px 0; font-size: 0.85rem; color: $text-muted; line-height: 1.5; } .wls-workers { font-size: 0.8rem; color: $color-primary; font-weight: 600; font-family: monospace; } }
-}
-
-.action-card { background: #fff; border-radius: 12px; border: 1px solid $border-color; padding: 30px; margin-bottom: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); .action-content { display: flex; justify-content: space-between; align-items: center; } .a-text h3 { margin: 0 0 8px 0; font-size: 1.2rem; color: $text-main; font-weight: 800; } .a-text p { margin: 0; color: $text-muted; font-size: 0.95rem; max-width: 600px; line-height: 1.5; } .btn-generate { font-weight: 700; font-size: 1.05rem; padding: 0 32px; height: 48px; border-radius: 8px;} }
-
-.gemini-thinking-container { background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; margin-bottom: 30px; overflow: hidden; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.02); .thinking-header { padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; .t-left { display: flex; align-items: center; gap: 12px; } .sparkle-icon { width: 22px; height: 22px; color: #2563EB; } .spinning { animation: spin 2s linear infinite; } .t-text { font-size: 1.05rem; font-weight: 700; color: #1E3A8A; } .chevron-icon { color: #60A5FA; transition: transform 0.3s; &.rotated { transform: rotate(180deg); } } } .thinking-body { padding: 0 24px 24px 60px; } .think-steps { list-style: none; padding: 0; margin: 0; border-left: 2px solid #DBEAFE; padding-left: 16px;} .t-step { font-size: 0.95rem; color: #64748B; margin-bottom: 12px; position: relative; &::before { content: ''; position: absolute; left: -21px; top: 6px; width: 8px; height: 8px; border-radius: 50%; background: #DBEAFE; } &.active { color: #1E40AF; font-weight: 600; &::before { background: #3B82F6; box-shadow: 0 0 8px rgba(59, 130, 246, 0.6); } } } }
-@keyframes spin { 100% { transform: rotate(360deg); } }
-
-.results-dashboard { animation: fadeIn 0.6s ease-out forwards; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-.alert-conclusion-banner { display: flex; gap: 20px; background: #ECFDF5; border: 1px solid #6EE7B7; padding: 24px; border-radius: 12px; margin-bottom: 30px; .a-icon { font-size: 2rem; color: #10B981; } .a-content { h4 { margin: 0 0 10px 0; font-size: 1.2rem; color: #065F46; .level-safe { font-weight: 900; color: #047857;} } p { margin: 0; font-size: 0.95rem; color: #064E3B; line-height: 1.6; strong { background: #D1FAE5; padding: 2px 6px; border-radius: 4px; border: 1px solid #6EE7B7;} } } }
-
-.dimension-tabs { display: flex; border-bottom: 2px solid #E2E8F0; margin-bottom: 30px; gap: 40px; padding: 0 10px; }
-.tab-item { padding: 12px 4px; font-size: 1.15rem; font-weight: 800; color: #64748B; cursor: pointer; position: relative; transition: color 0.3s ease; display: flex; align-items: center; gap: 8px; }
-.tab-item:hover { color: #0F172A; }
-.tab-item.active { color: #0F172A; }
-.tab-item.active::after { content: ''; position: absolute; bottom: -2px; left: 0; width: 100%; height: 3px; background-color: #1D4ED8; border-radius: 3px 3px 0 0; }
-
-.section-title { font-size: 1.3rem; font-weight: 800; color: $text-main; margin: 0 0 20px 0; border-left: 4px solid $color-primary; padding-left: 12px; }
-.mt-10 { margin-top: 50px; }
-
-/* ✅ 核心修复：确保同一行的列自动等高拉伸，内部元素顶到底部 */
-.stretch-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch; /* 保证一行内的 el-col 等高 */
-}
-
-.stretch-col {
-  display: flex;
-  flex-direction: column;
-}
-
-/* 一级预防（中危）专用配色 */
-.level1-tabs { gap: 10px; flex-wrap: wrap; }
-.level1-tab { border-color: #FDE68A;
-  &:hover { border-color: #FBBF24; background: #FFFBEB; }
-  &.active { border-color: #D97706; background: #FFFBEB; box-shadow: 0 0 0 3px rgba(217,119,6,0.1); }
-  .level1-score { background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; }
-}
-.level1-profile { border-left: 4px solid #D97706; background: #FFFBEB;
-  .pw-info h3 { color: #92400E; }
-}
-.level1-outcome { border-left: 4px solid #D97706;
-  h4 { color: #92400E; .el-icon { color: #D97706; } }
-}
-.level1-before { background: #F59E0B !important; }
-.level1-after { background: #D97706 !important; }
-
-/* 个人化干预流程样式 */
-.person-tabs { display: flex; gap: 12px; margin-bottom: 24px; }
-.person-tab { display: flex; align-items: center; gap: 8px; padding: 10px 18px; border: 2px solid $border-color; border-radius: 10px; cursor: pointer; transition: all 0.25s; background: #fff;
-  &:hover { border-color: #93C5FD; }
-  &.active { border-color: $color-primary; background: #EFF6FF; box-shadow: 0 0 0 3px rgba(29,78,216,0.1); }
-  .pt-id { font-weight: 800; font-size: 0.95rem; color: $text-main; font-family: monospace; }
-  .pt-score { font-weight: 700; font-size: 0.85rem; padding: 2px 8px; border-radius: 4px; &.danger { background: #FEF2F2; color: #EF4444; } &.warn { background: #FFFBEB; color: #D97706; } }
-}
-
-.person-workflow { animation: fadeIn 0.4s ease-out forwards; }
-.pw-profile { background: #fff; border: 1px solid $border-color; border-radius: 12px; padding: 20px 24px; margin-bottom: 20px;
-  .pw-info h3 { margin: 0 0 10px 0; font-size: 1.2rem; font-weight: 800; color: $text-main; }
-  .pw-meta { display: flex; gap: 8px; flex-wrap: wrap; }
-}
-
-.workflow-steps { display: flex; flex-direction: column; gap: 0; margin-bottom: 24px; }
-.wf-step { background: #fff; border: 1px solid $border-color; border-radius: 12px; padding: 20px 24px; margin-bottom: 12px; position: relative; transition: all 0.2s;
-  &:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-}
-.wf-step-header { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
-.wf-step-num { width: 32px; height: 32px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-weight: 800; font-size: 0.9rem; flex-shrink: 0;
-  &.danger { background: #FEF2F2; color: #EF4444; border: 2px solid #FECACA; }
-  &.primary { background: #EFF6FF; color: #1D4ED8; border: 2px solid #BFDBFE; }
-  &.warning { background: #FFFBEB; color: #D97706; border: 2px solid #FDE68A; }
-  &.safe { background: #ECFDF5; color: #059669; border: 2px solid #A7F3D0; }
-}
-.wf-step-title { flex: 1; display: flex; align-items: center; gap: 10px;
-  h4 { margin: 0; font-size: 1.05rem; font-weight: 700; color: $text-main; }
-  .wf-step-tag { font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; background: #F1F5F9; color: #475569; }
-}
-.wf-step-body { padding-left: 46px;
-  .wf-desc { margin: 0 0 10px 0; font-size: 0.9rem; color: #475569; line-height: 1.6; }
-  .wf-detail, .wf-indicator { font-size: 0.85rem; color: #64748B; margin-bottom: 8px; line-height: 1.5; strong { color: $text-main; } }
-  .wf-detail { padding: 10px 12px; background: #F8FAFC; border-radius: 6px; border: 1px solid #F1F5F9; }
-  .wf-indicator { padding: 10px 12px; background: #FFFBEB; border-radius: 6px; border: 1px solid #FDE68A; strong { color: #92400E; } }
-  .wf-timeline { display: flex; gap: 8px; margin-top: 10px; }
-}
-
-.pw-outcome { background: #fff; border: 1px solid $border-color; border-radius: 12px; padding: 20px 24px;
-  h4 { margin: 0 0 16px 0; font-size: 1.05rem; font-weight: 700; color: #065F46; display: flex; align-items: center; gap: 8px; .el-icon { color: #10B981; } }
-}
-.outcome-grid { display: flex; flex-direction: column; gap: 12px; }
-.outcome-item { display: flex; align-items: center; gap: 12px;
-  .o-label { width: 120px; font-size: 0.85rem; font-weight: 700; color: $text-main; flex-shrink: 0; text-align: right; }
-}
-.o-bar-wrap { flex: 1; display: flex; align-items: center; gap: 8px; }
-.o-bar-before, .o-bar-after { height: 24px; border-radius: 4px; display: flex; align-items: center; justify-content: flex-end; padding: 0 8px; font-size: 0.75rem; font-weight: 700; color: #fff; min-width: 40px; transition: width 0.6s ease; }
-.o-bar-before { background: #EF4444; }
-.o-bar-after { background: #10B981; }
-.o-arrow { color: #9CA3AF; font-weight: 700; font-size: 0.9rem; }
-
-.dimension-section { margin-bottom: 40px; animation: fadeIn 0.4s ease-out forwards; }
-
-.plan-card { 
-  height: 100%; /* 撑满伸展后的父元素 */
-  border-radius: 12px; 
-  border: 1px solid $border-color; 
-  display: flex; 
-  flex-direction: column; 
-  transition: all 0.3s;
-  
-  &:hover { border-color: $color-primary; box-shadow: 0 10px 20px rgba(29, 78, 216, 0.08) !important; transform: translateY(-3px); }
-  
-  /* 深度穿透：重置 el-card 内部产生的包裹层为 flex 容器 */
-  :deep(.el-card__body) {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 24px; /* 统一内边距 */
-  }
-
-  .plan-header { margin-bottom: 16px; border-bottom: 1px dashed $border-color; padding-bottom: 12px; .plan-badge { background: #F1F5F9; color: #475569; font-size: 0.8rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-bottom: 8px; display: inline-block;} .plan-title { margin: 0; font-size: 1.1rem; font-weight: 800; color: $text-main; } }
-  
-  .plan-body { 
-    flex: 1; /* 这个元素会占据中间所有的不规则剩余空间 */
-    font-size: 0.9rem; color: #334155; line-height: 1.6; 
-    .plan-desc { margin-bottom: 12px; strong { color: $color-primary; } } 
-    .plan-mech { padding: 12px; background: #F8FAFC; border-radius: 6px; border: 1px solid #F1F5F9; strong { color: #8B5CF6; } } 
-  }
-  
-  .mini-charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 20px 0; padding-top: 16px; border-top: 1px solid #F1F5F9; .m-chart-item { .m-c-title { font-size: 0.75rem; font-weight: 700; color: $text-muted; text-align: center; margin-bottom: 4px;} .m-c-canvas { width: 100%; height: 120px; } } }
-  
-  .plan-footer { 
-    margin-top: auto; /* 核心：始终把 footer 推到最底部 */
-    padding-top: 16px; 
-    .w-full { width: 100%; font-weight: 700; border-radius: 6px; } 
-  }
-}
-
-.popover-detail { padding: 4px; .pd-title { margin: 0 0 12px 0; color: $text-main; font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #F1F5F9; padding-bottom: 8px; .el-icon { color: $color-primary; }} .pd-text { font-size: 0.95rem; color: #475569; line-height: 1.6; margin-bottom: 16px; } .pd-tags { display: flex; gap: 8px; flex-wrap: wrap; .el-tag { font-weight: 600; font-size: 0.85rem;} } }
-:deep(.custom-popover) { border-radius: 12px; box-shadow: 0 15px 30px rgba(0,0,0,0.1) !important; border: 1px solid #E2E8F0; padding: 20px;}
-
-.chart-card { border-radius: 12px; border: 1px solid $border-color; }
-.causal-graph { position: relative; height: 260px; background: #F8FAFC; border-radius: 8px; overflow: hidden;}
-.graph-svg { width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; display: block !important; max-height: none !important; max-width: none !important;}
-.path-safe { stroke: #10B981; stroke-width: 3; stroke-dasharray: 8; animation: dashMove 1s linear infinite; }
-.delay-1 { animation-delay: 0.5s; } 
-@keyframes dashMove { to { stroke-dashoffset: -20; } }
-.c-node { position: absolute; transform: translate(-50%, -50%); padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 700; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); z-index: 2; border-left: 4px solid; &.source { border-color: #3B82F6; } &.mechanism { border-color: #8B5CF6; } &.target { border-color: #10B981; } &.danger { background: #FEF2F2; border-color: #EF4444; color: #B91C1C; } &.warn { background: #FFFBEB; border-color: #F59E0B; color: #B45309; } &.safe { background: #ECFDF5; border-color: #10B981; color: #047857; } &.blocking { background: #10B981; color: #fff; border: none; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); display: flex; align-items: center; gap: 6px; font-size: 0.95rem; z-index: 10;} }
-
-.bottom-action-bar { display: flex; justify-content: flex-end; margin-top: 40px; border-top: 1px solid #E2E8F0; padding-top: 24px; .mr-3 { margin-right: 16px;} .el-button { font-weight: 700; border-radius: 8px; } :deep(.final-run-btn) { background-color: #059669; border-color: #059669; color: #ffffff; transition: all 0.3s ease; &:hover { background-color: #047857; border-color: #047857; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(5, 150, 105, 0.3); } } }
-
-@media screen {
-  .main-content, .page-container, .results-dashboard, .person-workflow,
-  .a-text, .a-content, .pw-info, .wf-step-title, .o-bar-wrap { min-width: 0; }
-  .graph-scroll-region { width: 100%; overflow-x: auto; overscroll-behavior-x: contain; border-radius: 8px; }
-  .graph-scroll-region:focus-visible { outline: 2px solid #93C5FD; outline-offset: 2px; }
-  .graph-scroll-region .causal-graph { min-width: 1000px; }
-}
-@media screen and (max-width: 1280px) {
-  .page-container { padding: 28px 24px 48px; }
-  .data-verification-banner .dv-top, .data-verification-banner .dv-bottom,
-  .data-verification-banner .dv-left, .data-verification-banner .dv-right { flex-wrap: wrap; gap: 12px; }
-  .data-verification-banner .pipeline-tags { flex-wrap: wrap; gap: 8px; }
-  .action-card .action-content { gap: 20px; flex-wrap: wrap; }
-  .person-tabs { flex-wrap: wrap; }
-  .bottom-action-bar { flex-wrap: wrap; gap: 12px; }
-  .bottom-action-bar :deep(.el-button), .bottom-action-bar .mr-3 { margin: 0; }
-}
-@media screen and (max-width: 700px) {
-  .page-container { padding: 16px 12px 28px; }
-  .ep-header { height: auto; min-height: 58px; }
-  .nav-wrapper { padding: 12px 16px; }
-  .back-link { gap: 7px; min-width: 0; flex-wrap: wrap; }
-  .back-link .back-text, .back-link .page-title-top { font-size: 13px; letter-spacing: 0; }
-  .back-link .divider { margin: 0 2px; }
-  .ep-right-zone { display: none; }
-  .pipeline-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 8px; margin-bottom: 20px; }
-  .pipeline-steps .step { font-size: 12px; gap: 6px; }
-  .pipeline-steps .step-num { flex-shrink: 0; }
-  .pipeline-steps .step-line { display: none; }
-  .data-verification-banner .dv-top, .data-verification-banner .dv-bottom { padding: 14px; flex-direction: column; align-items: flex-start; }
-  .data-verification-banner .dv-left { min-width: 0; width: 100%; align-items: flex-start; gap: 8px; }
-  .data-verification-banner .dv-label { font-size: 12px; }
-  .data-verification-banner .file-chips { width: 100%; min-width: 0; }
-  .data-verification-banner .custom-tag { width: 100%; max-width: 100%; font-size: 12px; padding: 8px; white-space: normal; line-height: 1.6; }
-  .data-verification-banner .custom-tag :deep(.el-tag__content) { white-space: normal; overflow-wrap: anywhere; }
-  .data-verification-banner .dv-right { font-size: 11px; }
-  .data-verification-banner .meta-divider, .data-verification-banner .p-arrow { display: none; }
-  .data-verification-banner .pipeline-tags { flex: initial; }
-  .data-verification-banner .pipeline-tags :deep(.el-tag) { max-width: 100%; }
-  .data-verification-banner .detail-btn { margin-left: 0; min-height: 36px; }
-  .warning-level-section { padding: 16px; }
-  .warning-level-section .wls-header h3 { font-size: 16px; line-height: 1.6; align-items: flex-start; }
-  .warning-level-section .wls-header .wls-desc { font-size: 12px; line-height: 1.7; }
-  .warning-level-section .wls-cards { grid-template-columns: 1fr; gap: 12px; }
-  .warning-level-section .wls-card { flex-direction: column; gap: 10px; padding: 14px; }
-  .warning-level-section .wls-badge { align-self: flex-start; }
-  .warning-level-section .wls-info { min-width: 0; overflow-wrap: anywhere; }
-  .warning-level-section .wls-info h4 { font-size: 15px; }
-  .action-card { padding: 16px; }
-  .action-card .a-text h3 { font-size: 17px; }
-  .action-card .a-text p { font-size: 13px; line-height: 1.8; }
-  .action-card .btn-generate { width: 100%; padding: 12px; height: auto; min-height: 46px; font-size: 14px; white-space: normal; }
-  .action-card .btn-generate :deep(span) { white-space: normal; }
-  .gemini-thinking-container .thinking-header { padding: 14px; gap: 10px; }
-  .gemini-thinking-container .thinking-header .t-left { min-width: 0; gap: 8px; }
-  .gemini-thinking-container .thinking-header .t-text { font-size: 13px; line-height: 1.7; }
-  .gemini-thinking-container .thinking-header .sparkle-icon { flex-shrink: 0; }
-  .gemini-thinking-container .thinking-body { padding: 0 16px 14px 24px; }
-  .gemini-thinking-container .t-step { font-size: 12px; line-height: 1.8; }
-  .alert-conclusion-banner { padding: 16px; gap: 10px; margin-bottom: 20px; }
-  .alert-conclusion-banner .a-icon { font-size: 24px; }
-  .alert-conclusion-banner .a-content h4 { font-size: 16px; line-height: 1.7; }
-  .alert-conclusion-banner .a-content p { font-size: 12px; line-height: 1.8; }
-  .person-tabs { gap: 8px; margin-bottom: 16px; }
-  .person-tab { padding: 10px; flex: 1 0 calc(50% - 8px); justify-content: center; min-width: 0; }
-  .person-tab .pt-id { font-size: 12px; }
-  .person-tab .pt-score { padding: 2px 5px; font-size: 11px; }
-  .pw-profile, .pw-outcome, .wf-step { padding: 16px; }
-  .pw-profile .pw-info h3 { font-size: 17px; }
-  .pw-profile .pw-meta :deep(.el-tag) { height: auto; min-height: 24px; white-space: normal; line-height: 1.6; }
-  .wf-step-header { align-items: flex-start; gap: 10px; }
-  .wf-step-title { flex-wrap: wrap; gap: 6px; }
-  .wf-step-title h4 { font-size: 15px; line-height: 1.6; }
-  .wf-step-body { padding-left: 0; }
-  .wf-step-body .wf-desc, .wf-step-body .wf-detail, .wf-step-body .wf-indicator { font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
-  .wf-step-body .wf-timeline { flex-wrap: wrap; }
-  .outcome-item { flex-direction: column; align-items: stretch; gap: 6px; }
-  .outcome-item .o-label { width: auto; text-align: left; font-size: 12px; }
-  .o-bar-wrap { width: 100%; }
-  .o-bar-before, .o-bar-after { min-width: 42px; flex-shrink: 1; }
-  .section-title { font-size: 17px; line-height: 1.7; margin-bottom: 14px; }
-  .mt-10 { margin-top: 28px; }
-  .chart-card :deep(.el-card__body) { padding: 12px; }
-  .bottom-action-bar { margin-top: 20px; padding-top: 16px; }
-  .bottom-action-bar :deep(.el-button) { width: 100%; min-height: 44px; height: auto; padding: 12px; white-space: normal; font-size: 13px; line-height: 1.6; }
-  .bottom-action-bar :deep(.el-button > span) { white-space: normal; }
-}
+.system-layout { display: flex; height: 100vh; overflow: hidden; background: #f6f9fc; color: #22364b; }
+.main-content { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100vh; overflow-y: auto; }
+.ep-header { position: sticky; top: 0; z-index: 30; flex-shrink: 0; background: #fff; border-bottom: 1px solid #e5edf4; }
+.nav-wrapper { min-height: 64px; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.nav-left { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.back-link { display: inline-flex; align-items: center; gap: 8px; color: #647c92; font-size: 13px; text-decoration: none; }
+.back-link:hover { color: #287cb9; }
+.divider { width: 1px; height: 16px; background: #dfe8f0; }
+.page-title-top { font-size: 15px; font-weight: 700; }
+.header-caption { color: #8a9caf; font-size: 12px; }
+.page-container { flex: 1 0 auto; width: 100%; max-width: 1400px; margin: 0 auto; padding: 30px 36px 48px; min-width: 0; box-sizing: border-box; }
+.plan-heading { margin-top: 0; display: flex; justify-content: space-between; gap: 24px; align-items: center; }
+.eyebrow { font-size: 10px; letter-spacing: 1.4px; color: #5791ba; font-weight: 700; }
+.plan-heading h1 { margin: 10px 0 9px; font-size: clamp(21px, 1.9vw, 28px); font-weight: 700; letter-spacing: -.4px; line-height: 1.4; }
+.plan-heading p { color: #74899c; font-size: 13px; margin: 0; line-height: 1.8; }
+.heading-meta { display: flex; gap: 20px; flex-shrink: 0; color: #8799aa; font-size: 11px; }
+.heading-meta span { display: flex; flex-direction: column; gap: 5px; }
+.heading-meta strong { font-size: 24px; color: #4a779a; font-weight: 600; }
+.demo-notice { display: flex; align-items: flex-start; gap: 8px; color: #6d8598; background: #edf5fb; border-radius: 8px; padding: 11px 14px; margin: 22px 0 26px; font-size: 12px; line-height: 1.7; }
+.demo-notice .el-icon { flex-shrink: 0; margin-top: 4px; color: #5e9ac5; }
+.section-heading { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; margin-bottom: 12px; }
+.section-heading h2, .case-heading h2 { font-size: 15px; margin: 0; font-weight: 700; }
+.section-heading > span { font-size: 11px; color: #8b9aac; }
+.scenario-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.scenario-option { display: flex; align-items: center; gap: 13px; text-align: left; width: 100%; padding: 19px; background: #fff; border: 1px solid #e2eaf2; border-radius: 12px; cursor: pointer; color: inherit; font-family: inherit; transition: border-color .15s, background .15s; min-width: 0; }
+.scenario-option:hover { border-color: #a7c9e2; }
+.scenario-option.selected { border-color: #73b0da; background: #f3f9fd; box-shadow: 0 0 0 1px #c5e0f2; }
+.scenario-icon { display: grid; place-items: center; flex-shrink: 0; width: 42px; height: 42px; border-radius: 11px; background: #edf4fa; color: #5c98c2; font-size: 21px; }
+.scenario-option.selected .scenario-icon { background: #dfedf8; color: #287fba; }
+.scenario-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 6px; }
+.scenario-copy strong { font-size: 15px; }
+.scenario-copy > span { color: #7f92a4; font-size: 11px; line-height: 1.6; }
+.scenario-count { color: #6e8ba3; font-size: 11px; white-space: nowrap; }
+.selected-mark { color: #2884bf; flex-shrink: 0; }
+.plan-workspace { display: grid; grid-template-columns: 210px minmax(0, 1fr); align-items: start; gap: 22px; margin-top: 26px; }
+.case-panel { background: #fff; border: 1px solid #e3ebf2; border-radius: 12px; padding: 16px 10px; position: sticky; top: 20px; }
+.case-heading { display: flex; justify-content: space-between; align-items: center; padding: 0 7px 15px; }
+.case-heading > span { font-size: 11px; color: #97a8b7; }
+.case-list { display: flex; flex-direction: column; gap: 7px; }
+.case-option { display: flex; align-items: center; gap: 10px; padding: 12px 10px; min-height: 64px; border: 1px solid transparent; background: transparent; border-radius: 8px; text-align: left; cursor: pointer; font-family: inherit; color: #465e73; }
+.case-option:hover { background: #f4f8fb; }
+.case-option.selected { background: #edf6fc; border-color: #d1e6f5; color: #287eb8; }
+.case-avatar { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; font-size: 13px; font-weight: 600; color: #839ab0; background: #f0f4f8; flex-shrink: 0; }
+.case-option.selected .case-avatar { color: #2b7db7; background: #dceefb; }
+.case-copy { display: flex; flex: 1; flex-direction: column; gap: 5px; min-width: 0; }
+.case-copy strong { font-size: 13px; }
+.case-copy > span { font-size: 10px; color: #92a2b2; letter-spacing: .5px; }
+.case-arrow { font-size: 12px; color: #a5bacb; }
+.case-hint { font-size: 10px; color: #94a5b4; line-height: 1.8; margin: 16px 7px 0; padding-top: 12px; border-top: 1px solid #eef2f6; }
+.plan-detail { min-width: 0; }
+.person-summary { padding: 22px 24px; background: linear-gradient(110deg, #fff, #f5fafd); border: 1px solid #e0ebf3; border-radius: 12px; }
+.person-summary-top { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.detail-kicker { color: #7099b9; font-size: 11px; }
+.person-summary h2 { font-size: 23px; font-weight: 700; margin: 8px 0 0; line-height: 1.4; }
+.person-summary h2 > span { color: #8ba0b2; font-size: 12px; font-weight: 500; margin-left: 9px; }
+.person-summary :deep(.el-button) { border-radius: 8px; min-height: 38px; flex-shrink: 0; }
+.person-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 11px; color: #7a90a3; margin-top: 18px; padding-top: 14px; border-top: 1px solid #e7eff5; line-height: 1.6; }
+.person-meta .example-score { color: #8796a5; }
+.workflow-heading { margin-top: 26px; }
+.workflow-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.workflow-card { border: 1px solid #e1eaf2; border-radius: 12px; padding: 20px; background: #fff; min-width: 0; }
+.workflow-card-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.step-index { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: #eef5fb; color: #4b91c0; font-size: 12px; font-weight: 700; }
+.step-tag { color: #7f9aaf; font-size: 10px; background: #f3f7fa; border-radius: 4px; padding: 4px 7px; }
+.workflow-card h3 { margin: 15px 0 9px; font-size: 14px; color: #2e485e; line-height: 1.6; font-weight: 700; }
+.step-description { font-size: 12px; color: #74899b; line-height: 1.9; margin: 0; }
+.step-meta { display: flex; flex-wrap: wrap; gap: 8px 12px; font-size: 10px; color: #8a9dac; margin-top: 14px; line-height: 1.6; }
+.step-meta > span { display: inline-flex; align-items: center; gap: 5px; }
+.step-more { border-top: 1px solid #edf2f6; margin-top: 15px; padding-top: 12px; }
+.step-more summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 11px; color: #5d94ba; list-style: none; min-height: 24px; }
+summary::-webkit-details-marker { display: none; }
+.step-more[open] summary > span { transform: rotate(45deg); }
+.step-extra { padding: 11px 12px; margin-top: 10px; border-radius: 7px; background: #f7fafc; }
+.step-extra strong { font-size: 10px; color: #7890a4; font-weight: 600; }
+.step-extra p { font-size: 11px; line-height: 1.9; color: #687f93; margin: 5px 0 0; overflow-wrap: anywhere; }
+.outcomes-panel { border: 1px solid #e1eaf2; border-radius: 12px; background: #fff; margin-top: 20px; }
+.outcomes-panel > summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px 20px; cursor: pointer; list-style: none; }
+.outcomes-panel summary > span:first-child { display: inline-flex; align-items: center; gap: 9px; color: #496a83; font-size: 13px; font-weight: 600; }
+.outcomes-toggle { font-size: 11px; color: #8da4b6; }
+.outcomes-panel[open] .outcomes-toggle { display: none; }
+.outcomes-body { padding: 0 20px 20px; }
+.outcomes-body > p { margin: 0 0 18px; font-size: 11px; color: #8da0b0; line-height: 1.8; }
+.outcome-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; }
+.outcome-item h3 { margin: 0 0 10px; font-size: 12px; color: #607c92; font-weight: 600; }
+.outcome-row { display: flex; align-items: center; gap: 9px; font-size: 10px; color: #92a1b0; margin-top: 7px; }
+.outcome-row > span { flex-shrink: 0; }
+.outcome-row > strong { width: 30px; text-align: right; font-weight: 500; }
+.outcome-track { flex: 1; height: 7px; background: #edf3f7; border-radius: 4px; overflow: hidden; }
+.outcome-track i { display: block; height: 100%; background: #b4cedf; border-radius: inherit; }
+.after .outcome-track i { background: #6aa9d1; }
+.detail-footer { display: flex; justify-content: space-between; align-items: center; gap: 15px; padding: 20px 2px 0; font-size: 11px; color: #90a1b0; line-height: 1.7; }
+.detail-footer button { display: flex; align-items: center; gap: 7px; padding: 8px 0; border: 0; background: none; color: #4e95c3; cursor: pointer; font-family: inherit; font-size: 12px; white-space: nowrap; }
+button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid #438fc4; outline-offset: 4px; }
+@media (max-width: 1280px) { .page-container { padding: 26px 24px 40px; } .heading-meta { display: none; } .plan-workspace { grid-template-columns: 180px minmax(0, 1fr); gap: 16px; } .scenario-option { padding: 15px; gap: 10px; } .scenario-count { display: none; } .workflow-card { padding: 17px; } }
+@media (max-width: 900px) { .plan-workspace { grid-template-columns: 1fr; } .case-panel { position: static; padding: 14px; } .case-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); } .case-option { min-height: 58px; padding: 9px; } .case-hint { display: none; } }
+@media (max-width: 600px) { .nav-wrapper { padding: 14px 16px; min-height: 58px; } .nav-left { gap: 12px; } .header-caption { display: none; } .page-container { padding: 20px 14px 32px; }  .plan-heading h1 { font-size: 21px; } .plan-heading p { font-size: 12px; } .demo-notice { margin: 18px 0 22px; font-size: 11px; padding: 10px 12px; } .section-heading { gap: 10px; } .section-heading > span { font-size: 10px; } .scenario-options { grid-template-columns: 1fr; gap: 10px; } .scenario-option { min-height: 80px; padding: 15px; } .scenario-count { display: inline; } .scenario-copy > span { font-size: 10px; } .case-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } .person-summary { padding: 18px; } .person-summary-top { align-items: flex-start; flex-wrap: wrap; gap: 14px; } .person-summary-top :deep(.el-button) { min-height: 42px; } .person-summary h2 { font-size: 22px; } .person-meta { gap: 7px 12px; } .workflow-grid { grid-template-columns: 1fr; } .workflow-card { padding: 18px; } .workflow-card h3 { font-size: 15px; } .step-description { font-size: 12px; } .step-more summary { min-height: 36px; } .outcome-grid { grid-template-columns: 1fr; } .detail-footer { flex-direction: column; align-items: flex-start; gap: 5px; } .detail-footer button { min-height: 40px; } }
+@media (prefers-reduced-motion: reduce) { .scenario-option { transition: none; } }
 </style>

@@ -1,6 +1,20 @@
 /* Shared viewport contract for every workspace page. */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 body { margin: 0; }
+/* Consistent focus and page headings, without changing feature-specific layouts. */
+.application-root :where(button, a, summary, input, select, textarea):focus-visible { outline: 2px solid #3187c3; outline-offset: 3px; }
+.application-root .workspace-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; min-width: 0; }
+.application-root .workspace-heading .back-link { background: none; border: 0; padding: 4px 0; font: inherit; text-decoration: none; }
+.application-root .workspace-heading .divider { color: #d4dee9; }
+.application-root .workspace-heading .page-title-top { color: #233b53; font-size: 16px; font-weight: 700; }
+@media (min-width: 1025px) {
+  .application-root .system-layout .page-container:has(> .workflow-steps) { max-width: 1400px; padding: 32px 40px 64px; }
+}
+@media (max-width: 600px) {
+  .application-root .workspace-heading { gap: 9px; }
+  .application-root .workspace-heading .page-title-top { display: inline; font-size: 14px; }
+  .application-root .workspace-heading .back-text { font-size: 12px; letter-spacing: 0; }
+}
 .application-root .system-layout { box-sizing: border-box; }
 .application-root .system-layout > .main-content { min-width: 0; min-height: 0; }
 .el-overlay .el-dialog { max-width: calc(100vw - 24px); }
@@ -42,4 +56,11 @@ body { margin: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .application-root .main-content { scroll-behavior: auto; }
+}
+
+@media (min-width: 601px) and (max-width: 1024px) {
+  .application-root .system-layout .page-container:has(> .workflow-steps) { padding: 24px 22px 48px; }
+}
+@media (max-width: 600px) {
+  .application-root .system-layout .page-container:has(> .workflow-steps) { padding: 20px 14px 36px; }
 }

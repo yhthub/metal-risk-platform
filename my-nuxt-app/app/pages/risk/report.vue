@@ -4,11 +4,13 @@
     <main class="main-content">
       <header class="ep-header">
         <div class="nav-wrapper">
-          <div class="back-link" @click="goBack">
+          <div class="workspace-heading">
+          <button type="button" class="back-link" @click="goBack">
             <el-icon class="back-icon"><ArrowLeft /></el-icon>
-            <span class="back-text">返回预测控制台</span>
+            <span class="back-text">返回风险分析</span>
+          </button>
             <span class="divider">|</span>
-            <span class="page-title-top">健康指标估计深度报告</span>
+            <span class="page-title-top">风险分析报告</span>
           </div>
           <div class="ep-right-zone">
             <div class="user-profile"><div class="avatar">Dr.</div><span>职业卫生研究视图</span></div>
@@ -37,9 +39,9 @@
           <el-divider />
           <p class="report-desc scope-note">{{ PREDICTION_SCOPE_NOTE }}</p>
           <div v-if="!hasReport" class="empty-report">
-            <h2>暂无本次预测报告</h2>
-            <p>{{ isBatchMode ? cohortEmptyReason : '请先在预测控制台完成真实模型计算。本页不读取静态人员名单或模拟图；刷新或关闭会话后需要重新计算。' }}</p>
-            <el-button type="primary" plain @click="goBack">返回预测控制台</el-button>
+            <h2>暂无本次分析报告</h2>
+            <p>{{ isBatchMode ? cohortEmptyReason : '请先在风险分析页完成真实模型计算。本页不读取静态人员名单或模拟图；刷新或关闭会话后需要重新计算。' }}</p>
+            <el-button type="primary" plain @click="goBack">返回风险分析页</el-button>
           </div>
 
           <template v-if="isBatchMode && cohort">
@@ -197,6 +199,7 @@
 </template>
 
 <script setup lang="ts">
+import { PRODUCT_SHORT_NAME } from '~/utils/product'
 import { computed, ref, onMounted, onActivated, onDeactivated, nextTick, onBeforeUnmount, watch } from 'vue'
 import { ArrowLeft, Printer } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
@@ -207,11 +210,12 @@ import { cohortResponseError, buildCohortView, buildCohortRankOption, buildCohor
 import type { CohortPredictionResponse } from '~/utils/riskCohort'
 import { buildCohortWarning, warningRankingCsv } from '~/utils/cohortWarning'
 
+useHead({ title: `风险分析报告 · ${PRODUCT_SHORT_NAME}` })
 const route = useRoute()
 const { lastResult, lastRequest, dashboard, cohortResult, cohortWarningThreshold, batchIntake, selectedTarget } = usePredictionState()
 const isBatchMode = computed(() => route.query.mode === 'batch')
 const cohort = computed<CohortPredictionResponse | null>(() => isBatchMode.value && cohortResult.value?.complete === true && !cohortResponseError(cohortResult.value) ? cohortResult.value : null)
-const cohortEmptyReason = computed(() => cohortResult.value ? cohortResponseError(cohortResult.value) || '请先完成整份群体文件计算。' : '请在群体预测控制台完成整份上传文件的模型计算。本页不会以单人结果、当前分页或模拟数值替代全群体报告。')
+const cohortEmptyReason = computed(() => cohortResult.value ? cohortResponseError(cohortResult.value) || '请先完成整份群体文件计算。' : '请在群体风险分析页完成整份上传文件的模型计算。本页不会以单人结果、当前分页或模拟数值替代全群体报告。')
 const result = computed(() => isBatchMode.value ? null : dashboard.value?.prediction || lastResult.value)
 const request = computed(() => isBatchMode.value ? null : dashboard.value?.input || lastRequest.value)
 const charts = computed(() => isBatchMode.value ? undefined : dashboard.value?.charts)

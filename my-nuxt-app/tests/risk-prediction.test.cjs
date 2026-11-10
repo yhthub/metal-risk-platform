@@ -104,7 +104,7 @@ check('frontend source removes old fictional disease/causal output and rejects s
   assert(!/Math\.random|highRiskWorkers|diseaseRisks|shapData|68\.5/.test(index + report))
   assert.match(index, /current !== epoch/); assert.match(index, /watch\(draft/); assert.match(index, /invalidate\(\)/)
   assert.match(index, /onActivated/); assert.match(index, /onDeactivated/); assert.match(index, /modeFromQuery\(value\)/)
-  assert.match(report, /hasReport/); assert.match(report, /暂无本次预测报告/)
+  assert.match(report, /hasReport/); assert.match(report, /暂无本次分析报告/)
   assert(!/localStorage\s*\.|sessionStorage\s*\.|document\.cookie/.test(index + report + state))
   assert.match(index, /confirmed = false/); assert.match(index, /缺少BMI/)
 })

@@ -7,11 +7,8 @@
 <main class="main-content">
      <header class="ep-header">
         <div class="nav-wrapper">
-          <div class="back-link" @click="goToWorkspace">
-            <el-icon class="back-icon">
-              <ArrowLeft />
-            </el-icon>
-            <span class="back-text">返回工作台</span>
+          <div class="back-link">
+            <NuxtLink to="/datainput" class="back-control"><el-icon class="back-icon"><ArrowLeft /></el-icon><span class="back-text">返回数据接入</span></NuxtLink>
             <span class="divider">|</span>
             <span class="page-title-top">因果知识推理</span>
           </div>
@@ -26,7 +23,7 @@
       </header>
 
       <div class="page-container px-10 py-8 max-w-400 mx-auto w-full pb-24 flex flex-col gap-6">
-        
+        <section class="demo-context" role="note"><span>交互演示</span><p>浏览暴露、机制与干预之间的示例关联。下方评分和模拟变化用于功能演示，不代表本次数据的因果推断或实际干预效果。</p></section>
         <div class="global-control-bar animate-on-scroll">
           <div class="control-group">
             <span class="control-label">暴露因子选择</span>
@@ -70,7 +67,7 @@
           <div class="r-kpi-card danger-level">
             <div class="kpi-icon danger"><el-icon><Warning /></el-icon></div>
             <div class="kpi-info">
-              <span class="kpi-tag">综合因果风险评分</span>
+              <span class="kpi-tag">示例风险评分</span>
               <div class="flex items-center gap-2 mt-0.5">
                 <strong class="kpi-val font-mono tracking-tight">{{ animatedRiskScore }}<small class="text-lg font-bold text-slate-400">%</small></strong>
                 <el-tag effect="dark" :type="kpiData.riskTagType" size="small" class="font-bold rounded-md uppercase tracking-wider shadow-sm">{{ kpiData.riskLevel }}</el-tag>
@@ -84,7 +81,7 @@
           <div class="r-kpi-card">
             <div class="kpi-icon primary"><el-icon><TrendCharts /></el-icon></div>
             <div class="kpi-info">
-              <span class="kpi-tag">主导致病因子</span>
+              <span class="kpi-tag">示例关注因子</span>
               <strong class="kpi-val tracking-tight text-slate-900 mt-0.5">{{ kpiData.mainFactor }}</strong>
               <span class="kpi-delta text-slate-400 text-[0.78rem] font-semibold mt-1">{{ kpiData.factorDesc }}</span>
             </div>
@@ -93,7 +90,7 @@
           <div class="r-kpi-card">
             <div class="kpi-icon success"><el-icon><CircleCheck /></el-icon></div>
             <div class="kpi-info">
-              <span class="kpi-tag">推断置信度</span>
+              <span class="kpi-tag">示例置信度</span>
               <strong class="kpi-val tracking-tight text-blue-600 font-mono mt-0.5">{{ kpiData.confidence }}<small class="text-lg font-bold text-slate-400">%</small></strong>
               <span class="kpi-delta text-emerald-500 flex items-center gap-1 text-[0.78rem] font-bold mt-1">
                 <el-icon><Select /></el-icon> {{ kpiData.confidenceDesc }}
@@ -104,7 +101,7 @@
           <div class="r-kpi-card">
             <div class="kpi-icon warning"><el-icon><Timer /></el-icon></div>
             <div class="kpi-info">
-              <span class="kpi-tag">最优干预优先级</span>
+              <span class="kpi-tag">示例干预优先级</span>
               <strong class="kpi-val tracking-tight text-amber-500 font-mono mt-0.5">{{ kpiData.interventionTier }}</strong>
               <span class="kpi-delta text-slate-400 text-[0.78rem] font-semibold mt-1">{{ kpiData.interventionDesc }}</span>
             </div>
@@ -114,26 +111,26 @@
         <section class="core-dag-section animate-on-scroll delay-2">
           <div class="section-header">
             <div class="header-left">
-              <div class="title-badge shadow-sm">核心分析引擎</div>
-              <h2 class="section-title">全景多模态复合暴露有向无环图 (DAG)</h2>
+              <div class="title-badge shadow-sm">知识关联示意</div>
+              <h2 class="section-title">金属复合暴露知识图谱</h2>
               <p class="section-desc">
-                数字解析10种重金属在生物体内积蓄的完整链路，呈现从日常接触、病理分子触发到终末组织器官病变的发展进程。<br>
-                <span class="text-blue-500 font-semibold">互动提示：</span>鼠标悬停查看因果强度，点击任一机制节点激活三维 SHAP 归因及权威文献网络。
+                探索暴露因子、生物学机制、健康结局与干预措施的示例关联。<br>
+                <span class="text-blue-500 font-semibold">互动提示：</span>悬停查看节点说明，点击节点查看关联路径；支持拖动与缩放。
               </p>
             </div>
             <div class="header-info">
               <div class="info-card shadow-sm">
                 <div class="info-icon"><el-icon><Document /></el-icon></div>
                 <div class="info-text">
-                  <div class="info-label">知识图谱基线来源</div>
-                  <div class="info-value">权威毒理研究联合数据库</div>
+                  <div class="info-label">当前内容</div>
+                  <div class="info-value">预设知识关联示例</div>
                 </div>
               </div>
               <div class="info-card shadow-sm">
                 <div class="info-icon"><el-icon><Clock /></el-icon></div>
                 <div class="info-text">
-                  <div class="info-label">模型推理引擎更新</div>
-                  <div class="info-value font-mono">2026-05-12</div>
+                  <div class="info-label">浏览方式</div>
+                  <div class="info-value">筛选 · 拖动 · 缩放</div>
                 </div>
               </div>
             </div>
@@ -182,11 +179,11 @@
           <div class="chart-card full-width-card border border-slate-200 shadow-xl">
             <div class="chart-header">
               <div class="header-left">
-                <h3 class="chart-title">反事实因果模拟推演沙盘</h3>
-                <span class="chart-tag shadow-sm">数字孪生系统</span>
+                <h3 class="chart-title">干预情景交互演示</h3>
+                <span class="chart-tag shadow-sm">预设情景</span>
               </div>
               <p class="chart-desc text-slate-500">
-                通过模拟削减特定重金属暴露或提前部署抗氧化/螯合屏障，实时评估由于“反事实消除”引发的整体健康危险系数缩减额度。
+                调整示例暴露与干预选项，观察演示图表的变化，了解情景比较的阅读方式。
               </p>
             </div>
 
@@ -276,7 +273,7 @@
                 </div>
 
                 <div class="gain-indicator enhanced text-right font-bold text-slate-600">
-                  量化预期干预总收益: <strong class="gain-value font-mono font-black text-2xl text-emerald-500 ml-1">-{{ (92.4 - simulatedRisk).toFixed(1) }}%</strong>
+                  示例评分变化：<strong class="gain-value font-mono font-black text-2xl text-emerald-500 ml-1">-{{ (92.4 - simulatedRisk).toFixed(1) }}%</strong>
                 </div>
               </div>
             </div>
@@ -285,10 +282,10 @@
 
         <div class="bottom-action-bar animate-on-scroll delay-4 border border-slate-200 shadow-xl bg-white/90 backdrop-blur-md">
           <el-button type="info" size="large" plain class="border-slate-300 text-slate-600 font-bold" @click="goToWorkspace">
-            <el-icon class="mr-1"><ArrowLeft /></el-icon> 返回数据流总览
+            <el-icon class="mr-1"><ArrowLeft /></el-icon> 返回数据接入
           </el-button>
           <el-button type="primary" size="large" class="final-run-btn font-bold shadow-lg shadow-blue-500/20" @click="goToPlan">
-            基于上述因果路由生成精准干预策略
+            查看方案推荐（演示）
             <el-icon class="ml-1"><ArrowRight /></el-icon>
           </el-button>
         </div>
@@ -336,7 +333,7 @@
         </div>
 
         <div class="detail-section">
-          <h4 class="section-title text-slate-900 flex items-center gap-1.5"><span class="w-1.5 h-3.5 bg-indigo-500 rounded-sm"></span>SHAP 独立贡献度占比</h4>
+          <h4 class="section-title text-slate-900 flex items-center gap-1.5"><span class="w-1.5 h-3.5 bg-indigo-500 rounded-sm"></span>示例节点权重</h4>
           <div class="shap-container mt-2.5">
             <div class="shap-bar border border-slate-200">
               <div class="shap-bar-fill" :style="{width: `${selectedNode.shapValue * 100}%`}"></div>
@@ -346,16 +343,9 @@
         </div>
 
         <div class="detail-section border-t border-slate-100 pt-4">
-          <h4 class="section-title text-slate-900 flex items-center gap-1.5 mb-2.5"><span class="w-1.5 h-3.5 bg-emerald-500 rounded-sm"></span>支撑性权威文献</h4>
+          <h4 class="section-title text-slate-900 flex items-center gap-1.5 mb-2.5"><span class="w-1.5 h-3.5 bg-emerald-500 rounded-sm"></span>继续查阅资料</h4>
           <div class="reference-list flex flex-col gap-3">
-            <div class="reference-item bg-slate-50/50 hover:bg-slate-50 border border-slate-200/40 p-3 rounded-lg transition-colors flex flex-col gap-1">
-              <span class="ref-title text-sm font-bold text-slate-800">《重金属毒理学与健康风险评估》</span>
-              <span class="ref-source text-xs text-slate-400 font-medium">人民卫生出版社, 2025</span>
-            </div>
-            <div class="reference-item bg-slate-50/50 hover:bg-slate-50 border border-slate-200/40 p-3 rounded-lg transition-colors flex flex-col gap-1">
-              <span class="ref-title text-sm font-bold text-slate-800">Environmental Health Perspectives</span>
-              <span class="ref-source text-xs text-slate-400 font-medium font-mono">Vol.133, No.5, 2025</span>
-            </div>
+            <NuxtLink to="/agent" class="reference-item knowledge-link bg-slate-50/50 hover:bg-slate-50 border border-slate-200/40 p-3 rounded-lg transition-colors flex flex-col gap-1"><span class="ref-title text-sm font-bold text-slate-800">前往医学知识问答 →</span><span class="ref-source text-xs text-slate-400 font-medium">围绕当前金属或机制提出问题，查看回答及引用资料。</span></NuxtLink>
           </div>
         </div>
       </div>
@@ -369,6 +359,9 @@ import {
   ArrowLeft, TopRight, Select, TrendCharts, Warning, CircleCheck, Timer, ZoomIn, ZoomOut, ArrowRight, Refresh, Document, Clock
 } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
+import { PRODUCT_SHORT_NAME } from '~/utils/product'
+
+useHead({ title: `因果知识推理 · ${PRODUCT_SHORT_NAME}` })
 
 const router = useRouter()
 
@@ -865,7 +858,14 @@ const goToPlan = async () => { await router.push('/plan') }
   transition: color 0.2s; 
 }
 
-.back-link:hover { color: #1D4ED8; }
+.back-control { display: inline-flex; align-items: center; gap: 9px; color: inherit; text-decoration: none; }
+.back-control:hover { color: #1D4ED8; }
+.back-control:focus-visible, .knowledge-link:focus-visible { outline: 2px solid #4295d6; outline-offset: 4px; }
+.knowledge-link { text-decoration: none; }
+.demo-context { display: flex; align-items: flex-start; gap: 14px; padding: 16px 20px; border: 1px solid #d7e7f4; border-radius: 12px; background: #f2f8fd; color: #5c7188; }
+.demo-context > span { flex-shrink: 0; color: #1f77b4; font-size: 12px; font-weight: 700; line-height: 1.8; }
+.demo-context p { margin: 0; font-size: 12px; line-height: 1.8; }
+@media (max-width: 700px) { .demo-context { flex-direction: column; gap: 5px; padding: 14px 16px; } }
 .back-link .back-icon { font-size: 1.2rem; font-weight: bold; }
 .back-link .back-text { font-size: 1.05rem; font-weight: 700; letter-spacing: 1px; }
 .back-link .divider { color: #D1D5DB; font-weight: 300; margin: 0 8px; }

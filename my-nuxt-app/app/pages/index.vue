@@ -8,50 +8,38 @@
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
             </svg>
           </div>
-          <span class="logo-text">Intelligent Intervention System</span><span class="logo-text-mobile">AI Intervention</span>
+          <span class="logo-text" :title="PRODUCT_NAME">{{ PRODUCT_SHORT_NAME }}</span><span class="logo-text-mobile" :title="PRODUCT_NAME">AI Intervention</span>
         </div>
         
-        <nav class="nav-menu">
+        <nav class="nav-menu" aria-label="主要功能">
           <div class="nav-item">
-            <a href="#" class="active">评估模型</a>
+            <NuxtLink to="/datainput">数据接入</NuxtLink>
             <div class="dropdown">
-              <a href="#">多级风险预警</a>
-              <a href="#">复合暴露测算</a>
-              <a href="#">因果知识推理</a>
-              <a href="#">干预策略引擎</a>
+              <NuxtLink to="/datainput">单人录入与群体导入</NuxtLink>
+              <NuxtLink to="/data-cleaning">数据清洗与格式转换</NuxtLink>
             </div>
           </div>
           <div class="nav-item">
-            <a href="#">数据视图</a>
+            <NuxtLink to="/risk?mode=individual">风险分析</NuxtLink>
             <div class="dropdown">
-              <a href="#">环境监测档案</a>
-              <a href="#">流行病学流调</a>
-              <a href="#">靶器官标志物</a>
-              <a href="#">数据字典规范</a>
+              <NuxtLink to="/risk?mode=individual">单人风险分析</NuxtLink>
+              <NuxtLink to="/risk?mode=batch">群体风险分析</NuxtLink>
             </div>
           </div>
           <div class="nav-item">
-            <a href="#">因果图谱</a>
-            <div class="dropdown">
-              <a href="#">系统技术白皮书</a>
-              <a href="#">算法评估报告</a>
-              <a href="#">干预控制规范</a>
-              <a href="#">暴露限制标准</a>
-            </div>
+            <NuxtLink to="/plan">方案推荐</NuxtLink>
           </div>
           <div class="nav-item">
-            <a href="#">系统文档</a>
+            <NuxtLink to="/agent">知识服务</NuxtLink>
             <div class="dropdown">
-              <a href="#">研发团队</a>
-              <a href="#">API 接口文档</a>
-              <a href="#">隐私与数据安全</a>
-              <a href="#">合作机构</a>
+              <NuxtLink to="/agent">医学知识问答</NuxtLink>
+              <NuxtLink to="/causal">因果知识推理</NuxtLink>
             </div>
           </div>
         </nav>
         
         <div class="nav-right">
-          <button class="btn-outline">操作手册</button>
+          <a class="btn-outline" href="#experience-guide">体验指南</a>
           <button class="btn-primary" @click="goToWorkspace">进入工作台</button>
         </div>
       </div>
@@ -72,12 +60,12 @@
 
     <main class="content-wrapper">
       <section class="hero-section animate-on-scroll">
-        <h1 class="title">
+        <h1 class="title" :aria-label="PRODUCT_NAME">
           <span class="title-dark">面向职业金属复合暴露的</span><br />
           <span class="title-blue">智能干预推荐与决策支持系统</span>
         </h1>
         <p class="subtitle">
-          融合职业环境监测、流行病学调查及多组学数据，构建基于因果推理的风险评估与干预推荐模型。<br/>实现职业金属暴露健康风险的精准预警与智能决策支持。
+          连接数据接入、风险分析、医学知识与干预方案，让职业金属暴露相关信息更易理解。<br/>从单人指标到群体数据，探索有依据的健康管理与决策支持。
         </p>
         <div class="core-mission-badge">
           <el-icon><Monitor /></el-icon>
@@ -87,7 +75,7 @@
 
       <div class="system-loop-declaration animate-on-scroll">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-        实现风险识别 — 因果解析 — 干预推荐 — 效果反馈的闭环智能决策流程
+        数据接入 — 数据分析 — 风险分析 — 方案推荐
       </div>
 
       <div class="particle-wave-container animate-on-scroll">
@@ -104,14 +92,14 @@
         </svg>
       </div>
 
-      <section class="capability-blocks showcase-list">
+      <section id="capabilities" class="capability-blocks showcase-list" aria-label="功能概览">
         <div class="showcase-card animate-on-scroll">
           <div class="media-container interactive-card"
                @mousemove="(e) => handleMouseMove(e, 0)"
                @mouseleave="handleMouseLeave(0)">
             <div class="mock-ui-clean float-anim">
               <div class="alert-badge pulse-red">
-                <el-icon><Warning /></el-icon> Threshold Alert
+                <el-icon><Warning /></el-icon> 展示示意
               </div>
               <div class="data-row interactive-row">
                 <span class="label-text">Target: <strong>Pb</strong></span>
@@ -125,8 +113,8 @@
           </div>
           
           <div class="text-content">
-            <h4>多级风险预警与规则驱动干预</h4>
-            <p>基于职业暴露限值与健康风险阈值构建分级预警机制。对 Pb、Cd 等关键污染物进行高频动态监测，当指标跨越阈值时，触发自动化、标准化的干预工单与风险响应。</p>
+            <h4>从单人到群体的风险分析</h4>
+            <p>录入个人信息或导入群体数据，查看健康指标估计、群体分布和相对排序。结合输入质量与结果说明，理解不同对象的指标特征。</p>
           </div>
         </div>
 
@@ -135,7 +123,7 @@
                @mousemove="(e) => handleMouseMove(e, 1)"
                @mouseleave="handleMouseLeave(1)">
             <div class="chart-header-dark">
-              <span class="chart-title">剂量-效应综合评估曲线 (Dose-Response)</span>
+              <span class="chart-title">模型响应曲线 · 展示示意</span>
               <div class="chart-legend">
                 <span class="legend-item"><i style="background: #3B82F6"></i> 模型预测</span>
                 <span class="legend-item"><i style="background: #A855F7"></i> 观测基线</span>
@@ -158,8 +146,8 @@
             </div>
           </div>
           <div class="text-content">
-            <h4>多源数据融合与健康风险评估模型</h4>
-            <p>融合环境监测、个体暴露与健康档案等异构数据，构建多金属复合暴露风险评估模型。量化各因子的健康贡献度，输出高可信的非线性剂量-效应评估结果。</p>
+            <h4>清晰的数据整理与模型解释</h4>
+            <p>通过字段映射、清洗预览和格式转换整理原始表格；分析后查看模型贡献与输入响应，让数据处理过程和结果依据更透明。</p>
           </div>
         </div>
 
@@ -168,7 +156,7 @@
                @mousemove="(e) => handleMouseMove(e, 2)"
                @mouseleave="handleMouseLeave(2)">
             <div class="causal-header">
-              <span class="title">四层干预因果推断网络 (Causal Inference Graph)</span>
+              <span class="title">暴露与干预知识关联 · 展示示意</span>
             </div>
             <div class="causal-layer-labels">
               <span>暴露层</span><span>分子层</span><span>疾病层</span><span>干预层</span>
@@ -195,10 +183,20 @@
             </div>
           </div>
           <div class="text-content">
-            <h4>因果知识图谱驱动的智能干预推荐</h4>
-            <p>基于“暴露—分子层—疾病层—干预层”构建四层因果推理结构。突破统计学相关性局限，利用图神经网络识别靶向致病路径，生成具备强可解释性的个性化医学/工程干预方案。</p>
+            <h4>知识问答与干预方案浏览</h4>
+            <p>围绕职业暴露与健康问题查阅医学资料，浏览知识关联和干预案例。方案推荐目前提供预设案例演示，帮助了解健康管理流程。</p>
           </div>
         </div>
+      </section>
+
+      <section id="experience-guide" class="experience-guide" aria-labelledby="experience-guide-title">
+        <div class="guide-heading"><span>快速开始</span><h2 id="experience-guide-title">选择适合你的体验方式</h2></div>
+        <div class="guide-options">
+          <NuxtLink to="/datainput"><strong>01 · 体验数据分析</strong><span>载入公开案例，查看单人或群体的数据与分析结果。</span><b>进入数据接入 →</b></NuxtLink>
+          <NuxtLink to="/data-cleaning"><strong>02 · 整理一份表格</strong><span>用合成案例体验清洗预览，并下载规范 CSV 文件。</span><b>体验数据清洗 →</b></NuxtLink>
+          <NuxtLink to="/agent"><strong>03 · 查询医学知识</strong><span>直接提出问题，阅读回答及其引用的资料。</span><b>开始知识问答 →</b></NuxtLink>
+        </div>
+        <p id="experience-note" class="guide-note">公开体验请使用公开或合成示例。分析与方案仅供研究参考，不能替代专业诊疗。</p>
       </section>
     </main>
 
@@ -210,39 +208,33 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
               </svg>
-              Intelligent Intervention System
+              {{ PRODUCT_SHORT_NAME }}
             </div>
             <p class="brand-slogan">负责任地构建健康数据网络，为职业环境筑起科学防线。</p>
           </div>
           
           <div class="footer-links-grid">
             <div class="link-column">
-              <h4>核心模型</h4>
-              <a href="#">多级风险预警</a>
-              <a href="#">复合暴露测算</a>
-              <a href="#">因果知识推理</a>
-              <a href="#">干预策略引擎</a>
+              <h4>数据准备</h4>
+              <NuxtLink to="/datainput">数据接入</NuxtLink>
+              <NuxtLink to="/data-cleaning">数据清洗与格式转换</NuxtLink>
             </div>
             <div class="link-column">
-              <h4>多源数据</h4>
-              <a href="#">环境监测档案</a>
-              <a href="#">流行病学流调</a>
-              <a href="#">靶器官标志物</a>
-              <a href="#">数据字典规范</a>
+              <h4>分析与方案</h4>
+              <NuxtLink to="/risk?mode=individual">单人风险分析</NuxtLink>
+              <NuxtLink to="/risk?mode=batch">群体风险分析</NuxtLink>
+              <NuxtLink to="/plan">方案推荐</NuxtLink>
             </div>
             <div class="link-column">
-              <h4>学术研究</h4>
-              <a href="#">系统技术白皮书</a>
-              <a href="#">算法评估报告</a>
-              <a href="#">干预控制规范</a>
-              <a href="#">暴露限制标准</a>
+              <h4>知识服务</h4>
+              <NuxtLink to="/causal">因果知识推理</NuxtLink>
+              <NuxtLink to="/agent">医学知识问答</NuxtLink>
             </div>
             <div class="link-column">
-              <h4>关于系统</h4>
-              <a href="#">研发团队</a>
-              <a href="#">API 接口文档</a>
-              <a href="#">隐私与数据安全</a>
-              <a href="#">合作机构</a>
+              <h4>使用帮助</h4>
+              <a href="#capabilities">功能概览</a>
+              <a href="#experience-guide">体验指南</a>
+              <a href="#experience-note">使用说明</a>
             </div>
           </div>
         </div>
@@ -250,9 +242,7 @@
           <div class="bottom-legal">
             <span>&copy; 2026 Occupational Health AI System. All rights reserved.</span>
             <div class="legal-links">
-              <a href="#">隐私政策</a>
-              <a href="#">服务条款</a>
-              <a href="#">伦理声明</a>
+              <a href="#experience-note">体验与数据说明</a>
             </div>
           </div>
         </div>
@@ -264,6 +254,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { Warning, Monitor } from '@element-plus/icons-vue'
+import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from '~/utils/product'
+
+useHead({ title: PRODUCT_NAME })
 
 const isScrolled = ref(false)
 const waveDots = ref([])
@@ -401,13 +394,13 @@ $color-border: #E5E7EB;
           font-weight: 500; transition: all 0.2s; &:hover { color: $color-primary; background: #F9FAFB; }
         }
       }
-      &:hover .dropdown { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+      &:hover .dropdown, &:focus-within .dropdown { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
     }
   }
   
   .nav-right {
     display: flex; gap: 12px;
-    button { height: 36px; padding: 0 18px; border-radius: 6px; font-size: 0.95rem; cursor: pointer; transition: all 0.2s; font-weight: 600; }
+    button, a.btn-outline { height: 36px; padding: 0 18px; border-radius: 6px; font-size: 0.95rem; cursor: pointer; transition: all 0.2s; font-weight: 600; display: inline-flex; align-items: center; text-decoration: none; }
     .btn-outline { background: transparent; border: 1px solid $color-border; color: $text-main; &:hover { border-color: $color-text-muted; } }
     .btn-primary { 
       background: $color-primary; border: none; color: white; 
@@ -537,6 +530,18 @@ $color-border: #E5E7EB;
 }
 
 .logo-text-mobile { display: none; }
+#capabilities, #experience-guide, #experience-note { scroll-margin-top: 96px; }
+.experience-guide { position: relative; margin: 56px 0 64px; padding: 32px; border: 1px solid #dfe9f2; border-radius: 18px; background: #ffffffed; }
+.guide-heading { margin-bottom: 22px; > span { font-size: 12px; color: #1f77b4; font-weight: 700; } h2 { margin: 7px 0 0; font-size: 23px; color: #243b53; } }
+.guide-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; > a { display: flex; flex-direction: column; gap: 12px; padding: 20px; border: 1px solid #e2eaf2; border-radius: 12px; text-decoration: none; color: #334155; background: #f8fbff; } > a:hover { border-color: #a6c9e7; background: #f1f7fd; } strong { font-size: 15px; } span { font-size: 13px; line-height: 1.8; color: #64748b; flex: 1; } b { font-size: 13px; color: #1f77b4; font-weight: 600; } }
+.guide-note { color: #708196; font-size: 12px; line-height: 1.8; margin: 20px 0 0; }
+.research-system-home a:focus-visible, .research-system-home button:focus-visible { outline: 2px solid #4295d6; outline-offset: 4px; }
+@media (max-width: 720px) {
+  .experience-guide { padding: 22px 16px; margin: 32px 0; }
+  .guide-heading h2 { font-size: 19px; line-height: 1.6; }
+  .guide-options { grid-template-columns: 1fr; gap: 12px; }
+  .guide-options > a { padding: 18px; }
+}
 @media screen and (max-width: 1200px) {
   .system-nav .nav-menu { gap: 16px; }
   .system-nav .nav-left .logo-text { font-size: .95rem; }

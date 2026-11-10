@@ -4,7 +4,7 @@
     <main class="main-content">
       <header class="page-header">
         <div class="page-heading">
-          <NuxtLink to="/" class="home-link"><el-icon><ArrowLeft /></el-icon> 返回首页</NuxtLink>
+          <NuxtLink to="/" class="home-link"><el-icon><ArrowLeft /></el-icon> 系统首页</NuxtLink>
           <h1>医学知识问答</h1>
           <p>查阅医学资料，理解职业暴露与健康相关问题。</p>
         </div>
@@ -119,8 +119,9 @@ import { ElMessage } from 'element-plus'
 import { ArrowLeft, ArrowRight, Collection, DocumentCopy, InfoFilled, Plus, Position, Reading, RefreshRight } from '@element-plus/icons-vue'
 import { plainAnswer, sourceLabel, sourceUrl, retrievalPresentation, chatAvailability, isGeneralKnowledgeAnswer, generalKnowledgeNotice, responseEvidence } from '~/utils/ragPresentation'
 import type { EvidenceCard, RagMessage } from '~/utils/ragPresentation'
+import { PRODUCT_SHORT_NAME } from '~/utils/product'
 
-useHead({ title: '医学知识问答｜智能风险预警系统' })
+useHead({ title: `医学知识问答 · ${PRODUCT_SHORT_NAME}` })
 
 type VisitorMessage = RagMessage & { generationTruncated?: boolean }
 const { agentChat, getAgentStatus, getModels, setApiKey } = useApi()

@@ -5,7 +5,7 @@
     <main v-else class="access-bootstrap" aria-live="polite">
       <div class="access-bootstrap-card">
         <span class="access-eyebrow">ZHIWEI · SYSTEM ACCESS</span>
-        <h1>{{ checkingAccess ? '正在连接系统' : '欢迎体验知微系统' }}</h1>
+        <h1>{{ checkingAccess ? '正在连接系统' : `欢迎体验${PRODUCT_SHORT_NAME}` }}</h1>
         <p>{{ checkingAccess ? '先确认系统 API 连接，再加载各功能页面。' : '请完成访问检查后进入。密钥仅在本次浏览器运行内存中使用。' }}</p>
         <button v-if="!checkingAccess" class="access-action primary" type="button" @click="openAccessSettings">打开访问设置</button>
       </div>
@@ -46,6 +46,7 @@
 </template>
 
 <script setup lang="ts">
+import { PRODUCT_SHORT_NAME } from '~/utils/product'
 import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { verifySystemAccessResult } from '~/utils/systemAccess'
 
