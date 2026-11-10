@@ -300,10 +300,11 @@ const cohortDistributionRef = ref<HTMLElement | null>(null)
 const cohortGenderRef = ref<HTMLElement | null>(null)
 const cohortAgeRef = ref<HTMLElement | null>(null)
 let chartsInstances: echarts.ECharts[] = []
+let chartResizeObserver: ResizeObserver | null = null
 let mounted = false
 let active = false
 let resizeListening = false
-const clearCharts = () => { chartsInstances.forEach(chart => chart.dispose()); chartsInstances = [] }
+const clearCharts = () => { chartResizeObserver?.disconnect(); chartResizeObserver = null; chartsInstances.forEach(chart => chart.dispose()); chartsInstances = [] }
 function initReportCharts() {
   clearCharts()
   if (!hasReport.value || !mounted || !active) return
@@ -324,8 +325,9 @@ function initReportCharts() {
     [reportJointEffectRef.value, jointOption.value]
   ]
   else return
+  if (typeof ResizeObserver !== 'undefined') chartResizeObserver = new ResizeObserver(resizeCharts)
   for (const [element, option] of candidates) if (element && option) {
-    const chart = echarts.init(element); chart.setOption(option as echarts.EChartsOption); chartsInstances.push(chart)
+    const chart = echarts.init(element); chart.setOption(option as echarts.EChartsOption); chartsInstances.push(chart); chartResizeObserver?.observe(element)
   }
 }
 const resizeCharts = () => { chartsInstances.forEach(chart => chart.resize()) }
@@ -458,5 +460,77 @@ $color-safe: #10B981; $color-warn: #F59E0B; $color-danger: #EF4444;
 .report-btns { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .report-btns :deep(.el-button + .el-button) { margin-left: 0; }
 @media print { .system-layout { display: block; height: auto; overflow: visible; background: #fff; } .report-view-wrapper { display: block; padding: 0; } .report-paper { max-width: none; width: 100%; } .report-section, .wt-row { break-inside: avoid; } .report-watermark { position: fixed; } }
+
+
+/* Responsive paper view is screen-only so exported print layout is preserved. */
+@media screen {
+  .main-content, .report-view-wrapper, .report-paper, .report-section { min-width: 0; }
+  .report-view-wrapper { padding: 32px; }
+  .report-paper { width: 100%; max-width: 1000px; padding: clamp(24px, 5vw, 80px); }
+  .report-header .rh-left, .report-header .rh-text { min-width: 0; }
+  .report-header .report-logo-custom { flex-shrink: 0; }
+  .report-header p, .report-desc, .sign-area { overflow-wrap: anywhere; }
+  .worker-table { max-width: 100%; overflow-x: auto; }
+  .worker-table .wt-header, .worker-table .wt-row { min-width: 680px; }
+  .cohort-table-wrap { max-width: 100%; }
+  .report-btns { width: 100%; }
+  .report-btns :deep(.el-button) { height: auto; min-height: 38px; white-space: normal; line-height: 1.6; }
+}
+@media screen and (max-width: 1024px) {
+  .ep-header { height: auto; min-height: 60px; }
+  .nav-wrapper { padding: 12px 24px; flex-wrap: wrap !important; gap: 10px; }
+  .back-link { min-width: 0; flex-wrap: wrap; gap: 8px; }
+  .back-link .back-text, .back-link .page-title-top { font-size: 14px; }
+  .user-profile { font-size: 12px; }
+  .report-view-wrapper { padding: 24px; }
+  .report-paper { padding: 32px; }
+  .report-header { gap: 18px; align-items: flex-start; }
+  .report-header h1 { font-size: 23px; line-height: 1.5; }
+  .report-header .risk-seal { width: 80px; height: 80px; }
+  .report-header .risk-seal strong { font-size: 14px; }
+}
+@media screen and (max-width: 820px) {
+  .report-section :deep(.el-row) { margin-left: 0 !important; margin-right: 0 !important; row-gap: 24px; }
+  .report-section :deep(.el-col) { flex: 0 0 100%; max-width: 100%; min-width: 0; padding-left: 0 !important; padding-right: 0 !important; }
+  .cohort-facts { padding-top: 0; }
+}
+@media screen and (max-width: 600px) {
+  .nav-wrapper { padding: 10px 14px; }
+  .back-link { gap: 6px; }
+  .back-link .back-text { font-size: 12px; letter-spacing: 0; }
+  .back-link .divider { display: none; }
+  .back-link .page-title-top { flex-basis: 100%; padding-left: 25px; font-size: 14px; }
+  .user-profile { display: none; }
+  .report-view-wrapper { padding: 14px 10px 24px; }
+  .report-paper { padding: 20px 16px; border-radius: 10px; }
+  .report-header { flex-direction: column; gap: 14px; }
+  .report-header .rh-left { align-items: flex-start; gap: 9px; }
+  .report-header .report-logo-custom { width: 26px; height: 26px; margin-top: 2px; }
+  .report-header h1 { font-size: 19px; line-height: 1.6; letter-spacing: 0; }
+  .report-header p { font-size: 11px; line-height: 1.8; }
+  .report-header .rh-right { align-self: flex-end; }
+  .report-header .risk-seal { width: 68px; height: 68px; border-width: 2px; }
+  .report-header .risk-seal span { font-size: 10px; }
+  .report-header .risk-seal strong { font-size: 12px; }
+  .report-watermark { font-size: 28px; }
+  .report-section { margin-top: 28px; }
+  .report-section .rs-title { font-size: 16px; line-height: 1.7; }
+  .report-section.highlight { padding: 14px; }
+  .report-section .report-desc, .scope-note { font-size: 12px; line-height: 1.85; }
+  .report-section .report-desc { padding: 10px; }
+  .empty-report { padding: 20px 14px; }
+  .empty-report h2 { font-size: 17px; }
+  .report-empty { padding: 16px; font-size: 12px; }
+  .cohort-target-control { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .cohort-target-control :deep(.el-select) { width: 100% !important; }
+  .cohort-facts { gap: 18px 12px; }
+  .cohort-facts strong { font-size: 18px; }
+  .d-info { flex-wrap: wrap; gap: 4px; font-size: 12px; }
+  .d-info .estimate, .d-info .withheld { white-space: normal; }
+  .report-footer { margin-top: 32px; }
+  .sign-area { font-size: 12px; line-height: 1.8; }
+  .report-btns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .report-btns :deep(.el-button) { width: 100%; margin: 0; min-height: 42px; }
+}
 
 </style>

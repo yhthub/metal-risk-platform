@@ -8,6 +8,7 @@ from ..services.local_llm_service import ModelUnavailableError
 from ..services.rag_agent_service import get_rag_service, RagBusyError, InvalidGenerationError
 
 router = APIRouter(prefix="/api/agent", tags=["真实本地RAG"])
+EvidenceSource = Literal["pubmed", "textbooks", "statpearls", "normative", "scientific", "guidelines"]
 
 
 class HistoryMessage(BaseModel):
@@ -21,13 +22,13 @@ class ChatRequest(BaseModel):
     model: Optional[str] = Field(default=None, max_length=100)
     enable_deep_think: bool = True
     knowledge_bases: List[str] = Field(default_factory=list, max_length=9)
-    sources: Optional[List[Literal["pubmed", "textbooks", "statpearls"]]] = None
+    sources: Optional[List[EvidenceSource]] = None
 
 
 class EvidenceSearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
     top_k: int = Field(default=8, ge=1, le=12)
-    sources: Optional[List[Literal["pubmed", "textbooks", "statpearls"]]] = None
+    sources: Optional[List[EvidenceSource]] = None
     mode: Optional[Literal["bm25", "medcpt", "hybrid"]] = None
     candidate_k: Optional[int] = Field(default=None, ge=1, le=128)
 
@@ -88,6 +89,9 @@ async def evidence_search(request: EvidenceSearchRequest):
 @router.get("/knowledge-bases")
 async def knowledge_bases():
     # No fictitious counts: declared counts are available through corpus status.
+    configured = getattr(get_rag_service().retriever, "knowledge_bases", None)
+    if configured is not None:
+        return configured
     return [{"id": value, "name": label} for value, label in
             [("pubmed", "PubMed标题/摘要"), ("textbooks", "医学教材"), ("statpearls", "StatPearls")]]
 

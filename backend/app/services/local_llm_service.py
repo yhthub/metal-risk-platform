@@ -11,6 +11,28 @@ class ModelUnavailableError(RuntimeError):
 MODEL_DISABLED_NOTICE = "生成端尚未启用：等待允许供共享网站后端调用的模型接口，当前不会发起模型请求。"
 
 
+def generation_error_message(error):
+    """Expose fixed operational hints, never upstream bodies, keys or prompts."""
+    response = getattr(error, "response", None)
+    status = getattr(response, "status_code", None)
+    code = None
+    if response is not None:
+        try:
+            payload = response.json()
+            detail = payload.get("error", {}) if isinstance(payload, dict) else {}
+            code = detail.get("code") if isinstance(detail, dict) else None
+        except (ValueError, TypeError, AttributeError):
+            pass
+    if status == 403 and code == "AccessDenied.Unpurchased":
+        return ("模型接口拒绝生成（HTTP 403 / AccessDenied.Unpurchased）："
+                "当前账号或套餐没有该模型的调用权限，请恢复权限或配置可用模型接口。")
+    if status in (401, 403):
+        return f"模型接口鉴权或权限检查失败（HTTP {status}），请检查服务端模型配置。"
+    if status == 429:
+        return "模型接口暂时限流或额度受限（HTTP 429），请稍后重试并检查额度。"
+    return "Model inference failed: " + type(error).__name__
+
+
 class LocalLlmService:
     def __init__(self, settings=None):
         self.settings = settings or RagSettings.from_env()
@@ -43,9 +65,12 @@ class LocalLlmService:
                     "backend": backend, "available_models": [],
                     "error": type(error).__name__ + ": local model endpoint unavailable"}
 
-    def generate(self, messages: List[Dict[str, str]]) -> Dict:
+    def generate(self, messages: List[Dict[str, str]], *, max_tokens=None) -> Dict:
         if not self.settings.model_enabled:
             raise ModelUnavailableError(MODEL_DISABLED_NOTICE)
+        output_limit = self.settings.max_tokens if max_tokens is None else max_tokens
+        if type(output_limit) is not int or not 1 <= output_limit <= self.settings.max_tokens:
+            raise ValueError("Per-call output budget must be within the configured maximum")
         native = self.settings.provider == "ollama"
         try:
             payload = {"model": self.settings.model, "messages": messages, "stream": False}
@@ -53,10 +78,10 @@ class LocalLlmService:
                 # Native options bind the *actual* allocated context to the
                 # RAG budget; old Ollama versions otherwise default to 2k.
                 payload.update(options={"temperature": 0, "num_ctx": self.settings.context_window,
-                                        "num_predict": self.settings.max_tokens, "num_batch": 128,
+                                        "num_predict": output_limit, "num_batch": 128,
                                         "num_thread": 4}, keep_alive="2m")
             else:
-                payload.update(temperature=0, max_tokens=self.settings.max_tokens)
+                payload.update(temperature=0, max_tokens=output_limit)
                 # Provider extension is opt-in. A small public-demo output
                 # budget must not be consumed entirely by hidden reasoning.
                 if self.settings.enable_thinking is not None:
@@ -87,7 +112,7 @@ class LocalLlmService:
                     "finish_reason": finish}
         except (requests.RequestException, ValueError, KeyError, IndexError, TypeError, AttributeError) as error:
             # Never echo server response bodies: they can contain prompt text or secrets.
-            raise ModelUnavailableError("Local model inference failed: " + type(error).__name__) from error
+            raise ModelUnavailableError(generation_error_message(error)) from error
 
     def close(self):
         self.session.close()

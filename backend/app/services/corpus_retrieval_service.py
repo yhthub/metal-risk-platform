@@ -60,7 +60,7 @@ STOP_WORDS = frozenset({
     "it", "its", "that", "this", "these", "those", "please", "tell", "me",
     "about", "evidence", "study", "studies", "effect", "effects", "risk",
 })
-def lexical_terms(query: str) -> tuple[list[str], list[str]]:
+def lexical_terms(query: str, *, limit: int | None = 18) -> tuple[list[str], list[str]]:
     """Make safe, limited literal FTS terms; never interpolate FTS operators."""
     normalized = query.casefold()
     translations: list[str] = []
@@ -76,7 +76,7 @@ def lexical_terms(query: str) -> tuple[list[str], list[str]]:
     for token in tokens:
         if token not in STOP_WORDS and len(token) > 1 and token not in unique:
             unique.append(token)
-    return unique[:18], translations
+    return unique if limit is None else unique[:limit], translations
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -102,7 +102,8 @@ def _under_root(root: Path, value: str) -> Path:
 
 class CorpusRetrievalService:
     def __init__(self, root: str | Path | None = None, *, timeout_seconds: float | None = None,
-                 medcpt_rerank: bool | None = None, require_restore_receipt: bool | None = None):
+                 medcpt_rerank: bool | None = None, require_restore_receipt: bool | None = None,
+                 lexical_term_limit: int | None = 18):
         default = "E:/医学检索库_完整_20261010" if os.name == "nt" else "/data/medical-corpus"
         self.root = Path(root or os.getenv("RAG_CORPUS_ROOT", default)).expanduser().resolve()
         self.timeout_seconds = max(0.1, min(float(timeout_seconds if timeout_seconds is not None
@@ -111,6 +112,7 @@ class CorpusRetrievalService:
             os.getenv("RAG_MEDCPT_RERANK", "false").casefold() == "true")
         self.require_restore_receipt = require_restore_receipt if require_restore_receipt is not None else (
             os.getenv("RAG_REQUIRE_RESTORE_RECEIPT", "false").strip().casefold() == "true")
+        self.lexical_term_limit = lexical_term_limit
         self._manifest: dict[str, Any] | None = None
         self._db_path: Path | None = None
         self._lock = threading.Lock()
@@ -264,7 +266,7 @@ class CorpusRetrievalService:
         if sources and not set(sources).issubset(allowed):
             raise ValueError("Unknown corpus source filter")
         manifest, db, identity = self._verify_snapshot()
-        tokens, translations = lexical_terms(query)
+        tokens, translations = lexical_terms(query, limit=self.lexical_term_limit)
         diagnostics: dict[str, Any] = {
             "query_terms": tokens, "terminology_expansion": translations,
             "translation_method": "small explicit terminology dictionary, not full translation",

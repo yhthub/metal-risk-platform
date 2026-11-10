@@ -30,6 +30,57 @@ class LocalModelClientTests(unittest.TestCase):
     def test_traffic_does_not_inherit_desktop_proxy(self):
         self.assertFalse(self.session.trust_env)
 
+    def test_detailed_answer_budget_reaches_provider_without_old_2048_clamp(self):
+        with patch.dict("os.environ", {"RAG_LLM_MAX_TOKENS": "3200"}, clear=True):
+            self.client.settings = RagSettings.from_env()
+        self.assertEqual(self.client.settings.max_tokens, 3200)
+        self.session.post.return_value = self.response({
+            "choices": [{"message": {"content": "Fixture response"}, "finish_reason": "stop"}],
+        })
+        self.client.generate([{"role": "user", "content": "Fixture only"}])
+        self.assertEqual(self.session.post.call_args.kwargs["json"]["max_tokens"], 3200)
+        with patch.dict("os.environ", {"RAG_LLM_MAX_TOKENS": "999999"}, clear=True):
+            self.assertEqual(RagSettings.from_env().max_tokens, 4096)
+
+    def test_per_call_output_budget_reaches_both_providers_without_changing_default(self):
+        for provider in ("openai_compatible", "ollama"):
+            with self.subTest(provider=provider):
+                self.session.reset_mock()
+                settings = replace(self.settings, provider=provider, max_tokens=3200)
+                self.client.settings = settings
+                self.session.post.return_value = self.response({
+                    "model": settings.model, "done": True,
+                    "message": {"content": "Fixture response"},
+                    "choices": [{"message": {"content": "Fixture response"}, "finish_reason": "stop"}],
+                })
+                messages = [{"role": "user", "content": "Fixture only"}]
+
+                self.client.generate(messages, max_tokens=640)
+                self.assertIs(self.client.settings, settings)
+                self.assertEqual(settings.max_tokens, 3200)
+                self.client.generate(messages)
+
+                self.assertEqual(self.session.post.call_count, 2)
+                bodies = [call.kwargs["json"] for call in self.session.post.call_args_list]
+                limits = ([body["options"]["num_predict"] for body in bodies]
+                          if provider == "ollama" else [body["max_tokens"] for body in bodies])
+                self.assertEqual(limits, [640, 3200])
+                self.assertIs(self.client.settings, settings)
+                self.assertEqual(settings.max_tokens, 3200)
+
+    def test_invalid_per_call_output_budget_is_rejected_before_any_request(self):
+        for provider in ("openai_compatible", "ollama"):
+            for invalid_limit in (0, -1, False, True, 3201):
+                with self.subTest(provider=provider, max_tokens=invalid_limit):
+                    self.session.reset_mock()
+                    self.client.settings = replace(self.settings, provider=provider, max_tokens=3200)
+                    with self.assertRaises(ValueError):
+                        self.client.generate([{"role": "user", "content": "Fixture only"}],
+                                             max_tokens=invalid_limit)
+                    self.session.get.assert_not_called()
+                    self.session.post.assert_not_called()
+                    self.assertEqual(self.client.settings.max_tokens, 3200)
+
     def test_model_is_enabled_by_default_and_can_be_paused_from_environment(self):
         self.assertTrue(self.settings.model_enabled)
         with patch.dict("os.environ", {}, clear=True):
@@ -107,6 +158,36 @@ class LocalModelClientTests(unittest.TestCase):
             self.client.settings = replace(self.settings, enable_thinking=enabled)
             self.client.generate([])
             self.assertIs(self.session.post.call_args.kwargs["json"]["enable_thinking"], enabled)
+
+    def test_generation_permission_error_has_actionable_hint_without_body(self):
+        response = requests.Response()
+        response.status_code = 403
+        response._content = b'{"error":{"code":"AccessDenied.Unpurchased","message":"SECRET BODY"}}'
+        self.session.post.return_value = response
+        with self.assertRaisesRegex(ModelUnavailableError, "AccessDenied.Unpurchased") as caught:
+            self.client.generate([{"role": "user", "content": "Sensitive fixture"}])
+        self.assertIn("403", str(caught.exception))
+        self.assertNotIn("SECRET", str(caught.exception))
+        self.assertNotIn("Sensitive", str(caught.exception))
+
+    def test_unknown_provider_error_never_echoes_arbitrary_code(self):
+        response = requests.Response()
+        response.status_code = 403
+        response._content = b'{"error":{"code":"SECRET CODE","message":"SECRET BODY"}}'
+        self.session.post.return_value = response
+        with self.assertRaises(ModelUnavailableError) as caught:
+            self.client.generate([])
+        self.assertIn("403", str(caught.exception))
+        self.assertNotIn("SECRET", str(caught.exception))
+
+    def test_non_json_rate_limit_remains_explicit(self):
+        response = requests.Response()
+        response.status_code = 429
+        response._content = b'<html>SECRET upstream page</html>'
+        self.session.post.return_value = response
+        with self.assertRaisesRegex(ModelUnavailableError, "429") as caught:
+            self.client.generate([])
+        self.assertNotIn("SECRET", str(caught.exception))
 
     def test_thinking_environment_is_optional_and_rejects_invalid_values(self):
         for value, expected in (("", None), ("false", False), ("true", True)):

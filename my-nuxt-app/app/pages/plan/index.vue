@@ -271,6 +271,7 @@
 
           <h2 class="section-title mt-10"><el-icon><Connection /></el-icon> 核心致病机制靶向阻断验证网络</h2>
           <el-card class="chart-card" shadow="never">
+            <div class="graph-scroll-region" tabindex="0" aria-label="干预路径图，可左右滚动">
             <div class="causal-graph">
               <svg class="graph-svg" viewBox="0 0 1000 200">
                 <defs>
@@ -294,6 +295,7 @@
               <div class="c-node mechanism safe" style="left: 550px; top: 50px;">血脑屏障恢复稳态</div>
               <div class="c-node mechanism warn" style="left: 550px; top: 150px;">肾近曲小管氧化应激</div>
               <div class="c-node target safe" style="left: 900px; top: 100px;">神经病变风险解除</div>
+            </div>
             </div>
           </el-card>
 
@@ -733,4 +735,92 @@ $color-danger: #EF4444;
 .c-node { position: absolute; transform: translate(-50%, -50%); padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 700; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); z-index: 2; border-left: 4px solid; &.source { border-color: #3B82F6; } &.mechanism { border-color: #8B5CF6; } &.target { border-color: #10B981; } &.danger { background: #FEF2F2; border-color: #EF4444; color: #B91C1C; } &.warn { background: #FFFBEB; border-color: #F59E0B; color: #B45309; } &.safe { background: #ECFDF5; border-color: #10B981; color: #047857; } &.blocking { background: #10B981; color: #fff; border: none; box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); display: flex; align-items: center; gap: 6px; font-size: 0.95rem; z-index: 10;} }
 
 .bottom-action-bar { display: flex; justify-content: flex-end; margin-top: 40px; border-top: 1px solid #E2E8F0; padding-top: 24px; .mr-3 { margin-right: 16px;} .el-button { font-weight: 700; border-radius: 8px; } :deep(.final-run-btn) { background-color: #059669; border-color: #059669; color: #ffffff; transition: all 0.3s ease; &:hover { background-color: #047857; border-color: #047857; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(5, 150, 105, 0.3); } } }
+
+@media screen {
+  .main-content, .page-container, .results-dashboard, .person-workflow,
+  .a-text, .a-content, .pw-info, .wf-step-title, .o-bar-wrap { min-width: 0; }
+  .graph-scroll-region { width: 100%; overflow-x: auto; overscroll-behavior-x: contain; border-radius: 8px; }
+  .graph-scroll-region:focus-visible { outline: 2px solid #93C5FD; outline-offset: 2px; }
+  .graph-scroll-region .causal-graph { min-width: 1000px; }
+}
+@media screen and (max-width: 1280px) {
+  .page-container { padding: 28px 24px 48px; }
+  .data-verification-banner .dv-top, .data-verification-banner .dv-bottom,
+  .data-verification-banner .dv-left, .data-verification-banner .dv-right { flex-wrap: wrap; gap: 12px; }
+  .data-verification-banner .pipeline-tags { flex-wrap: wrap; gap: 8px; }
+  .action-card .action-content { gap: 20px; flex-wrap: wrap; }
+  .person-tabs { flex-wrap: wrap; }
+  .bottom-action-bar { flex-wrap: wrap; gap: 12px; }
+  .bottom-action-bar :deep(.el-button), .bottom-action-bar .mr-3 { margin: 0; }
+}
+@media screen and (max-width: 700px) {
+  .page-container { padding: 16px 12px 28px; }
+  .ep-header { height: auto; min-height: 58px; }
+  .nav-wrapper { padding: 12px 16px; }
+  .back-link { gap: 7px; min-width: 0; flex-wrap: wrap; }
+  .back-link .back-text, .back-link .page-title-top { font-size: 13px; letter-spacing: 0; }
+  .back-link .divider { margin: 0 2px; }
+  .ep-right-zone { display: none; }
+  .pipeline-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 8px; margin-bottom: 20px; }
+  .pipeline-steps .step { font-size: 12px; gap: 6px; }
+  .pipeline-steps .step-num { flex-shrink: 0; }
+  .pipeline-steps .step-line { display: none; }
+  .data-verification-banner .dv-top, .data-verification-banner .dv-bottom { padding: 14px; flex-direction: column; align-items: flex-start; }
+  .data-verification-banner .dv-left { min-width: 0; width: 100%; align-items: flex-start; gap: 8px; }
+  .data-verification-banner .dv-label { font-size: 12px; }
+  .data-verification-banner .file-chips { width: 100%; min-width: 0; }
+  .data-verification-banner .custom-tag { width: 100%; max-width: 100%; font-size: 12px; padding: 8px; white-space: normal; line-height: 1.6; }
+  .data-verification-banner .custom-tag :deep(.el-tag__content) { white-space: normal; overflow-wrap: anywhere; }
+  .data-verification-banner .dv-right { font-size: 11px; }
+  .data-verification-banner .meta-divider, .data-verification-banner .p-arrow { display: none; }
+  .data-verification-banner .pipeline-tags { flex: initial; }
+  .data-verification-banner .pipeline-tags :deep(.el-tag) { max-width: 100%; }
+  .data-verification-banner .detail-btn { margin-left: 0; min-height: 36px; }
+  .warning-level-section { padding: 16px; }
+  .warning-level-section .wls-header h3 { font-size: 16px; line-height: 1.6; align-items: flex-start; }
+  .warning-level-section .wls-header .wls-desc { font-size: 12px; line-height: 1.7; }
+  .warning-level-section .wls-cards { grid-template-columns: 1fr; gap: 12px; }
+  .warning-level-section .wls-card { flex-direction: column; gap: 10px; padding: 14px; }
+  .warning-level-section .wls-badge { align-self: flex-start; }
+  .warning-level-section .wls-info { min-width: 0; overflow-wrap: anywhere; }
+  .warning-level-section .wls-info h4 { font-size: 15px; }
+  .action-card { padding: 16px; }
+  .action-card .a-text h3 { font-size: 17px; }
+  .action-card .a-text p { font-size: 13px; line-height: 1.8; }
+  .action-card .btn-generate { width: 100%; padding: 12px; height: auto; min-height: 46px; font-size: 14px; white-space: normal; }
+  .action-card .btn-generate :deep(span) { white-space: normal; }
+  .gemini-thinking-container .thinking-header { padding: 14px; gap: 10px; }
+  .gemini-thinking-container .thinking-header .t-left { min-width: 0; gap: 8px; }
+  .gemini-thinking-container .thinking-header .t-text { font-size: 13px; line-height: 1.7; }
+  .gemini-thinking-container .thinking-header .sparkle-icon { flex-shrink: 0; }
+  .gemini-thinking-container .thinking-body { padding: 0 16px 14px 24px; }
+  .gemini-thinking-container .t-step { font-size: 12px; line-height: 1.8; }
+  .alert-conclusion-banner { padding: 16px; gap: 10px; margin-bottom: 20px; }
+  .alert-conclusion-banner .a-icon { font-size: 24px; }
+  .alert-conclusion-banner .a-content h4 { font-size: 16px; line-height: 1.7; }
+  .alert-conclusion-banner .a-content p { font-size: 12px; line-height: 1.8; }
+  .person-tabs { gap: 8px; margin-bottom: 16px; }
+  .person-tab { padding: 10px; flex: 1 0 calc(50% - 8px); justify-content: center; min-width: 0; }
+  .person-tab .pt-id { font-size: 12px; }
+  .person-tab .pt-score { padding: 2px 5px; font-size: 11px; }
+  .pw-profile, .pw-outcome, .wf-step { padding: 16px; }
+  .pw-profile .pw-info h3 { font-size: 17px; }
+  .pw-profile .pw-meta :deep(.el-tag) { height: auto; min-height: 24px; white-space: normal; line-height: 1.6; }
+  .wf-step-header { align-items: flex-start; gap: 10px; }
+  .wf-step-title { flex-wrap: wrap; gap: 6px; }
+  .wf-step-title h4 { font-size: 15px; line-height: 1.6; }
+  .wf-step-body { padding-left: 0; }
+  .wf-step-body .wf-desc, .wf-step-body .wf-detail, .wf-step-body .wf-indicator { font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+  .wf-step-body .wf-timeline { flex-wrap: wrap; }
+  .outcome-item { flex-direction: column; align-items: stretch; gap: 6px; }
+  .outcome-item .o-label { width: auto; text-align: left; font-size: 12px; }
+  .o-bar-wrap { width: 100%; }
+  .o-bar-before, .o-bar-after { min-width: 42px; flex-shrink: 1; }
+  .section-title { font-size: 17px; line-height: 1.7; margin-bottom: 14px; }
+  .mt-10 { margin-top: 28px; }
+  .chart-card :deep(.el-card__body) { padding: 12px; }
+  .bottom-action-bar { margin-top: 20px; padding-top: 16px; }
+  .bottom-action-bar :deep(.el-button) { width: 100%; min-height: 44px; height: auto; padding: 12px; white-space: normal; font-size: 13px; line-height: 1.6; }
+  .bottom-action-bar :deep(.el-button > span) { white-space: normal; }
+}
 </style>

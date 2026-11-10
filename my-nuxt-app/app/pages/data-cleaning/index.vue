@@ -14,6 +14,13 @@
           <div class="intro-badge"><el-icon><DocumentChecked /></el-icon><span>先预览，再下载<br /><small>每一步都有处理记录</small></span></div>
         </section>
 
+        <section class="cleaning-demo-card" aria-label="数据清洗体验案例">
+          <div class="demo-copy"><span class="demo-label"><el-icon><MagicStick /></el-icon> 体验案例</span><h3>没有准备文件？先用示例试一遍</h3><p>12 行合成数据，包含多余空格、重复记录和空白行。体验整理字段、清洗记录，再将 Excel 转为 CSV。</p><div class="demo-tags"><span>XLSX → CSV</span><span>可查看前后变化</span><span>不含真实个人数据</span></div></div>
+          <div class="demo-actions"><button type="button" class="primary-button" :disabled="busy || loadingSchema || !schema" @click="requestDemo"><el-icon v-if="demoLoading" class="is-loading"><Loading /></el-icon><el-icon v-else><MagicStick /></el-icon>{{ demoLoading ? '正在载入示例…' : '载入清洗示例' }}</button><a class="secondary-button demo-download" :href="demoFileUrl" download="数据清洗体验_合成示例.xlsx"><el-icon><Download /></el-icon>下载案例文件</a></div>
+          <div v-if="demoReplaceRequested" class="demo-replace" role="alert"><p>载入示例将替换当前选择和预览，原文件不会被修改。</p><div><button type="button" class="secondary-button" @click="demoReplaceRequested = false">保留当前文件</button><button type="button" class="primary-button" @click="loadDemo">替换为示例</button></div></div>
+          <p v-if="demoError" class="demo-error" role="alert">{{ demoError }}</p>
+        </section>
+
         <section class="panel source-panel">
           <div class="section-heading"><div><span class="section-number">01</span><h3>上传原始数据</h3></div><span class="subtle">CSV / XLSX · 最大 {{ maxUploadMb }} MB · Excel 读取第一个工作表</span></div>
           <div class="source-upload-row">
@@ -25,6 +32,7 @@
             <div class="source-stats"><div><span>原始数据行</span><strong>{{ sourceInfo ? formatCount(sourceInfo.total_rows) : '—' }}</strong></div><div><span>原始字段列</span><strong>{{ sourceInfo ? sourceInfo.columns.length : '—' }}</strong></div></div>
           </div>
           <p class="privacy-note">旧版 XLS 请先另存为 XLSX。文件仅用于本次格式处理；不要上传非必要身份信息。清洗不等于数据正确性、科学有效性或临床评估。</p>
+          <div v-if="demoActive" class="demo-loaded-note" role="status"><strong>已载入合成示例 · 可以开始体验</strong><p>已选好去除空格、删除空白行和完全重复行。按预设规则预览后，12 行 / 21 列将整理为 10 行 / 20 个系统字段；你也可以修改规则或切换自定义格式。</p><details><summary>示例说明与操作提示</summary><p>所有记录均为人工构造，不是真实受试者。字段按本页所列的血液样本、单位和 NHANES 分类编码设置；表头有空格，附带一列演示备注。系统格式只保留已映射字段，不填补缺失值。</p><p>点击“一键清洗并预览”，查看处理记录；阅读字段口径后勾选确认项，即可下载 CSV。若下载原始案例后手动上传，请自行勾选“删除完全重复的输出行”。</p></details></div>
           <el-alert v-if="sourceError" :title="sourceError" type="error" :closable="false" show-icon />
           <div v-if="sourceInfo?.warnings?.length" class="notice-list"><p v-for="(warning, index) in sourceInfo.warnings" :key="index">{{ warning }}</p></div>
           <details v-if="sourceInfo" class="preview-details"><summary>查看原始数据预览 <span>前 {{ sourcePreviewRows.length }} 行；表头两端空白自动去除，单元格值尚未清洗</span></summary>
@@ -78,7 +86,7 @@
           <div class="result-caption"><h4>输出数据预览</h4><span>展示前 {{ result.preview.length }} 行 · 缺失单元格显示“—”，导出仍为空</span></div>
           <div class="table-scroll result-table" tabindex="0" aria-label="清洗结果预览，可横向滚动"><table class="data-table"><thead><tr><th v-for="column in result.columns" :key="column">{{ column }}</th></tr></thead><tbody><tr v-for="(row, rowIndex) in result.preview" :key="rowIndex"><td v-for="column in result.columns" :key="column" :title="displayCell(row[column])">{{ displayCell(row[column]) }}</td></tr><tr v-if="!result.preview.length"><td :colspan="Math.max(1, result.columns.length)">没有满足当前条件的数据行，请检查范围与筛选条件。</td></tr></tbody></table></div>
           <div class="result-caption"><h4>处理记录</h4><span>行数按实际处理顺序统计，不代表临床有效样本量</span></div>
-          <div class="table-scroll audit-scroll"><table class="audit-table"><thead><tr><th>处理步骤</th><th>处理前</th><th>处理后</th><th>移除行</th><th>处理说明</th></tr></thead><tbody><tr v-for="(entry, index) in result.audit || []" :key="index"><td>{{ auditLabel(entry.action) }}</td><td>{{ formatCount(entry.before) }}</td><td>{{ formatCount(entry.after) }}</td><td>{{ formatCount(entry.removed) }}</td><td :title="auditDetails(entry)">{{ auditDetails(entry) }}</td></tr></tbody></table></div>
+          <div class="table-scroll audit-scroll" tabindex="0" aria-label="处理记录，可横向滚动"><table class="audit-table"><thead><tr><th>处理步骤</th><th>处理前</th><th>处理后</th><th>移除行</th><th>处理说明</th></tr></thead><tbody><tr v-for="(entry, index) in result.audit || []" :key="index"><td>{{ auditLabel(entry.action) }}</td><td>{{ formatCount(entry.before) }}</td><td>{{ formatCount(entry.after) }}</td><td>{{ formatCount(entry.removed) }}</td><td :title="auditDetails(entry)">{{ auditDetails(entry) }}</td></tr></tbody></table></div>
           <p class="result-boundary">下载文件只完成格式和所选规则转换。回到群体导入后，系统仍会检查必需字段、有效血压读数和成人分析条件；格式通过不等于数据质量或分析有效性通过。</p>
         </section>
         <footer class="page-footer">DATA PIPELINE · 原始输入保留，处理过程可核对</footer>
@@ -93,6 +101,12 @@ import { ArrowLeft, UploadFilled, DocumentChecked, MagicStick, Loading, Download
 
 useHead({ title: '数据清洗与格式转换 · 智能风险预警系统' })
 const api = useApi()
+const runtimeConfig = useRuntimeConfig()
+const demoFileUrl = `${runtimeConfig.app.baseURL.replace(/\/?$/, '/')}examples/cleaning_demo_synthetic.xlsx`
+const demoLoading = ref(false)
+const demoActive = ref(false)
+const demoError = ref('')
+const demoReplaceRequested = ref(false)
 const schema = ref(null)
 const schemaError = ref('')
 const loadingSchema = ref(false)
@@ -129,7 +143,7 @@ const filterOperators = [
   { value: 'lte', label: '数值小于等于' }, { value: 'is_empty', label: '为空' },
   { value: 'not_empty', label: '不为空' }
 ]
-const busy = computed(() => inspecting.value || previewing.value || downloading.value)
+const busy = computed(() => demoLoading.value || inspecting.value || previewing.value || downloading.value)
 const requiredFieldCount = computed(() => schema.value?.fields.filter(field => field.required).length || 0)
 const mappedRequiredCount = computed(() => schema.value?.fields.filter(field => field.required && systemMappings[field.column]).length || 0)
 const selectedCustomCount = computed(() => customColumns.value.filter(column => column.selected).length)
@@ -189,13 +203,49 @@ function restoreExactMappings() {
 }
 
 async function selectSourceFile(event) {
+  if (demoLoading.value) return
   const selected = event.target.files?.[0]
   if (!selected) return
+  try { await inspectSourceFile(selected) }
+  finally { event.target.value = '' }
+}
+
+function requestDemo() {
+  if (busy.value || loadingSchema.value || !schema.value) return
+  demoError.value = ''
+  if (sourceInfo.value) { demoReplaceRequested.value = true; return }
+  void loadDemo()
+}
+
+async function loadDemo() {
+  if (busy.value || loadingSchema.value || !schema.value) return
+  demoReplaceRequested.value = false
+  demoLoading.value = true
+  demoError.value = ''
+  try {
+    const response = await fetch(demoFileUrl)
+    if (!response.ok) throw new Error('demo download failed')
+    const blob = await response.blob()
+    if (!blob.size || blob.size > maxUploadMb.value * 1024 * 1024) throw new Error('invalid demo file')
+    const file = new File([blob], '数据清洗体验_合成示例.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    await inspectSourceFile(file, true)
+  } catch { demoError.value = '示例暂时无法载入，请稍后重试，也可以下载案例后手动上传。' }
+  finally { demoLoading.value = false }
+}
+
+async function inspectSourceFile(selected, isDemo = false) {
   const generation = ++inspectionGeneration
   sourceVersion.value += 1
   sourceFile.value = null
   sourceInfo.value = null
   sourceError.value = ''
+  demoActive.value = false
+  demoError.value = ''
+  demoReplaceRequested.value = false
+  mode.value = 'system'
+  trimText.value = true
+  dropBlankRows.value = true
+  dropDuplicates.value = false
   filters.value = []
   dropInvalidSystemRows.value = false
   requireCompleteSystemRows.value = false
@@ -203,8 +253,8 @@ async function selectSourceFile(event) {
   rowEnd.value = ''
   customColumns.value = []
   restoreExactMappings()
-  if (!/\.(csv|xlsx)$/i.test(selected.name)) { sourceError.value = '仅支持 CSV 或 XLSX 文件；旧版 XLS 请先另存为 XLSX。'; event.target.value = ''; return }
-  if (selected.size > maxUploadMb.value * 1024 * 1024) { sourceError.value = `文件超过 ${maxUploadMb.value} MB，请先拆分文件。`; event.target.value = ''; return }
+  if (!/\.(csv|xlsx)$/i.test(selected.name)) { sourceError.value = '仅支持 CSV 或 XLSX 文件；旧版 XLS 请先另存为 XLSX。'; return }
+  if (selected.size > maxUploadMb.value * 1024 * 1024) { sourceError.value = `文件超过 ${maxUploadMb.value} MB，请先拆分文件。`; return }
   inspecting.value = true
   try {
     const response = await api.inspectCleaningFile(selected)
@@ -214,8 +264,9 @@ async function selectSourceFile(event) {
     sourceInfo.value = response.data
     customColumns.value = response.data.columns.map(source => ({ source, target: source, selected: true }))
     restoreExactMappings()
+    if (isDemo) { dropDuplicates.value = true; demoActive.value = true }
   } catch { if (generation === inspectionGeneration) sourceError.value = '原始文件读取失败，请检查后端连接。' }
-  finally { if (generation === inspectionGeneration) { inspecting.value = false; event.target.value = '' } }
+  finally { if (generation === inspectionGeneration) inspecting.value = false }
 }
 
 function setAllColumns(selected) { customColumns.value.forEach(column => { column.selected = selected }) }
@@ -331,9 +382,35 @@ onMounted(loadSchema)
 </script>
 
 <style scoped>
+.cleaning-demo-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px 28px; align-items: center; margin-bottom: 24px; padding: 24px; border: 1px solid #c8e0f3; border-radius: 16px; background: linear-gradient(120deg, #edf6ff, #f2fbf9); }
+.demo-label { display: inline-flex; align-items: center; gap: 6px; color: #2c7ab4; font-size: 12px; font-weight: 700; }
+.demo-copy h3 { margin: 8px 0; font-size: 18px; color: #234665; line-height: 1.6; }
+.demo-copy p { margin: 0; color: #617b91; font-size: 13px; line-height: 1.9; }
+.demo-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.demo-tags span { padding: 4px 8px; border: 1px solid #dceaf4; border-radius: 6px; background: #ffffffb8; color: #54768e; font-size: 11px; }
+.demo-actions { display: flex; flex-direction: column; gap: 9px; min-width: 180px; }
+.demo-actions .primary-button, .demo-download { min-height: 44px; justify-content: center; }
+.demo-download { display: flex; align-items: center; gap: 7px; text-decoration: none; }
+.demo-replace, .demo-error { grid-column: 1 / -1; margin: 0; }
+.demo-replace { border-top: 1px solid #d9e8f2; padding-top: 14px; font-size: 13px; color: #49667d; }
+.demo-replace p { margin: 0 0 10px; line-height: 1.8; }
+.demo-replace > div { display: flex; gap: 10px; }
+.demo-replace .primary-button { width: auto; }
+.demo-error { color: #b45309; font-size: 13px; line-height: 1.8; }
+.demo-loaded-note { margin: 16px 0; padding: 15px 18px; border: 1px solid #d7e9f7; border-radius: 10px; background: #f3f9fe; color: #536f85; font-size: 12px; line-height: 1.9; }
+.demo-loaded-note strong { color: #2f648b; font-size: 13px; }
+.demo-loaded-note p { margin: 7px 0 0; }
+.demo-loaded-note summary { margin-top: 9px; color: #2876ac; cursor: pointer; }
+@media screen and (max-width: 700px) {
+  .cleaning-demo-card { grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 18px; }
+  .demo-copy h3 { font-size: 16px; }
+  .demo-actions { min-width: 0; }
+  .demo-replace > div { flex-wrap: wrap; }
+  .demo-replace button { flex: 1; min-height: 44px; }
+}
 * { box-sizing: border-box; }
 .system-layout { display: flex; min-height: 100vh; background: #f7f9fc; color: #182b43; font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
-.system-layout :deep(.sidebar) { position: sticky; top: 0; height: 100vh; }
+
 .main-content { flex: 1; min-width: 0; }
 .page-header { display: flex; align-items: center; gap: 16px; min-height: 80px; padding: 18px 36px; border-bottom: 1px solid #e2e8f0; background: #fff; }
 .page-header h1 { font-size: 20px; font-weight: 700; margin: 0; flex: 1; }
@@ -498,6 +575,95 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .result-boundary { font-size: 12px; line-height: 1.85; color: #64748b; margin: 18px 0 0; padding-top: 14px; border-top: 1px solid #edf2f7; }
 .page-footer { text-align: center; color: #64748b; font-size: 12px; letter-spacing: .5px; padding: 24px 0 12px; }
 @media (max-width: 1450px) { .workspace-grid { grid-template-columns: minmax(0, 1fr) 260px; gap: 18px; } .page-container { padding: 26px 28px 16px; } .panel { padding: 22px; } .page-intro h2 { font-size: 23px; } .intro-badge { padding: 14px; } }
-@media (max-width: 1240px) { .system-layout :deep(.sidebar) { width: 245px; } .workspace-grid { grid-template-columns: minmax(0, 1fr); } .action-column { position: static; grid-template-columns: 1fr 1fr; } .action-panel .action-summary { margin: 14px 0; gap: 10px; padding: 12px 0; } .source-stats { flex-basis: 170px; padding: 12px 0; } .source-stats > div { padding: 0 10px; } .page-header { padding: 18px 28px; } .intro-badge { display: none; } .recovery-heading { flex-wrap: wrap; gap: 12px; } }
+@media (max-width: 1240px) { .workspace-grid { grid-template-columns: minmax(0, 1fr); } .action-column { position: static; grid-template-columns: 1fr 1fr; } .action-panel .action-summary { margin: 14px 0; gap: 10px; padding: 12px 0; } .source-stats { flex-basis: 170px; padding: 12px 0; } .source-stats > div { padding: 0 10px; } .page-header { padding: 18px 28px; } .intro-badge { display: none; } .recovery-heading { flex-wrap: wrap; gap: 12px; } }
 @media (max-width: 1050px) { .page-container { padding: 24px 22px 16px; } .page-header { padding: 18px 22px; gap: 10px; } .page-header h1 { font-size: 17px; } .return-link { font-size: 12px; } .section-heading { align-items: flex-start; } .source-upload-row { flex-wrap: wrap; gap: 12px; } .source-stats { flex-basis: 100%; display: flex; gap: 25px; } .source-stats > div { flex: 1; flex-direction: row; align-items: center; justify-content: space-between; } .source-stats strong { font-size: 20px; } .section-heading .subtle { max-width: 230px; } }
+
+/* Mobile editing keeps fields usable and large tables inside their own viewport. */
+@media screen {
+  .cleaning-page .main-content { overflow-y: auto; }
+  .table-scroll { min-width: 0; overscroll-behavior-x: contain; }
+  .table-scroll:focus-visible { outline: 2px solid #87b9e5; outline-offset: 3px; }
+  .page-header h1, .page-intro > div, .action-summary span, .range-row label { min-width: 0; }
+  .range-row label { flex-basis: 0; }
+  .eyebrow, .page-footer, .notice-list, .warning-note { overflow-wrap: anywhere; }
+}
+@media screen and (max-width: 1024px) {
+  .page-header { flex-wrap: wrap; gap: 10px 12px; }
+  .return-link { margin-left: auto; }
+  .section-heading { flex-wrap: wrap; }
+  .section-heading .subtle { max-width: none; text-align: left; }
+  .source-upload-row { flex-direction: column; }
+  .source-stats { flex-basis: auto; }
+  .recovery-heading { flex-direction: column; }
+  .quality-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .quality-summary > div:nth-child(2n) { border-right: 0; }
+  .result-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .result-stats > div:nth-child(2n) { border-right: 0; }
+  .audit-table { min-width: 620px; }
+}
+@media screen and (max-width: 720px) {
+  .page-header { padding: 16px; min-height: 0; gap: 10px; }
+  .home-link { min-height: 32px; }
+  .page-header h1 { flex-basis: calc(100% - 105px); font-size: 16px; line-height: 1.6; }
+  .header-divider { display: none; }
+  .return-link { margin-left: 0; flex-basis: 100%; white-space: normal; min-height: 32px; font-size: 12px; }
+  .page-container { padding: 22px 14px 18px; }
+  .page-intro { margin: 0 0 20px; }
+  .page-intro h2 { font-size: 22px; }
+  .page-intro p { font-size: 13px; }
+  .panel { padding: 20px 16px; border-radius: 12px; }
+  .section-heading { gap: 10px; margin-bottom: 16px; }
+  .section-heading > div { min-width: 0; gap: 8px; }
+  .section-number { flex-shrink: 0; }
+  .section-heading h3 { font-size: 15px; }
+  .section-heading .subtle { flex-basis: 100%; font-size: 11px; }
+  .upload-zone { padding: 18px 14px; gap: 10px; flex-wrap: wrap; }
+  .upload-zone > .el-icon { font-size: 26px; }
+  .upload-zone > span:nth-child(2) { flex-basis: calc(100% - 40px); }
+  .upload-link { display: block; margin-left: 36px; padding-top: 2px; min-height: 30px; }
+  .source-stats { gap: 12px; }
+  .source-stats > div { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .preview-details summary span { display: block; margin: 5px 0 0; }
+  .workspace-grid { margin-top: 16px; gap: 16px; }
+  .action-column { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .mode-switch button { min-height: 44px; padding: 11px 6px; font-size: 12px; }
+  .mapping-toolbar { flex-wrap: wrap; gap: 8px; line-height: 1.8; }
+  .mapping-toolbar .text-button { margin-left: 0; }
+  .mapping-toolbar > div { display: flex; gap: 16px; }
+  .mapping-table { min-width: 420px; }
+  .mapping-table th, .mapping-table td { padding: 12px 10px; }
+  .mapping-table th:first-child { width: 43%; }
+  select, input[type='text'], input[type='number'] { min-height: 44px; height: 44px; font-size: 16px; }
+  .rule-section h4 span { display: block; margin-left: 0; }
+  .filter-heading { align-items: flex-start; flex-wrap: wrap; }
+  .text-button { min-height: 32px; }
+  .filter-heading .text-button { margin-left: 0; }
+  .filter-row { grid-template-columns: minmax(0, 1fr) 40px; gap: 8px; padding: 12px; border: 1px solid #e1eaf4; border-radius: 8px; }
+  .filter-row > select:first-child { grid-column: 1; grid-row: 1; }
+  .filter-row > select:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+  .filter-row > input, .filter-row > .no-filter-value { grid-column: 1 / -1; grid-row: 3; }
+  .remove-filter { grid-column: 2; grid-row: 1; width: 40px; height: 44px; border-radius: 6px; background: #f3f7fc; }
+  .semantic-confirm { padding: 12px; }
+  .semantic-confirm p { margin-left: 0; }
+  .checkbox-row input[type='checkbox'] { width: 18px; height: 18px; margin-top: 2px; }
+  .checkbox-row { gap: 9px; }
+  .recovery-panel { padding: 16px 12px; }
+  .recovery-heading { gap: 12px; }
+  .recovery-heading .secondary-button, .download-button, .recovery-actions .primary-button, .recovery-actions .secondary-button { width: 100%; min-height: 44px; white-space: normal; line-height: 1.6; }
+  .result-semantic-confirm { padding: 12px; }
+  .result-caption { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .result-stats .status-text { font-size: 12px; line-height: 1.8; }
+  .quality-summary strong, .result-stats strong { font-size: 22px; }
+  .quality-reasons > span { max-width: 100%; overflow-wrap: anywhere; }
+  .missing-columns code { overflow-wrap: anywhere; }
+  .result-panel { scroll-margin-top: 16px; }
+  .page-footer { font-size: 10px; line-height: 1.8; padding: 22px 0 8px; }
+}
+@media screen and (max-width: 380px) {
+  .page-header h1 { flex-basis: 100%; }
+  .range-row { gap: 8px; }
+  .range-row > span { width: 8px; flex-shrink: 0; }
+  .result-stats, .quality-summary { gap: 14px 10px; }
+}
+
 </style>

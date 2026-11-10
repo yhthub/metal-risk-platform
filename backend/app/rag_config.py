@@ -42,19 +42,23 @@ class RagSettings:
     provider: str = "openai_compatible"
     model_enabled: bool = True
     enable_thinking: Optional[bool] = None
+    answer_strategy: str = "excerpt_only"
 
     @classmethod
     def from_env(cls):
         provider = os.getenv("RAG_LLM_PROVIDER", "openai_compatible").strip().lower()
         if provider not in {"openai_compatible", "ollama"}:
             raise ValueError("RAG_LLM_PROVIDER must be openai_compatible or ollama")
+        strategy = os.getenv("RAG_ANSWER_STRATEGY", "excerpt_only").strip().lower()
+        if strategy not in {"excerpt_only", "knowledge_evidence_synthesis"}:
+            raise ValueError("RAG_ANSWER_STRATEGY must be excerpt_only or knowledge_evidence_synthesis")
         return cls(
             model=os.getenv("RAG_LLM_MODEL", "Llama-3.1-8B"),
             base_url=os.getenv("RAG_LLM_BASE_URL", "http://127.0.0.1:11434" if provider == "ollama" else
                                "http://127.0.0.1:8081/v1").rstrip("/"),
             model_api_key=os.getenv("RAG_LLM_API_KEY", ""),
             timeout=_integer("RAG_LLM_TIMEOUT_SECONDS", 180, 5, 600),
-            max_tokens=_integer("RAG_LLM_MAX_TOKENS", 768, 64, 2048),
+            max_tokens=_integer("RAG_LLM_MAX_TOKENS", 768, 64, 4096),
             context_chars=_integer("RAG_LLM_CONTEXT_CHARS", 12000, 2000, 24000),
             top_k=_integer("RAG_TOP_K", 6, 1, 12),
             candidate_k=_integer("RAG_CANDIDATE_K", 32, 8, 128),
@@ -63,4 +67,5 @@ class RagSettings:
             provider=provider,
             model_enabled=env_bool("RAG_LLM_ENABLED", True),
             enable_thinking=optional_env_bool("RAG_LLM_ENABLE_THINKING"),
+            answer_strategy=strategy,
         )

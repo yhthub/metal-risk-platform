@@ -8,7 +8,7 @@
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
             </svg>
           </div>
-          <span class="logo-text">Intelligent Intervention System</span>
+          <span class="logo-text">Intelligent Intervention System</span><span class="logo-text-mobile">AI Intervention</span>
         </div>
         
         <nav class="nav-menu">
@@ -534,5 +534,71 @@ $color-border: #E5E7EB;
   .footer-content { flex-direction: column; gap: 40px; }
   .footer-links-grid { flex-wrap: wrap; gap: 40px; .link-column { min-width: 140px; } }
   .footer-bottom .bottom-legal { flex-direction: column; gap: 16px; align-items: flex-start; }
+}
+
+.logo-text-mobile { display: none; }
+@media screen and (max-width: 1200px) {
+  .system-nav .nav-menu { gap: 16px; }
+  .system-nav .nav-left .logo-text { font-size: .95rem; }
+  .system-nav .nav-right button { padding: 0 12px; }
+}
+@media screen and (max-width: 992px) {
+  .showcase-card > * { min-width: 0; width: 100%; box-sizing: border-box; }
+  .media-container { flex: none; }
+  .footer-brand, .footer-links-grid { min-width: 0; }
+  .system-nav .nav-wrapper { gap: 16px; }
+}
+@media screen and (max-width: 600px) {
+  .system-nav { height: calc(64px + env(safe-area-inset-top)); padding-top: env(safe-area-inset-top); box-sizing: border-box; }
+  .system-nav .nav-wrapper { padding: 0 16px; gap: 10px; }
+  .system-nav .nav-left { min-width: 0; gap: 8px; }
+  .system-nav .nav-left .logo-text { display: none; }
+  .logo-text-mobile { display: inline; font-weight: 750; font-size: 14px; }
+  .system-nav .nav-left .logo-mark { flex-shrink: 0; width: 23px; height: 23px; }
+  .system-nav .nav-right .btn-outline { display: none; }
+  .system-nav .nav-right button { font-size: 12px; height: 38px; padding: 0 12px; white-space: nowrap; }
+  .content-wrapper { padding: 104px 18px 48px; }
+  .hero-section { margin: 12px 0 28px; }
+  .hero-section .title { font-size: clamp(25px,6.6vw,36px); letter-spacing: 0; line-height: 1.55; margin: 0 0 20px; overflow-wrap: anywhere; }
+  .hero-section .subtitle { font-size: 14px; margin-bottom: 22px; line-height: 1.9; }
+  .hero-section .subtitle br { display: none; }
+  .hero-section .core-mission-badge { font-size: 12px; line-height: 1.8; padding: 10px 14px; border-radius: 14px; }
+  .core-mission-badge .el-icon { flex-shrink: 0; }
+  .system-loop-declaration { font-size: 12px; line-height: 1.8; padding-bottom: 24px; margin-bottom: 12px; }
+  .system-loop-declaration svg { flex-shrink: 0; }
+  .particle-wave-container { height: 80px; margin-bottom: 32px; }
+  .showcase-list { gap: 50px; }
+  .showcase-card { gap: 24px; text-align: left; }
+  .text-content { padding: 0 4px; }
+  .text-content h4 { font-size: 22px; line-height: 1.55; margin-bottom: 12px; }
+  .text-content p { font-size: 14px; line-height: 1.9; }
+  .interactive-card, .interactive-card.flex-col-card { padding: 20px 16px; height: 300px; }
+  .mock-ui-clean { width: 90%; padding: 24px 16px; border-radius: 14px; }
+  .mock-ui-clean .alert-badge { font-size: 12px; padding: 7px 10px; }
+  .mock-ui-clean .interactive-row { font-size: 13px; padding: 14px 4px; }
+  .chart-header-dark { flex-direction: column; align-items: flex-start; gap: 12px; font-size: 13px; margin-bottom: 10px; }
+  .chart-header-dark .chart-legend { font-size: 11px; }
+  .causal-header { margin-bottom: 12px; padding-bottom: 12px; }
+  .causal-header .title { font-size: 13px; }
+  .causal-layer-labels { padding: 0; }
+  .causal-layer-labels span { font-size: 10px; }
+  .causal-graph-area { height: 190px; }
+  .causal-graph-area .mock-node-rect { padding: 6px; font-size: 10px; white-space: nowrap; }
+  .system-footer { padding: 36px 0 24px; margin-top: 20px; }
+  .footer-wrapper { padding: 0 20px; }
+  .footer-content { gap: 30px; margin-bottom: 30px; }
+  .footer-brand .footer-logo { font-size: 14px; line-height: 1.5; }
+  .footer-brand .footer-logo svg { flex-shrink: 0; }
+  .footer-brand .brand-slogan { font-size: 13px; }
+  .footer-links-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 28px 16px; }
+  .footer-links-grid .link-column { min-width: 0; gap: 10px; }
+  .footer-links-grid .link-column h4 { font-size: 14px; }
+  .footer-links-grid .link-column a { font-size: 12px; }
+  .footer-bottom .bottom-legal { font-size: 11px; line-height: 1.8; }
+  .footer-bottom .bottom-legal .legal-links { flex-wrap: wrap; gap: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-on-scroll { opacity: 1; transform: none; transition: none; }
+  .particle, .wave-dot, .float-anim, .pulse-red, .flow-path-anim, .node-action { animation: none !important; }
 }
 </style>

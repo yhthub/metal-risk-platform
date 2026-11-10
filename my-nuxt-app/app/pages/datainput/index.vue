@@ -1,5 +1,5 @@
 <template>
-  <div class="system-layout" :class="{'single-page': formData.mode === 'single'}">
+  <div class="system-layout data-input-page" :class="{'single-page': formData.mode === 'single'}">
 
   <Sidebar default-active="1-1" />
 
@@ -255,10 +255,18 @@
                     </ul>
                     <details class="format-field-details" v-if="batchFormatSchema">
                       <summary>查看 {{ batchFormatSchema.required_columns.length }} 个必需字段与可选字段</summary>
-                      <div class="format-table-scroll"><table><thead><tr><th>含义</th><th>系统列名</th><th>单位 / 类型</th><th>要求</th></tr></thead><tbody><tr v-for="field in batchFormatSchema.fields" :key="field.column"><td>{{ field.label }}</td><td><code>{{ field.column }}</code></td><td>{{ field.unit || '—' }}</td><td>{{ field.required ? '必需列' : '可选列' }}</td></tr></tbody></table></div>
+                      <div class="format-table-scroll" tabindex="0" aria-label="群体数据字段说明，可横向滚动"><table><thead><tr><th>含义</th><th>系统列名</th><th>单位 / 类型</th><th>要求</th></tr></thead><tbody><tr v-for="field in batchFormatSchema.fields" :key="field.column"><td>{{ field.label }}</td><td><code>{{ field.column }}</code></td><td>{{ field.unit || '—' }}</td><td>{{ field.required ? '必需列' : '可选列' }}</td></tr></tbody></table></div>
                     </details>
                     <p v-else class="format-schema-status">{{ batchFormatLoading ? '正在读取当前系统字段规范…' : batchFormatError || '字段规范尚未加载，请确认后端服务。' }}</p>
-                    <div class="format-cleaning-entry"><span>原始表格列名、行列结构不符合要求？</span><NuxtLink to="/data-cleaning">前往数据清洗与格式转换 <span aria-hidden="true">→</span></NuxtLink></div>
+                  </section>
+                  <section class="cleaning-entry-card" aria-label="数据整理入口">
+                    <div class="cleaning-entry-copy">
+                      <h4>先整理数据，再开始群体分析</h4>
+                      <p>统一列名、去除多余空白与重复行，核对预览后再导入。</p>
+                    </div>
+                    <NuxtLink to="/data-cleaning" class="cleaning-entry-button">
+                      <span>前往数据清洗与格式转换</span><span aria-hidden="true">→</span>
+                    </NuxtLink>
                   </section>
                   <div v-if="batchImportError" class="batch-import-error" role="alert"><strong>本次文件未完成导入</strong><p>{{ batchImportError }}</p><NuxtLink to="/data-cleaning">先整理原始文件，再返回群体导入</NuxtLink></div>
 
@@ -375,7 +383,7 @@
                   <h4>婚姻状况分布 (Marital Status)</h4>
                   <span class="sub-title">统计群体婚姻结构，评估家庭因素对职业暴露易感性的潜在修饰效应。</span>
                 </div>
-                <div id="batchChartMarital" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="batchChartMarital" class="b-c-canvas"></div></div>
               </div>
 
               <!-- 文化程度 -->
@@ -384,7 +392,7 @@
                   <h4>文化程度构成 (Education Level)</h4>
                   <span class="sub-title">呈现群体受教育水平分布，分析文化程度与防护认知、健康素养的关联。</span>
                 </div>
-                <div id="batchChartEducation" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="batchChartEducation" class="b-c-canvas"></div></div>
               </div>
 
               <!-- 家庭年收入 -->
@@ -393,7 +401,7 @@
                   <h4>家庭收入贫困比分布 (Income-to-Poverty Ratio)</h4>
                   <span class="sub-title">按家庭收入贫困比及性别呈现经济水平分层，作为血压分析的混杂因素之一。</span>
                 </div>
-                <div id="batchChartIncome" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="batchChartIncome" class="b-c-canvas"></div></div>
               </div>
 
             </div>
@@ -407,7 +415,7 @@
                   <h4>特征共线性矩阵 (Correlation Heatmap)</h4>
                   <span class="sub-title">呈现暴露因子间的相关程度，辅助识别具有高度协同作用的复合暴露组合。</span>
                 </div>
-                <div id="batchChartCorr" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="batchChartCorr" class="b-c-canvas"></div></div>
               </div>
 
               <!-- 图表 2 -->
@@ -416,7 +424,7 @@
                   <h4>核心暴露分布四分位数 (Quartiles)</h4>
                   <span class="sub-title">展示5项血中暴露指标的Q1、中位数和Q3，数值与单位均来自上传数据。</span>
                 </div>
-                <div id="batchChartQuartile" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="batchChartQuartile" class="b-c-canvas"></div></div>
               </div>
 
               <!-- 图表 3 -->
@@ -425,7 +433,7 @@
                   <h4>特征分布与异常离群点 (Boxplot)</h4>
                   <span class="sub-title">评估各项指标的分布离散度，定位偏离整体分布的极端高值个体以供重点复查。</span>
                 </div>
-                <div id="batchChartBoxplot" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="batchChartBoxplot" class="b-c-canvas"></div></div>
               </div>
 
               <!-- 图表 4 -->
@@ -434,7 +442,7 @@
                   <h4>主成分降维特征聚类 (PCA Projection)</h4>
                   <span class="sub-title">将标准化后的5项暴露指标投影至二维空间，并按140/90 mmHg血压状态分组。</span>
                 </div>
-                <div id="batchChartPCA" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="batchChartPCA" class="b-c-canvas"></div></div>
               </div>
 
               <!-- 图表 5 -->
@@ -443,7 +451,7 @@
                   <h4>数据完整度与缺失评估 (Completeness)</h4>
                   <span class="sub-title">统计上传文件中各暴露字段的有效数值与缺失比例，评估真实数据源质量。</span>
                 </div>
-                <div id="batchChartMissing" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="batchChartMissing" class="b-c-canvas"></div></div>
               </div>
 
               <!-- 图表 6 -->
@@ -452,7 +460,7 @@
                   <h4>核密度平滑分布 (Density Smooth)</h4>
                   <span class="sub-title">将不同量纲暴露指标标准化后进行密度估计，比较人群分布形态。</span>
                 </div>
-                <div id="batchChartDensity" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="batchChartDensity" class="b-c-canvas"></div></div>
               </div>
 
               <!-- 图表 7 -->
@@ -461,7 +469,7 @@
                   <h4>群体暴露浓度频数分布 (Concentration Histogram)</h4>
                   <span class="sub-title">按浓度区间统计群体样本频数，直观呈现各重金属的分布偏态与集中趋势。</span>
                 </div>
-                <div id="batchChartParallel" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="batchChartParallel" class="b-c-canvas"></div></div>
               </div>
 
               <!-- 图表 8 -->
@@ -470,7 +478,7 @@
                   <h4>年龄-血压-暴露水平画像 (Bubble)</h4>
                   <span class="sub-title">横轴为年龄、纵轴为平均收缩压，气泡面积反映5项暴露指标的综合百分位。</span>
                 </div>
-                <div id="batchChartBubble" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="batchChartBubble" class="b-c-canvas"></div></div>
               </div>
               
             </div>
@@ -484,7 +492,7 @@
                 <h4>个体多维暴露全景画像 (Relative Exposure Index)</h4>
                 <span class="sub-title">仅对样本、单位及情境匹配的指标计算实测值／该参考值。100%表示参考值，不表示安全或诊断。</span>
               </div>
-              <div id="singleChartMaster" style="width: 100%; height: 350px;"></div>
+              <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="singleChartMaster" style="width: 100%; height: 350px;"></div></div>
             </div>
 
             <div class="batch-charts-grid" style="margin-top: 24px;">
@@ -494,7 +502,7 @@
                   <h4>参考占比雷达图 (Radar)</h4>
                   <span class="sub-title">采用与主图相同的比例尺度；至少3项可比较指标才绘制，不以零填补缺失。</span>
                 </div>
-                <div id="singleChartRadar" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="singleChartRadar" class="b-c-canvas"></div></div>
               </div>
 
               <div class="b-chart-card col-span-1">
@@ -502,7 +510,7 @@
                   <h4>参考可比性条件矩阵 (Heatmap)</h4>
                   <span class="sub-title">可=条件满足，空=未提供，×=不匹配，待=口径确认。完整原因见提示；蓝灰状态不是医疗风险或安全信号。</span>
                 </div>
-                <div id="singleChartTimeline" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="singleChartTimeline" class="b-c-canvas"></div></div>
               </div>
 
               <div class="b-chart-card col-span-1">
@@ -510,7 +518,7 @@
                   <h4>参考占比排序 (Reference Ratio)</h4>
                   <span class="sub-title">按各自参考占比排列，仅为描述性排序，不是群体百分位或跨指标毒性排名。</span>
                 </div>
-                <div id="singleChartPercentile" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="singleChartPercentile" class="b-c-canvas"></div></div>
               </div>
 
               <div class="b-chart-card col-span-1">
@@ -518,7 +526,7 @@
                   <h4>指标录入状态分布 (Input Status)</h4>
                   <span class="sub-title">内环统计有效、缺失及非法输入，外环每项代表一个指标；计数不是人数或器官归因。</span>
                 </div>
-                <div id="singleChartRiskPie" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="singleChartRiskPie" class="b-c-canvas"></div></div>
               </div>
 
               <div class="b-chart-card col-span-1">
@@ -526,7 +534,7 @@
                   <h4>相对参考值偏移 (Reference Offset)</h4>
                   <span class="sub-title">计算（实测值／参考值−1）×100%；不是Z-score、群体标准差或模型特征贡献。</span>
                 </div>
-                <div id="singleChartZScore" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="singleChartZScore" class="b-c-canvas"></div></div>
               </div>
 
               <div class="b-chart-card col-span-1">
@@ -534,7 +542,7 @@
                   <h4>已录入可比较覆盖率 (Coverage)</h4>
                   <span class="sub-title">可比较指标数／有效录入指标数；只反映参考适用覆盖率，不合成医疗综合分。</span>
                 </div>
-                <div id="singleChartAnomaly" class="b-c-canvas"></div>
+                <div class="data-chart-scroll" tabindex="0" aria-label="数据图表，可横向滚动"><div id="singleChartAnomaly" class="b-c-canvas"></div></div>
               </div>
 
             </div>
@@ -1664,7 +1672,6 @@ $color-danger: #F87171;
   .format-field-details { margin-top: 12px; summary { cursor: pointer; font-size: 12px; font-weight: 700; color: #1D4ED8; } }
   .format-table-scroll { overflow-x: auto; margin-top: 12px; max-width: 100%; }
   table { width: 100%; border-collapse: collapse; font-size: 11px; text-align: left; th, td { padding: 8px; border-bottom: 1px solid #E2E8F0; } th { background: #F8FAFC; color: #475569; } code { font-size: 10px; white-space: nowrap; } }
-  .format-cleaning-entry { margin-top: 16px; padding-top: 13px; border-top: 1px dashed #DBEAFE; display: flex; flex-wrap: wrap; gap: 7px 12px; font-size: 12px; color: #64748B; a { font-weight: 700; color: #1D4ED8; } }
   .format-schema-status { margin-top: 12px; }
 }
 .batch-import-error { margin: 0 0 18px; padding: 15px; border: 1px solid #FECACA; border-radius: 10px; background: #FEF2F2; font-size: 12px; color: #991B1B; p { overflow-wrap: anywhere; line-height: 1.7; } a { color: #1D4ED8; font-weight: 700; } }
@@ -1881,7 +1888,7 @@ $color-danger: #F87171;
 }
 
 @media (max-width: 1050px) {
-  .single-page { :deep(.sidebar) { display: none; } .page-container { padding: 24px; } .basic-profile-section .clinical-input-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .single-page { .page-container { padding: 24px; } .basic-profile-section .clinical-input-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 }
 
 @media (max-width: 720px) {
@@ -1903,4 +1910,110 @@ $color-danger: #F87171;
     .bottom-action-bar { padding: 20px; .tips { font-size: 12px; line-height: 1.8; } .btn-next-step { font-size: 13px; padding: 13px; } }
   }
 }
+
+/* Keep dense charts and tables readable without widening the page. */
+@media screen {
+  .data-input-page {
+    .b-chart-card, .config-group, .kpi-card, .kpi-info { min-width: 0; }
+    .batch-charts-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .data-chart-scroll { flex: 1; display: flex; flex-direction: column; width: 100%; min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; }
+    .data-chart-scroll:focus-visible, .format-table-scroll:focus-visible { outline: 2px solid #93C5FD; outline-offset: 3px; }
+    .data-chart-scroll > div { flex: 1; }
+    .format-table-scroll { overscroll-behavior-x: contain; }
+    .group-demo-sources a, .upload-text, .ref-list li, .field-chip { overflow-wrap: anywhere; }
+    .single-dashboard-container .batch-charts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+}
+@media screen and (max-width: 1200px) {
+  .data-input-page .batch-charts-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media screen and (max-width: 1024px) {
+  .data-input-page {
+    .page-container { padding: 24px 22px 48px; }
+    .nav-wrapper { padding: 0 22px; gap: 16px; }
+    .back-link { min-width: 0; gap: 9px; .page-title-top { font-size: 14px; line-height: 1.5; } }
+    .ep-right-zone { display: none; }
+    .card-layout-grid { min-width: 0; }
+    .form-entry-area { padding: 26px; }
+    .reference-sidebar { padding: 24px; gap: 18px; }
+    .reference-sidebar .action-card { margin-top: 0; }
+    .config-row { gap: 20px; }
+    .radio-cards { gap: 8px; }
+    .radio-card { font-size: 13px; padding: 12px 6px; }
+    .upload-dragger { padding: 32px 24px; }
+    .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .kpi-card { padding: 18px; gap: 12px; .kpi-info strong { font-size: 25px; line-height: 1.45; } }
+    .b-chart-card { padding: 20px; }
+    &.single-page .reference-sidebar { padding: 0; }
+  }
+}
+@media screen and (max-width: 720px) {
+  .data-input-page {
+    .page-container { padding: 20px 14px 36px; }
+    .ep-header { height: auto; min-height: 58px; }
+    .nav-wrapper { min-height: 58px; padding: 10px 16px; }
+    .back-link { gap: 7px; .back-text { font-size: 13px; white-space: nowrap; } .divider { margin: 0 3px; } .page-title-top { font-size: 12px; font-weight: 600; } }
+    .pipeline-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 20px; align-items: start; .step { flex-direction: column; gap: 7px; text-align: center; font-size: 11px; line-height: 1.5; } .step-num { flex-shrink: 0; width: 24px; height: 24px; } .step-line { display: none; } }
+    .clean-clinical-card { margin-bottom: 24px; }
+    .form-entry-area { padding: 20px 16px; }
+    .config-row { flex-direction: column; gap: 18px; }
+    .config-row label { font-size: 13px; }
+    .mode-switch button { min-height: 42px; font-size: 14px; }
+    .clinical-divider { margin: 22px 0; }
+    .reference-sidebar { padding: 20px 16px; .ref-card .ref-list li { gap: 12px; line-height: 1.6; align-items: flex-start; } .ref-card .ref-list li > :last-child { text-align: right; } .action-card { padding: 18px; } }
+    .outcome-config-panel, .group-demo-panel, .batch-format-guide { padding: 16px; }
+    .outcome-selector { grid-template-columns: minmax(0, 1fr); gap: 10px; .config-label { font-size: 13px; } }
+    .outcome-selector :deep(.el-select) { width: 100%; min-width: 0; }
+    .field-chip { max-width: 100%; line-height: 1.6; }
+    .group-demo-heading { align-items: stretch; > div { min-width: 0; } }
+    .group-demo-heading h4 { font-size: 16px; line-height: 1.6; }
+    .group-demo-eyebrow { font-size: 10px; letter-spacing: .4px; }
+    .btn-group-demo, .batch-format-guide .format-template-button { width: 100%; min-height: 44px; white-space: normal; line-height: 1.6; }
+    .batch-format-guide table { min-width: 460px; }
+    .upload-dragger { padding: 28px 16px; .upload-text { font-size: 15px; line-height: 1.6; } .upload-hint { font-size: 12px; line-height: 1.8; margin-bottom: 18px; } .btn-upload { width: 100%; min-height: 44px; padding: 10px 14px; } }
+    .batch-charts-grid, .single-dashboard-container .batch-charts-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; margin-bottom: 24px; }
+    .col-span-2, .col-span-1 { grid-column: auto; }
+    .b-chart-card { padding: 18px 14px; .b-c-header h4 { font-size: 15px; line-height: 1.6; } .b-c-header .sub-title { font-size: 12px; line-height: 1.8; } }
+    .data-chart-scroll > div { min-width: 420px; }
+    .data-chart-scroll::after { content: '左右滑动查看完整图表'; position: sticky; left: 0; width: fit-content; padding: 8px 0 4px; color: #7b8b9e; font-size: 11px; line-height: 1.5; }
+    .group-demo-dashboard-source { padding: 16px; }
+    .analysis-notes span { align-items: flex-start; line-height: 1.7; }
+    .bottom-action-bar { padding: 20px 16px; gap: 16px; .tips { align-items: flex-start; font-size: 12px; line-height: 1.8; .el-icon { flex-shrink: 0; margin-top: 3px; } } .btn-next-step { font-size: 14px; padding: 13px 12px; line-height: 1.7; } }
+    &.single-page {
+      .basic-profile-section .clinical-input-grid { grid-template-columns: minmax(0, 1fr); }
+      .basic-profile-section .clinical-input-item { grid-column: 1 / -1 !important; }
+      .measurement-grid, .reference-sidebar { grid-template-columns: minmax(0, 1fr); }
+      .clinical-input-item .input-wrap input, .clinical-input-item .input-wrap select { min-height: 44px; font-size: 16px; }
+      .measurement-metadata { grid-template-columns: minmax(0, 1fr); select { min-height: 44px; font-size: 16px; } }
+      .metadata-confirm { min-height: 44px; line-height: 1.6; }
+      .single-form-footer { flex-wrap: wrap; > span { flex-basis: 100%; } .btn-clear { width: 100%; min-height: 44px; } }
+      .section-caption { display: block; flex-basis: 100%; line-height: 1.7; }
+      .reference-sidebar .ref-card, .reference-sidebar .action-card { padding: 20px 16px; }
+      .single-results-heading { gap: 10px; h2 { font-size: 20px; } p { line-height: 1.8; } }
+    }
+  }
+}
+@media screen and (max-width: 480px) {
+  .data-input-page {
+    .kpi-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .kpi-card { padding: 16px; .kpi-icon { font-size: 30px; } .kpi-info strong { font-size: 23px; } }
+    .single-intro, &.single-page .single-intro { padding: 20px 16px; }
+    .single-intro-actions > span { line-height: 1.7; }
+    .measurement-heading { flex-wrap: wrap; }
+  }
+}
+
+
+/* A dedicated preparation step beside the batch upload workflow. */
+.cleaning-entry-card { display: flex; align-items: center; justify-content: space-between; gap: 18px; min-width: 0; padding: 20px; margin-bottom: 20px; border: 1px solid #c7ddf1; border-radius: 12px; background: linear-gradient(110deg, #f0f7ff, #fff); }
+.cleaning-entry-copy { flex: 1; min-width: 0; h4 { margin: 0 0 7px; color: #244c70; font-size: 15px; font-weight: 750; line-height: 1.6; } p { margin: 0; color: #61778b; font-size: 12px; line-height: 1.8; } }
+.cleaning-entry-button { display: inline-flex; align-items: center; justify-content: center; gap: 10px; flex-shrink: 0; min-height: 44px; max-width: 100%; padding: 11px 16px; border: 1px solid #267cbd; border-radius: 8px; background: #267cbd; color: #fff; text-decoration: none; font-size: 13px; font-weight: 650; line-height: 1.6; text-align: center; transition: background .15s, border-color .15s; }
+.cleaning-entry-button > span:last-child { flex-shrink: 0; font-size: 17px; line-height: 1; }
+.cleaning-entry-button:hover { color: #fff; background: #1e6ca6; border-color: #1e6ca6; }
+.cleaning-entry-button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 3px; }
+@media screen and (max-width: 900px) {
+  .cleaning-entry-card { flex-direction: column; align-items: stretch; gap: 14px; padding: 18px 16px; }
+  .cleaning-entry-button { width: 100%; min-height: 46px; white-space: normal; }
+}
+
 </style>

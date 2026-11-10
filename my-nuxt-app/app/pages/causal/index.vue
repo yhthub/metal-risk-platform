@@ -145,6 +145,10 @@
                @mousemove="doPan" 
                @mouseup="endPan" 
                @mouseleave="endPan"
+               @touchstart.passive="startTouchPan"
+               @touchmove.prevent="moveTouchPan"
+               @touchend="endPan"
+               @touchcancel="endPan"
                :class="{ 'is-panning': isPanning }">
             
             <div class="grid-bg"></div>
@@ -291,7 +295,7 @@
       </div>
     </main>
 
-    <el-drawer v-model="drawerVisible" title="节点多维度精细机制说明" direction="rtl" size="440px" :close-on-click-modal="true" custom-class="scientific-drawer">
+    <el-drawer v-model="drawerVisible" title="节点多维度精细机制说明" direction="rtl" size="min(440px, 100vw)" :close-on-click-modal="true" custom-class="scientific-drawer">
       <div v-if="selectedNode" class="node-detail-content px-1 flex flex-col gap-6">
         <div class="node-header flex items-center justify-between border-b border-slate-100 pb-4">
           <div class="flex items-center gap-3">
@@ -770,6 +774,14 @@ const doPan = (e) => {
   if (!isPanning.value) return
   panX.value = e.clientX - startX
   panY.value = e.clientY - startY
+}
+const startTouchPan = (event) => {
+  if (event.touches.length !== 1 || event.target.closest('.zoom-controls')) return
+  startPan(event.touches[0])
+}
+const moveTouchPan = (event) => {
+  if (event.touches.length === 1) doPan(event.touches[0])
+  else endPan()
 }
 const endPan = () => { isPanning.value = false }
 const resetView = () => { zoom.value = 1; panX.value = 0; panY.value = 0 }
@@ -1268,4 +1280,91 @@ const goToPlan = async () => { await router.push('/plan') }
 .animate-on-scroll { opacity: 0; transform: translateY(20px); transition: 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
 .animate-on-scroll.is-visible { opacity: 1; transform: translateY(0); }
 .delay-1 { transition-delay: 0.08s; } .delay-2 { transition-delay: 0.16s; } .delay-3 { transition-delay: 0.24s; } .delay-4 { transition-delay: 0.32s; }
+
+/* Screen-only adjustments keep the existing document and print presentation intact. */
+@media screen {
+  .main-content, .page-container, .core-dag-section, .single-chart-container,
+  .chart-card, .kpi-info, .control-group { min-width: 0; }
+  .page-container { box-sizing: border-box; }
+  .kpi-icon { flex-shrink: 0; }
+}
+@media screen and (max-width: 1280px) {
+  .page-container { padding: 24px; gap: 20px; }
+  .global-control-bar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; padding: 22px; overflow: visible; }
+  .global-control-bar :deep(.el-select) { width: 100%; }
+  .control-slider { width: auto; flex: 1; min-width: 0; }
+  .control-actions { margin: 0; padding-top: 0; grid-column: 1 / -1; justify-content: flex-end; }
+  .research-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .r-kpi-card { padding: 20px; gap: 14px; }
+  .core-dag-section, .full-width-card { padding: 24px; }
+  .what-if-panel .control-grid.two-column { grid-template-columns: 1fr; }
+  .chart-desc { max-width: 100%; }
+  .bottom-action-bar { flex-wrap: wrap; gap: 12px; padding: 20px; }
+  .bottom-action-bar :deep(.el-button) { margin-left: 0; }
+}
+@media screen and (max-width: 700px) {
+  .page-container { padding: 16px 12px 28px; gap: 16px; }
+  .ep-header { height: auto; min-height: 58px; }
+  .nav-wrapper { padding: 12px 16px; gap: 8px; }
+  .back-link { gap: 7px; min-width: 0; flex-wrap: wrap; }
+  .back-link .back-text, .back-link .page-title-top { font-size: 13px; letter-spacing: 0; }
+  .back-link .divider { margin: 0 2px; }
+  .ep-right-zone { display: none; }
+  .global-control-bar { grid-template-columns: 1fr; padding: 16px; gap: 16px; border-radius: 14px; }
+  .control-group { width: 100%; }
+  .control-group :deep(.el-radio-group) { display: flex; width: 100%; }
+  .control-group :deep(.el-radio-button) { flex: 1; }
+  .control-group :deep(.el-radio-button__inner) { width: 100%; padding: 12px 8px; }
+  .control-actions { width: 100%; gap: 10px; }
+  .control-actions :deep(.el-button) { flex: 1; margin: 0; }
+  .research-kpi-grid { gap: 10px; }
+  .r-kpi-card { padding: 14px; gap: 10px; flex-direction: column; align-items: flex-start; border-radius: 14px; }
+  .kpi-icon { width: 36px; height: 36px; font-size: 18px; border-radius: 10px; }
+  .kpi-info { width: 100%; overflow-wrap: anywhere; }
+  .kpi-info > div { flex-wrap: wrap; }
+  .kpi-val { font-size: 24px; line-height: 1.35; }
+  .kpi-tag { font-size: 11px; }
+  .kpi-delta { font-size: 11px; line-height: 1.6; }
+  .core-dag-section, .full-width-card { padding: 16px; border-radius: 16px; }
+  .section-header, .header-info { display: flex; flex-direction: column; gap: 12px; }
+  .header-info { margin-top: 12px; }
+  .info-card { width: 100%; box-sizing: border-box; padding: 10px; min-width: 0; }
+  .info-text { min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+  .section-title, .chart-title { font-size: 17px; line-height: 1.6; }
+  .section-desc, .chart-desc { font-size: 12px; line-height: 1.8; }
+  .chart-header .header-left { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .dag-viewport { height: 560px; border-radius: 12px; touch-action: none; }
+  .dag-canvas { width: 900px; transform-origin: top left; }
+  .floating-legend { top: 10px; left: 10px; right: 10px; min-width: 0; padding: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; font-size: 10px; border-radius: 10px; }
+  .floating-legend .legend-title { grid-column: 1 / -1; margin: 0; padding-bottom: 6px; font-size: 11px; }
+  .floating-legend .l-row { margin: 0; gap: 5px; }
+  .floating-legend .node-dot { width: 7px; height: 7px; flex-shrink: 0; }
+  .zoom-controls { flex-direction: row; right: 10px; bottom: 10px; gap: 6px; padding: 7px; border-radius: 10px; }
+  .zoom-controls :deep(.el-button) { width: 38px; height: 38px; }
+  .zoom-level { width: 40px; }
+  .what-if-panel { padding: 12px; }
+  .what-if-panel .control-grid.two-column { padding: 14px; gap: 16px; }
+  .what-if-panel .ctrl-row { display: grid; grid-template-columns: minmax(0, 1fr) 42px; gap: 4px 12px; height: auto; }
+  .what-if-panel .c-label { grid-column: 1 / -1; width: auto; font-size: 12px; }
+  .what-if-panel .c-action { min-width: 0; padding: 0 6px; }
+  .what-if-panel .c-val { width: auto; font-size: 12px; }
+  .simulation-result.enhanced { flex-direction: column; gap: 12px; padding: 16px; }
+  .sr-box { width: 100%; box-sizing: border-box; padding: 28px 16px 16px; }
+  .sr-box .sr-val { font-size: 36px; }
+  .sr-arrow-wrapper { padding: 0; transform: rotate(90deg); }
+  .sr-arrow-line { display: none; }
+  .gain-indicator.enhanced { font-size: 13px; text-align: left; line-height: 1.8; }
+  .gain-indicator.enhanced .gain-value { font-size: 20px; margin-left: 0; }
+  .bottom-action-bar { padding: 14px; margin-top: 0; align-items: stretch; }
+  .bottom-action-bar :deep(.el-button) { width: 100%; min-height: 44px; height: auto; padding: 12px; white-space: normal; line-height: 1.6; }
+  .bottom-action-bar :deep(.el-button > span) { white-space: normal; }
+  .node-detail-content .node-header { flex-wrap: wrap; gap: 12px; }
+  .node-detail-content .node-header > div { min-width: 0; }
+  .node-detail-content { overflow-wrap: anywhere; }
+}
+@media screen and (max-width: 360px) {
+  .research-kpi-grid { grid-template-columns: 1fr; }
+  .r-kpi-card { flex-direction: row; }
+  .floating-legend { grid-template-columns: 1fr; }
+}
 </style>

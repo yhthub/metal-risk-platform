@@ -119,12 +119,16 @@ export const retrievalChannelLabel = (card: EvidenceCard): string => {
   return channels.length ? channels.map(channel => labels[channel] || channel).join(' + ') : '召回通路未提供'
 }
 export const sourceLabel = (card: EvidenceCard): string => {
-  if (typeof card.source === 'string' && card.source.trim()) return card.source
-  if (card.source && typeof card.source === 'object') return String(card.source.name || card.source.label || card.source.corpus || card.source.source || '来源名称未提供')
+  const labels: Record<string, string> = { normative: '本地规范资料', scientific: '本地科学文献', guidelines: '本地指南资料' }
+  if (typeof card.source === 'string' && card.source.trim()) return labels[card.source] || card.source
+  if (card.source && typeof card.source === 'object') {
+    const label = String(card.source.name || card.source.label || card.source.corpus || card.source.source || '来源名称未提供')
+    return labels[label] || label
+  }
   return '来源名称未提供'
 }
 export const sourceUrl = (card: EvidenceCard): string => {
-  const explicit = card.url || (typeof card.source === 'object' ? card.source?.url : '')
+  const explicit = card.url || (typeof card.source === 'object' ? card.source?.url : '') || card.source_url
   if (typeof explicit === 'string') {
     try { const url = new URL(explicit); if (url.protocol === 'https:' || url.protocol === 'http:') return url.href }
     catch { /* Malformed/untrusted links remain text, not clickable links. */ }

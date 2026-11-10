@@ -102,4 +102,29 @@ const sexGradient = computed(() => {
 
 <style scoped>
 *{box-sizing:border-box}.cohort-profile{color:#0F172A;background:#fff;border:1px solid #DBE7F4;border-top:4px solid #3B82F6;border-radius:12px;padding:23px 24px 15px;margin:0 0 24px;box-shadow:0 4px 12px #102A4305}.profile-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:20px}.section-label{font-size:10px;letter-spacing:1.5px;font-weight:700;color:#3B82F6}.profile-heading h3{font-size:19px;margin:6px 0 7px}.profile-heading p{font-size:12px;color:#64748B;margin:0;line-height:1.8}.scope-tag{color:#2563EB;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:16px;padding:6px 11px;font-size:11px;white-space:nowrap}.profile-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 1.3fr;align-items:center;gap:18px;background:#F7FAFE;border:1px solid #E7EEF7;border-radius:9px;padding:16px 18px;margin-bottom:22px}.total-item{min-width:0;border-right:1px solid #DFE8F3}.total-item>span{font-size:11px;color:#64748B}.total-item strong{display:block;font-size:29px;line-height:1.3;margin-top:6px;font-variant-numeric:tabular-nums}.total-item small{font-size:11px;font-weight:400;color:#8192A8;margin-left:7px}.total-primary strong{color:#2563EB}.total-ready strong{color:#059669}.total-skipped strong{color:#B7790C}.profile-totals>p{font-size:11px;line-height:1.9;color:#8192A8;margin:0}.demographic-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}.demographic-card{min-width:0;padding-right:20px;border-right:1px solid #EDF2F8}.demographic-card:last-child{padding-right:0;border-right:0}.demographic-card h4{font-size:13px;margin:0 0 16px;display:flex;align-items:center;gap:7px}.heading-mark{display:inline-block;width:4px;height:13px;border-radius:2px}.blue{background:#3B82F6}.green{background:#10B981}.orange{background:#F97316}.purple{background:#8B5CF6}.sex-summary{display:grid;justify-items:center;gap:14px}.sex-ring{width:108px;height:108px;border-radius:50%;padding:11px;flex-shrink:0}.sex-ring>div{height:100%;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px}.sex-ring strong{font-size:24px;color:#334E68;font-variant-numeric:tabular-nums}.sex-ring>div>span{font-size:10px;color:#8192A8}.category-list{list-style:none;margin:0;padding:0;width:100%}.sex-list{display:grid;gap:10px}.sex-list li{display:flex;justify-content:space-between;gap:8px;font-size:11px;line-height:1.8}.category-name{display:flex;gap:6px;align-items:center;min-width:0}.category-name i{width:7px;height:7px;border-radius:50%;flex-shrink:0}.category-value{white-space:nowrap;font-variant-numeric:tabular-nums}.category-list small{font-size:10px;color:#94A3B8;margin-left:4px}.age-summary{margin:0 0 17px;display:grid;gap:6px}.age-summary strong{font-size:23px;color:#059669;line-height:1.3;font-variant-numeric:tabular-nums}.age-summary small{font-size:10px;font-weight:400;color:#8192A8;margin-left:7px}.age-summary>span{font-size:10px;color:#8192A8}.compact-list{display:grid;gap:9px}.bar-label{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;font-size:10px;line-height:1.6;margin-bottom:4px}.bar-label>span:first-child{color:#536A84;min-width:0;overflow-wrap:anywhere}.bar-label>span:last-child{white-space:nowrap;font-variant-numeric:tabular-nums}.proportion-track{height:4px;border-radius:3px;background:#F1F5F9;overflow:hidden}.proportion-track>span{display:block;height:100%;border-radius:3px}.profile-note{font-size:10px;color:#94A3B8;line-height:1.9;border-top:1px dashed #E8EEF7;margin:19px 0 0;padding-top:11px}.profile-unavailable{font-size:12px;line-height:1.9;color:#8192A8;background:#F8FAFC;border:1px dashed #DCE5F1;padding:17px;border-radius:8px;margin:0}@media(max-width:1250px){.demographic-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}.demographic-card:nth-child(2){padding-right:0;border-right:0}.sex-summary{grid-template-columns:108px minmax(0,1fr);align-items:center;gap:20px}.profile-totals{grid-template-columns:repeat(3,minmax(0,1fr))}.profile-totals>p{grid-column:1/-1}.total-item:last-of-type{border-right:0}}@media print{.cohort-profile{break-inside:avoid;box-shadow:none}.demographic-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.scope-tag{display:none}}
+
+@media screen and (max-width: 1024px) {
+  .profile-heading { align-items: flex-start; flex-wrap: wrap; gap: 10px; }
+  .profile-totals { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .profile-totals > p { grid-column: 1 / -1; }
+  .total-item:last-of-type { border-right: 0; }
+  .demographic-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .demographic-card:nth-child(even) { padding-right: 0; border-right: 0; }
+}
+@media screen and (max-width: 600px) {
+  .cohort-profile { padding: 18px 16px 14px; }
+  .profile-heading h3 { font-size: 17px; }
+  .scope-tag { white-space: normal; line-height: 1.7; }
+  .profile-totals { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 14px; }
+  .total-item { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-right: 0; border-bottom: 1px solid #e2eaf4; padding-bottom: 10px; }
+  .total-item strong { font-size: 25px; margin: 0; }
+  .total-item:last-of-type { border-bottom: 0; padding-bottom: 0; }
+  .demographic-grid { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .demographic-card { padding-right: 0; border-right: 0; padding-bottom: 20px; border-bottom: 1px solid #edf2f8; }
+  .demographic-card:last-child { padding-bottom: 0; border-bottom: 0; }
+  .sex-summary { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .sex-list li { flex-wrap: wrap; }
+  .bar-label { flex-wrap: wrap; gap: 4px 8px; }
+}
+
 </style>

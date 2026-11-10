@@ -1,5 +1,16 @@
 <template>
-  <aside class="sidebar">
+  <div v-if="isMobile" class="mobile-navigation-bar">
+    <button ref="mobileTrigger" type="button" class="navigation-toggle" aria-label="打开导航菜单"
+      :aria-expanded="mobileOpen" :aria-controls="navigationId" @click="openMobile">
+      <el-icon><Menu /></el-icon>
+    </button>
+    <NuxtLink to="/" class="mobile-brand">AI Intervention <span>智能风险预警系统</span></NuxtLink>
+  </div>
+  <div v-if="isMobile && mobileOpen" class="navigation-backdrop" aria-hidden="true" @click="closeMobile()" />
+  <aside :id="navigationId" ref="sidebarElement" class="sidebar" :class="{ 'is-collapsed': compact, 'is-mobile': isMobile, 'is-open': mobileOpen }"
+    :role="isMobile ? 'dialog' : 'complementary'" :aria-modal="isMobile && mobileOpen ? true : undefined"
+    :aria-hidden="isMobile && !mobileOpen ? true : undefined" :inert="isMobile && !mobileOpen"
+    aria-label="系统导航" tabindex="-1">
     <div class="brand-logo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
@@ -8,39 +19,46 @@
         <span class="title-en">AI Intervention</span>
         <span class="title-cn">智能风险预警系统</span>
       </div>
+      <button ref="collapseTrigger" type="button" class="navigation-toggle sidebar-toggle"
+        :aria-label="isMobile ? '关闭导航菜单' : compact ? '展开侧边栏' : '收起侧边栏'"
+        :title="isMobile ? '关闭导航菜单' : compact ? '展开侧边栏' : '收起侧边栏'"
+        :aria-expanded="isMobile ? mobileOpen : !compact" :aria-controls="navigationId"
+        @click="isMobile ? closeMobile() : toggleDesktop()">
+        <el-icon><Close v-if="isMobile" /><Expand v-else-if="compact" /><Fold v-else /></el-icon>
+      </button>
     </div>
 
     <div class="menu-container">
-      <el-menu :default-active="defaultActive" class="custom-el-menu" :unique-opened="true">
+      <el-menu :default-active="defaultActive" class="custom-el-menu" :unique-opened="true" :collapse="compact" :collapse-transition="false">
         <div class="menu-group-title">DATA PIPELINE 数据管道</div>
-        <el-sub-menu index="1">
+        <el-sub-menu index="1" aria-label="数据接入与特征工程">
           <template #title><el-icon><Coin /></el-icon><span>数据接入与特征工程</span></template>
           <el-menu-item index="1-1" @click="goTo('/datainput')">职业暴露特征录入</el-menu-item>
           <el-menu-item index="1-2">外部 LIS 系统接口</el-menu-item>
         </el-sub-menu>
-        <el-sub-menu index="2">
+        <el-sub-menu index="2" aria-label="数据集智能治理">
           <template #title><el-icon><DataLine /></el-icon><span>数据集智能治理</span></template>
           <el-menu-item index="2-1" @click="goTo('/data-cleaning')">数据清洗与格式转换</el-menu-item>
           <el-menu-item index="2-2">特征降维与标准化</el-menu-item>
         </el-sub-menu>
 
         <div class="menu-group-title">MODEL LAYER 模型层</div>
-        <el-sub-menu index="3">
+        <el-sub-menu index="3" aria-label="风险量化与预警">
           <template #title><el-icon><TrendCharts /></el-icon><span>风险量化与预警</span></template>
           <el-menu-item index="3-1" @click="goTo('/risk?mode=individual')">单人当次指标估计</el-menu-item>
           <el-menu-item index="3-2" @click="goTo('/risk?mode=batch')">群体指标估计</el-menu-item>
         </el-sub-menu>
         
-        <el-menu-item index="4" @click="goTo('/causal')">
+        <el-menu-item index="4" aria-label="因果知识推理" @click="goTo('/causal')">
           <el-icon><Share /></el-icon><span>因果知识推理</span>
         </el-menu-item>
         
-        <el-menu-item index="5" @click="goTo('/plan')">
+        <el-menu-item index="5" aria-label="智能干预策略推荐" @click="goTo('/plan')">
           <el-icon><DocumentChecked /></el-icon><span>智能干预策略推荐</span>
         </el-menu-item>
         
         <div class="menu-group-title">KNOWLEDGE BASE 知识库</div>
-        <el-menu-item index="6" @click="goTo('/agent')">
+        <el-menu-item index="6" aria-label="AI 知识库助手" @click="goTo('/agent')">
           <el-icon><ChatDotRound /></el-icon><span>AI 知识库助手</span>
         </el-menu-item>
       </el-menu>
@@ -48,9 +66,10 @@
   </aside>
 </template>
 
-<script setup>
+<script setup lang="ts">
+import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, useId, watch } from 'vue'
 import { 
-  Coin, DataLine, TrendCharts, Share, DocumentChecked, ChatDotRound 
+  Coin, DataLine, TrendCharts, Share, DocumentChecked, ChatDotRound, Menu, Close, Fold, Expand
 } from '@element-plus/icons-vue'
 
 // 定义 props 接收父组件（各个页面）传来的激活项 index
@@ -63,10 +82,87 @@ defineProps({
 })
 
 const router = useRouter()
+const navigationId = `system-navigation-${useId()}`
+const collapsed = useState<boolean>('navigation:collapsed', () => false)
+const isMobile = ref(import.meta.client && window.matchMedia('(max-width: 1024px)').matches)
+const mobileOpen = ref(false)
+const compact = computed(() => !isMobile.value && collapsed.value)
+const sidebarElement = ref<HTMLElement | null>(null)
+const mobileTrigger = ref<HTMLButtonElement | null>(null)
+const collapseTrigger = ref<HTMLButtonElement | null>(null)
+let media: MediaQueryList | undefined
+let active = false
+let inertContent: HTMLElement | null = null
+let previouslyInert = false
+
+const restoreContent = () => {
+  if (inertContent) inertContent.inert = previouslyInert
+  inertContent = null
+}
+const closeMobile = (restoreFocus = true) => {
+  mobileOpen.value = false
+  restoreContent()
+  if (restoreFocus) nextTick(() => mobileTrigger.value?.focus())
+}
+const openMobile = async () => {
+  mobileOpen.value = true
+  await nextTick()
+  inertContent = sidebarElement.value?.closest('.system-layout')?.querySelector<HTMLElement>('.main-content') ?? null
+  if (inertContent) { previouslyInert = inertContent.inert; inertContent.inert = true }
+  collapseTrigger.value?.focus()
+}
+const toggleDesktop = () => { collapsed.value = !collapsed.value }
+watch(collapsed, async (value) => {
+  if (!active) return
+  try { localStorage.setItem('zhiwei-sidebar-collapsed', String(value)) } catch { /* Preferences are optional. */ }
+  await nextTick()
+  // Existing chart pages resize on this event after the layout has changed.
+  requestAnimationFrame(() => window.dispatchEvent(new Event('resize')))
+})
+const syncViewport = () => {
+  isMobile.value = media?.matches ?? false
+  closeMobile(false)
+}
+const handleKey = (event: KeyboardEvent) => {
+  if (!mobileOpen.value) return
+  if (event.key === 'Escape') { event.preventDefault(); closeMobile(); return }
+  if (event.key !== 'Tab') return
+  const items = Array.from(sidebarElement.value?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], [tabindex="0"]') ?? [])
+    .filter(el => el.getClientRects().length && !el.closest('[aria-hidden="true"]'))
+  const first = items[0], last = items[items.length - 1]
+  if (!first) { event.preventDefault(); sidebarElement.value?.focus(); return }
+  if (event.shiftKey && (document.activeElement === first || !sidebarElement.value?.contains(document.activeElement))) {
+    event.preventDefault(); last?.focus()
+  } else if (!event.shiftKey && (document.activeElement === last || !sidebarElement.value?.contains(document.activeElement))) {
+    event.preventDefault(); first.focus()
+  }
+}
+const activate = () => {
+  if (active) return
+  active = true
+  try { collapsed.value = localStorage.getItem('zhiwei-sidebar-collapsed') === 'true' } catch { /* Keep session preference. */ }
+  media = window.matchMedia('(max-width: 1024px)')
+  syncViewport()
+  media.addEventListener('change', syncViewport)
+  document.addEventListener('keydown', handleKey)
+}
+const deactivate = () => {
+  active = false
+  closeMobile(false)
+  media?.removeEventListener('change', syncViewport)
+  document.removeEventListener('keydown', handleKey)
+}
+onMounted(activate)
+onActivated(activate)
+onDeactivated(deactivate)
+onUnmounted(deactivate)
 
 // 统一的路由跳转方法（避免与 Nuxt 自动导入的 navigateTo 冲突）
-const goTo = (path) => {
-  router.push(path)
+const goTo = async (path: string) => {
+  closeMobile(false)
+  await router.push(path)
+  await nextTick()
+  if (isMobile.value) document.querySelector<HTMLButtonElement>('.mobile-navigation-bar .navigation-toggle')?.focus()
 }
 </script>
 
@@ -178,4 +274,36 @@ $border-light: #E2E8F0;
     }
   } 
 }
+</style>
+
+<style scoped>
+.sidebar { width: 280px !important; min-width: 0; min-height: 0; }
+.sidebar .brand-logo { flex: 0 0 70px; padding: 0 14px; gap: 10px; }
+.sidebar .brand-logo > svg { width: 27px; height: 27px; }
+.sidebar .brand-text { min-width: 0; flex: 1; }
+.sidebar .title-en { font-size: 16px; white-space: nowrap; }
+.sidebar .title-cn { font-size: 11px; letter-spacing: .5px; }
+.navigation-toggle { width: 40px; height: 40px; padding: 0; flex-shrink: 0; display: inline-flex; justify-content: center; align-items: center; border: 1px solid #e0e8f1; border-radius: 10px; color: #4c7195; background: #fff; cursor: pointer; }
+.navigation-toggle:hover { background: #eff6ff; border-color: #bed8f3; color: #2563eb; }
+.navigation-toggle:focus-visible, .mobile-brand:focus-visible { outline: 2px solid #4295d6; outline-offset: 3px; }
+.navigation-toggle .el-icon { font-size: 20px; }
+.sidebar .menu-container { min-height: 0; overscroll-behavior: contain; }
+.sidebar.is-collapsed { width: 72px !important; }
+.is-collapsed .brand-logo { justify-content: center; padding: 0; }
+.is-collapsed .brand-logo > svg, .is-collapsed .brand-text, .is-collapsed .menu-group-title { display: none; }
+.is-collapsed :deep(.el-menu--collapse) { width: 72px; }
+.is-collapsed :deep(.custom-el-menu > .el-menu-item), .is-collapsed :deep(.el-sub-menu__title) { width: 48px; margin: 6px 12px; padding: 0 12px !important; }
+.is-collapsed :deep(.el-menu-tooltip__trigger) { padding: 0 12px !important; }
+.is-collapsed :deep(.el-sub-menu__icon-arrow) { display: none; }
+.mobile-navigation-bar { position: fixed; z-index: 1800; top: 0; left: 0; right: 0; height: calc(56px + env(safe-area-inset-top)); box-sizing: border-box; padding: env(safe-area-inset-top) 14px 0; display: flex; gap: 12px; align-items: center; background: #fffffffa; border-bottom: 1px solid #e2eaf3; }
+.mobile-brand { color: #243e5b; font-size: 14px; font-weight: 750; text-decoration: none; line-height: 1.4; }
+.mobile-brand span { display: block; font-size: 10px; color: #8294a8; font-weight: 500; }
+.navigation-backdrop { position: fixed; inset: 0; z-index: 2100; background: #12284166; backdrop-filter: blur(2px); touch-action: none; }
+@media screen and (max-width: 1024px) {
+  .sidebar.is-mobile { display: flex !important; position: fixed; inset: 0 auto 0 0; z-index: 2200; width: min(300px, 86vw) !important; height: 100vh !important; height: 100dvh !important; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); transform: translateX(-100%); visibility: hidden; box-shadow: 10px 0 40px #10274224; }
+  .sidebar.is-mobile.is-open { transform: translateX(0); visibility: visible; }
+  .sidebar.is-mobile .brand-logo { padding-inline: 16px; }
+  .sidebar.is-mobile .navigation-toggle { width: 44px; height: 44px; }
+}
+@media print { .sidebar, .mobile-navigation-bar, .navigation-backdrop { display: none !important; } }
 </style>

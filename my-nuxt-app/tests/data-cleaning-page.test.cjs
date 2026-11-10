@@ -3,10 +3,11 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const path = require('node:path')
 const vm = require('node:vm')
+const { File } = require('node:buffer')
 const vue = require('vue')
 
 const source = fs.readFileSync(path.join(__dirname, '../app/pages/data-cleaning/index.vue'), 'utf8')
-const script = source.match(/<script setup>([\s\S]*?)<\/script>/)[1].replace(/^import .*\n/gm, '')
+const script = source.match(/<script setup>([\s\S]*?)<\/script>/)[1].replace(/^import [^\r\n]*\r?\n/gm, '')
 const schema = {
   outcome_id: 'blood_pressure', name: '血压',
   fields: [{ column: 'SEQN', label: '编号', required: true }, { column: 'PBCD_J__LBXBPB', label: '血铅', unit: 'μg/dL', required: true }, { column: 'optional', label: '设计变量', required: false }],
@@ -18,8 +19,8 @@ const ok = data => ({ success: true, data })
 const failure = error => ({ success: false, data: null, error })
 function deferred() { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve } }
 
-function createPage(overrides = {}) {
-  const calls = { inspect: [], preview: [], download: [], clicks: 0, revokes: 0 }
+function createPage(overrides = {}, browser = {}) {
+  const calls = { inspect: [], preview: [], download: [], fetch: [], clicks: 0, revokes: 0 }
   const api = {
     getCleaningSchema: async () => ok(structuredClone(schema)),
     inspectCleaningFile: async file => { calls.inspect.push(file); return ok(structuredClone(inspection)) },
@@ -30,24 +31,31 @@ function createPage(overrides = {}) {
   const context = vm.createContext({
     ref: vue.ref, reactive: vue.reactive, computed: vue.computed, watch: vue.watch,
     onMounted: () => {}, nextTick: vue.nextTick, useHead: () => {}, useApi: () => api,
-    Blob, JSON, Number, String, Set, Object, Math,
+    useRuntimeConfig: () => ({ app: { baseURL: '/zhiwei/' } }),
+    fetch: async url => {
+      calls.fetch.push(url)
+      if (browser.fetch) return browser.fetch(url)
+      return { ok: true, blob: async () => new Blob(['synthetic-xlsx-fixture'], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }) }
+    },
+    File, Blob, JSON, Number, String, Set, Object, Math,
     URL: { createObjectURL: () => 'blob:test-cleaning', revokeObjectURL: () => { calls.revokes += 1 } },
     document: { body: { appendChild: () => {} }, createElement: () => ({ click: () => { calls.clicks += 1 }, remove: () => {} }) },
     setTimeout: callback => { callback(); return 1 }
   })
   vm.runInContext(`${script}\nglobalThis.page = {
-    loadSchema, selectSourceFile, restoreExactMappings, setAllColumns, addFilter, validateSettings, runCleaning, downloadResult,
+    loadSchema, selectSourceFile, requestDemo, loadDemo, restoreExactMappings, setAllColumns, addFilter, validateSettings, runCleaning, downloadResult,
     confirmAndRecheck, keepOnlyRequiredColumns, removeInvalidSystemRows, qualityReasonText, auditLabel,
     schema, schemaError, sourceFile, sourceInfo, sourceError, mode, systemMappings, customColumns,
     rowStart, rowEnd, filters, trimText, dropBlankRows, dropDuplicates, confirmSystemSemantics,
     dropInvalidSystemRows, requireCompleteSystemRows, hasInvalidSystemRows,
-    options, result, processError, canPreview, canDownload, previewing, inspecting
+    options, result, processError, canPreview, canDownload, previewing, inspecting,
+    busy, demoLoading, demoActive, demoError, demoReplaceRequested
   }`, context)
   return { page: context.page, calls }
 }
 function fileEvent(name = 'raw.csv', size = 100) { return { target: { files: [{ name, size }], value: 'chosen' } } }
-async function loadedPage(overrides) { const state = createPage(overrides); await state.page.loadSchema(); await state.page.selectSourceFile(fileEvent()); return state }
-async function completeSystemPage(overrides) { const state = await loadedPage(overrides); state.page.systemMappings.PBCD_J__LBXBPB = 'lead'; state.page.confirmSystemSemantics.value = true; return state }
+async function loadedPage(overrides, browser) { const state = createPage(overrides, browser); await state.page.loadSchema(); await state.page.selectSourceFile(fileEvent()); return state }
+async function completeSystemPage(overrides, browser) { const state = await loadedPage(overrides, browser); state.page.systemMappings.PBCD_J__LBXBPB = 'lead'; state.page.confirmSystemSemantics.value = true; return state }
 
 test('matches only exact source column names, never guesses unit or column meaning', async () => {
   const { page } = await loadedPage()
@@ -325,4 +333,131 @@ test('mandatory mapping changes require fresh semantics confirmation; optional r
   assert.equal(page.confirmSystemSemantics.value, false)
   assert.equal(page.result.value, null)
   assert.equal(page.canDownload.value, false)
+})
+
+
+// The browser File and fetch boundary are injected; the page still executes its
+// own Vue refs/watchers and calls the existing inspection/preview/export API.
+const settleDemo = async page => {
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(page.demoLoading.value, false, 'the mocked demo request should finish')
+}
+
+test('one-click demo loading fetches the deployed example and inspects a File without confirming semantics', async () => {
+  const { page, calls } = createPage()
+  await page.loadSchema()
+  page.requestDemo()
+  assert.equal(page.busy.value, true)
+  await settleDemo(page)
+  assert.deepEqual(calls.fetch, ['/zhiwei/examples/cleaning_demo_synthetic.xlsx'])
+  assert.equal(calls.inspect.length, 1)
+  const inspected = calls.inspect[0]
+  assert(inspected instanceof File)
+  assert.equal(inspected.name, '数据清洗体验_合成示例.xlsx')
+  assert.equal(inspected.type, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  assert.equal(await inspected.text(), 'synthetic-xlsx-fixture')
+  assert.equal(page.sourceFile.value, inspected)
+  assert.equal(page.demoActive.value, true)
+  assert.equal(page.mode.value, 'system')
+  assert.equal(page.trimText.value, true)
+  assert.equal(page.dropBlankRows.value, true)
+  assert.equal(page.dropDuplicates.value, true)
+  assert.equal(page.confirmSystemSemantics.value, false)
+  assert.equal(page.canDownload.value, false)
+  assert.equal(calls.preview.length, 0)
+  assert.equal(calls.download.length, 0)
+})
+
+test('manually uploading an example-named file is ordinary input and clears all demonstration presets', async () => {
+  const { page, calls } = createPage()
+  await page.loadSchema()
+  await page.loadDemo()
+  const exampleFile = page.sourceFile.value
+  page.mode.value = 'custom'
+  page.trimText.value = false
+  page.dropBlankRows.value = false
+  page.dropInvalidSystemRows.value = true
+  page.requireCompleteSystemRows.value = true
+  page.confirmSystemSemantics.value = true
+  page.rowStart.value = 2
+  page.rowEnd.value = 3
+  page.addFilter()
+  Object.assign(page.filters.value[0], { column: 'lead', operator: 'gt', value: '1' })
+  await page.selectSourceFile(fileEvent('数据清洗体验_合成示例.xlsx'))
+  assert.notEqual(page.sourceFile.value, exampleFile)
+  assert.equal(page.sourceFile.value.name, exampleFile.name)
+  assert.equal(page.demoActive.value, false)
+  assert.equal(page.mode.value, 'system')
+  assert.equal(page.trimText.value, true)
+  assert.equal(page.dropBlankRows.value, true)
+  assert.equal(page.dropDuplicates.value, false)
+  assert.equal(page.dropInvalidSystemRows.value, false)
+  assert.equal(page.requireCompleteSystemRows.value, false)
+  assert.equal(page.confirmSystemSemantics.value, false)
+  assert.equal(page.rowStart.value, 1)
+  assert.equal(page.rowEnd.value, '')
+  assert.equal(page.filters.value.length, 0)
+  assert.equal(page.result.value, null)
+  assert.equal(calls.fetch.length, 1)
+  assert.equal(calls.inspect.length, 2)
+})
+
+test('requesting the example with existing input asks to replace without changing the file or preview', async () => {
+  const { page, calls } = await completeSystemPage()
+  await page.runCleaning()
+  const originalFile = page.sourceFile.value
+  const originalResult = page.result.value
+  const originalOptions = JSON.stringify(page.options.value)
+  page.requestDemo()
+  assert.equal(page.demoReplaceRequested.value, true)
+  assert.equal(page.demoLoading.value, false)
+  assert.equal(page.sourceFile.value, originalFile)
+  assert.equal(page.result.value, originalResult)
+  assert.equal(JSON.stringify(page.options.value), originalOptions)
+  assert.equal(page.canDownload.value, true)
+  assert.equal(calls.fetch.length, 0)
+  assert.equal(calls.inspect.length, 1)
+})
+
+test('failed example fetching preserves the previous file, preview and confirmed download', async () => {
+  for (const fetch of [async () => { throw new Error('network unavailable') }, async () => ({ ok: false })]) {
+    const { page, calls } = await completeSystemPage({}, { fetch })
+    await page.runCleaning()
+    const originalFile = page.sourceFile.value
+    const originalResult = page.result.value
+    const originalOptions = JSON.stringify(page.options.value)
+    page.requestDemo()
+    assert.equal(page.demoReplaceRequested.value, true)
+    await page.loadDemo()
+    assert.equal(page.sourceFile.value, originalFile)
+    assert.equal(page.result.value, originalResult)
+    assert.equal(JSON.stringify(page.options.value), originalOptions)
+    assert.equal(page.canDownload.value, true)
+    assert.equal(page.demoLoading.value, false)
+    assert.equal(page.busy.value, false)
+    assert.match(page.demoError.value, /示例暂时无法载入/)
+    assert.equal(calls.fetch.length, 1)
+    assert.equal(calls.inspect.length, 1)
+  }
+})
+
+test('repeated demo clicks while loading issue only one fetch and one inspection', async () => {
+  const pending = deferred()
+  const { page, calls } = createPage({}, { fetch: () => pending.promise })
+  await page.loadSchema()
+  page.requestDemo()
+  page.requestDemo()
+  assert.equal(page.demoLoading.value, true)
+  assert.equal(page.busy.value, true)
+  assert.equal(calls.fetch.length, 1)
+  assert.equal(calls.inspect.length, 0)
+  await page.selectSourceFile(fileEvent('during-demo.csv'))
+  assert.equal(calls.inspect.length, 0)
+  pending.resolve({ ok: true, blob: async () => new Blob(['synthetic-demo-bytes']) })
+  await settleDemo(page)
+  assert.equal(calls.fetch.length, 1)
+  assert.equal(calls.inspect.length, 1)
+  assert.equal(page.sourceFile.value.name, '数据清洗体验_合成示例.xlsx')
+  assert.equal(page.demoActive.value, true)
+  assert.equal(page.busy.value, false)
 })

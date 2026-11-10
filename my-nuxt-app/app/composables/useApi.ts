@@ -163,6 +163,8 @@ export const useApi = () => {
   } = {}) => {
     return await request('/api/agent/chat', {
       method: 'POST',
+      // Covers the current two-pass generation budget while bounding stalled connections.
+      timeout: 420000,
       body: {
         message,
         model: options.model || undefined,

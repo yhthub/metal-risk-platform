@@ -1,4 +1,5 @@
 export default defineNuxtConfig({
+  buildDir: '.nuxt',
   compatibilityDate: '2024-11-01',
   devtools: { enabled: true },
   runtimeConfig: {
@@ -19,6 +20,7 @@ export default defineNuxtConfig({
 
   css: [
     '~/assets/css/app.css',
+    '~/assets/css/responsive.css',
   ],
 
   future: {

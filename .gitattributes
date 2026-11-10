@@ -1,3 +1,8 @@
 # Public demo services verify the exact CSV bytes, not only parsed values.
 # Disable platform line-ending conversion so clones retain the published SHA256.
 /backend/app/data/*.csv -text whitespace=cr-at-eol
+
+# v5 snapshots preserve deployed source bytes for reproducible hash verification.
+/backend/app/** -text whitespace=cr-at-eol
+/backend/requirements*.txt -text whitespace=cr-at-eol
+/my-nuxt-app/** -text whitespace=cr-at-eol
