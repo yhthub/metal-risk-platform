@@ -32,9 +32,9 @@
         <section v-if="!isReasoning && (mode === 'batch' ? !!cohortResult : reasoningComplete)" class="result-next-step" aria-label="分析完成后的下一步">
           <div class="result-next-step-copy">
             <h3>分析已完成，继续查看方案推荐</h3>
-            <p>当前展示预设方案，尚未根据本次分析结果自动生成。</p>
+            <p>可按预防层级查看系统预设的干预对象、实施措施和方案报告。</p>
           </div>
-          <el-button type="primary" size="large" @click="goToPlan">进入方案推荐（演示） <span aria-hidden="true">→</span></el-button>
+          <el-button type="primary" size="large" @click="goToPlan">进入方案推荐 <span aria-hidden="true">→</span></el-button>
         </section>
         <el-alert class="scope-alert" type="info" :closable="false" title="测试版 · 当次指标估计，不是发病概率或临床诊断" :description="PREDICTION_SCOPE_NOTE" show-icon />
         <el-alert v-if="serviceError || predictionError" class="scope-alert" type="error" :closable="false" :title="serviceError || predictionError" show-icon />
@@ -50,7 +50,7 @@
         </div>
         <section v-if="mode === 'batch' && cohortResult" class="cohort-results">
           <RiskCohortDashboard :result="cohortResult" :target="selectedTarget" :target-options="targetOptions" :warning-threshold="cohortWarningThreshold" @update:warning-threshold="cohortWarningThreshold = $event" @select-target="selectedTarget = $event" @inspect-person="inspectCohortPerson" />
-          <div class="bottom-action-bar cohort-action-bar"><el-button type="primary" @click="goToPlan">进入方案推荐（演示）</el-button><el-button type="success" plain :icon="Document" @click="goToReportPage">群体分析报告</el-button><el-button @click="downloadCompositeWarning">下载综合预警排序</el-button><el-button @click="downloadCohortSummary">下载全群汇总</el-button><el-button @click="downloadCohortRanking">下载所选结局排序</el-button><el-button @click="downloadAllCohortRecords">下载全部对象结果</el-button></div>
+          <div class="bottom-action-bar cohort-action-bar"><el-button type="primary" @click="goToPlan">进入方案推荐</el-button><el-button type="success" plain :icon="Document" @click="goToReportPage">群体分析报告</el-button><el-button @click="downloadCompositeWarning">下载综合预警排序</el-button><el-button @click="downloadCohortSummary">下载全群汇总</el-button><el-button @click="downloadCohortRanking">下载所选结局排序</el-button><el-button @click="downloadAllCohortRecords">下载全部对象结果</el-button></div>
         </section>
         <div class="results-dashboard" v-if="(mode === 'individual' || showIndividualDetail) && reasoningComplete && !isReasoning">
           <el-alert v-if="mode === 'batch'" class="scope-alert" type="warning" :closable="false" :title="'个人明细：以下所有曲线和贡献图仅属于' + selectedPersonName + '，不能替代上方全群体统计。'" />
@@ -90,7 +90,7 @@
           </section>
           <el-alert v-if="dashboard!.prediction.warnings.length" type="info" :closable="false" :title="dashboard!.prediction.warnings.join('；')" />
           <p class="chart-note">{{ INTERVAL_NOTE }}</p>
-          <div class="bottom-action-bar"><el-button type="success" size="large" plain :icon="Document" @click="goToReportPage" style="margin-right: 12px;">查看分析报告</el-button><el-button type="primary" size="large" class="final-run-btn" @click="goToPlan">进入方案推荐（演示）</el-button></div>
+          <div class="bottom-action-bar"><el-button type="success" size="large" plain :icon="Document" @click="goToReportPage" style="margin-right: 12px;">查看分析报告</el-button><el-button type="primary" size="large" class="final-run-btn" @click="goToPlan">进入方案推荐</el-button></div>
         </div>
         <el-empty v-if="!isReasoning && !requestLogs.length && !cohortResult && !dashboard" description="请核对输入后运行：群体将完成整份文件全部对象预测，默认展示全群统计，而非逐人翻页。" />
       </div>

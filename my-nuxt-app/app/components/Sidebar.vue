@@ -30,7 +30,7 @@
 
     <div class="menu-container">
       <el-menu :default-active="defaultActive" class="custom-el-menu" :unique-opened="true" :collapse="compact" :collapse-transition="false">
-        <div class="menu-group-title">DATA PIPELINE 数据管道</div>
+        <div v-if="!compact" class="menu-group-title">数据管理</div>
         <el-sub-menu index="1" aria-label="数据接入">
           <template #title><el-icon><Coin /></el-icon><span>数据接入</span></template>
           <el-menu-item index="1-1" @click="goTo('/datainput')">单人录入与群体导入</el-menu-item>
@@ -40,7 +40,7 @@
           <el-menu-item index="2-1" @click="goTo('/data-cleaning')">数据清洗与格式转换</el-menu-item>
         </el-sub-menu>
 
-        <div class="menu-group-title">MODEL LAYER 模型层</div>
+        <div v-if="!compact" class="menu-group-title">分析与干预</div>
         <el-sub-menu index="3" aria-label="风险分析">
           <template #title><el-icon><TrendCharts /></el-icon><span>风险分析</span></template>
           <el-menu-item index="3-1" @click="goTo('/risk?mode=individual')">单人风险分析</el-menu-item>
@@ -55,7 +55,7 @@
           <el-icon><DocumentChecked /></el-icon><span>方案推荐</span>
         </el-menu-item>
         
-        <div class="menu-group-title">KNOWLEDGE BASE 知识库</div>
+        <div v-if="!compact" class="menu-group-title">知识服务</div>
         <el-menu-item index="6" aria-label="医学知识问答" @click="goTo('/agent')">
           <el-icon><ChatDotRound /></el-icon><span>医学知识问答</span>
         </el-menu-item>
@@ -229,11 +229,14 @@ $border-light: #E2E8F0;
     border-right: none; 
     
     .menu-group-title { 
-      font-size: 0.85rem; 
-      font-weight: 800; 
-      color: #94A3B8; 
-      padding: 24px 24px 10px 24px; 
-      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.78rem;
+      font-weight: 650;
+      color: #5b7084;
+      padding: 22px 24px 8px;
+      &::after { content: ''; flex: 1; height: 1px; background: #dce5ed; }
     } 
     
     .el-menu-item { 
@@ -252,8 +255,9 @@ $border-light: #E2E8F0;
     } 
     
     .el-menu-item.is-active { 
-      background-color: $c-primary-light; 
-      color: #2563EB; 
+      background: #e9eef9;
+      color: #243f76;
+      box-shadow: inset 4px 0 #3b58a1;
       font-weight: 700;
     } 
     
@@ -271,6 +275,7 @@ $border-light: #E2E8F0;
         color: $c-primary;
       }
     }
+    .el-sub-menu.is-active > .el-sub-menu__title { color: #273f71; }
   } 
 }
 </style>
@@ -278,6 +283,7 @@ $border-light: #E2E8F0;
 <style scoped>
 .sidebar { width: 280px !important; min-width: 0; min-height: 0; }
 .sidebar .brand-logo { flex: 0 0 70px; padding: 0 14px; gap: 10px; }
+.sidebar .brand-logo { background: linear-gradient(110deg, #f2f6fe, white 83%); }
 .sidebar .brand-logo > svg { width: 27px; height: 27px; }
 .sidebar .brand-text { min-width: 0; flex: 1; }
 .sidebar .title-en { font-size: 16px; white-space: nowrap; }

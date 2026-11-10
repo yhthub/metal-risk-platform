@@ -8,7 +8,7 @@
           <div class="workspace-heading">
             <button type="button" class="back-link" @click="goBack"><el-icon class="back-icon"><ArrowLeft /></el-icon><span class="back-text">返回方案推荐</span></button>
             <span class="divider" aria-hidden="true">|</span>
-            <span class="page-title-top">方案示例报告</span>
+            <span class="page-title-top">干预方案报告</span>
           </div>
           <div class="ep-right-zone">
             <div class="user-profile">
@@ -20,66 +20,54 @@
       </header>
 
       <div class="report-view-wrapper">
-        <div v-if="person" class="report-paper">
-          <div class="report-watermark">DEMO · 方案示例</div>
-          <p class="report-demo-note">预设案例演示 · 人物、数值和措施仅用于展示，尚未根据本次分析生成，不作为诊疗或用药依据。</p>
-
+        <div v-if="person" class="report-paper" :class="{ 'secondary-prevention': person.level === 'level2' }">
           <div class="report-header">
             <div class="rh-left">
               <svg class="report-logo-custom" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
               </svg>
               <div class="rh-text">
-                <h1>{{ person.name }} · 方案示例报告</h1>
-                <p>案例 {{ person.id }} · {{ person.level === 'level2' ? '二级预防（早期筛查与临床干预）' : '一级预防（健康教育与环境阻断）' }}</p>
+                <h1>{{ person.name }} · 干预方案报告</h1>
+                <p>对象编号 {{ person.id }} · {{ person.dept }}</p>
               </div>
             </div>
             <div class="rh-right">
-              <div class="risk-seal" :class="person.level === 'level2' ? 'seal-danger' : 'seal-warn'">
-                <span>示例风险增幅</span>
-                <strong>{{ person.score }}%</strong>
+              <div class="prevention-level">
+                <span>预防层级</span>
+                <strong>{{ person.level === 'level2' ? '二级预防' : '一级预防' }}</strong>
               </div>
             </div>
           </div>
 
-          <el-divider />
+          <p class="report-source">本报告采用系统预设的对象资料与方案。个体诊疗及用药须由专业人员评估。</p>
 
           <!-- 一、干预对象信息 -->
           <div class="report-section">
-            <h3 class="rs-title">一、案例对象信息</h3>
+            <h3 class="rs-title">一、干预对象</h3>
             <el-descriptions :column="2" border class="custom-descriptions">
               <el-descriptions-item label="工号">{{ person.id }}</el-descriptions-item>
               <el-descriptions-item label="姓名">{{ person.name }}</el-descriptions-item>
               <el-descriptions-item label="所属部门">{{ person.dept }}</el-descriptions-item>
               <el-descriptions-item label="暴露工龄">{{ person.years }} 年</el-descriptions-item>
-              <el-descriptions-item label="案例涉及因素">
-                <el-tag size="small" :type="person.level === 'level2' ? 'danger' : 'warning'" effect="dark" round>{{ person.factors }}</el-tag>
-              </el-descriptions-item>
-              <el-descriptions-item label="示例风险增幅">
-                <el-tag size="small" :type="person.level === 'level2' ? 'danger' : 'warning'" effect="dark" round>{{ person.score }}%</el-tag>
-              </el-descriptions-item>
+              <el-descriptions-item label="暴露因素">{{ person.factors }}</el-descriptions-item>
+              <el-descriptions-item label="干预措施">{{ person.workflow.length }} 项</el-descriptions-item>
             </el-descriptions>
           </div>
 
-          <!-- 二、案例推荐说明 -->
+          <!-- 方案依据 -->
           <div class="report-section">
-            <h3 class="rs-title">二、案例推荐说明</h3>
+            <h3 class="rs-title">二、方案依据</h3>
 
             <!-- 核心结论（置顶突出） -->
             <div class="recommendation-hero">
-              <div class="rh-badge">预设推荐说明</div>
+              <div class="rh-badge">方案重点</div>
               <p class="rh-text">{{ person.recommendationSummary }}</p>
-              <div class="rh-meta">
-                <span>展示内容：预设归因与因素说明</span>
-                <span>对象：{{ person.id }} ({{ person.name }})</span>
-                <span>示例风险增幅：{{ person.score }}%</span>
-              </div>
             </div>
 
             <!-- 支撑论据：SHAP + 混杂因素 + 雷达图 -->
             <div class="evidence-grid">
               <div class="shap-analysis">
-                <h4>归因展示（预设值）</h4>
+                <h4>因素贡献（预设值）</h4>
                 <div class="shap-bars">
                   <div class="shap-row" v-for="s in person.shapBreakdown" :key="s.factor">
                     <span class="shap-label">{{ s.factor }}</span>
@@ -94,23 +82,23 @@
               </div>
 
               <div class="confounders-analysis">
-                <h4>案例因素说明</h4>
+                <h4>背景因素（预设资料）</h4>
                 <ul>
                   <li v-for="c in person.confounders" :key="c.factor">
-                    <strong>{{ c.factor }}：</strong>{{ c.impact }}
+                    {{ c.factor }}
                   </li>
                 </ul>
               </div>
             </div>
           </div>
 
-          <!-- 三、案例目标 -->
+          <!-- 观察指标 -->
           <div class="report-section">
-            <h3 class="rs-title">三、案例目标</h3>
+            <h3 class="rs-title">三、观察指标</h3>
             <div class="goals-grid">
               <div class="goal-item" v-for="o in person.outcomes" :key="o.label">
                 <el-icon><CircleCheckFilled /></el-icon>
-                {{ o.label }}：示例值 {{ o.before }}% → {{ o.after }}%
+                {{ o.label }}
               </div>
             </div>
           </div>
@@ -146,8 +134,8 @@
 
           <!-- 五、预期成效 -->
           <div class="report-section">
-            <h3 class="rs-title">五、成效展示示例</h3>
-            <p class="section-note">以下为预设展示值，不是本次分析的预测结果或疗效承诺。</p>
+            <h3 class="rs-title">五、干预指标对照</h3>
+            <p class="section-note">图中列示预设的干预前后对照值。实际成效须结合随访记录评估。</p>
             <div class="outcome-report">
               <div class="or-item" v-for="o in person.outcomes" :key="o.label">
                 <span class="or-label">{{ o.label }}</span>
@@ -162,14 +150,13 @@
           </div>
 
           <div class="report-footer">
-            <div class="sign-area"><p>方案示例 · 仅供功能体验</p><p>实际方案需结合完整资料，由专业人员评估。</p></div>
             <div class="report-btns">
               <el-button type="success" size="large" @click="handlePrint"><el-icon><Printer /></el-icon> 打印 / 保存 PDF</el-button>
               <el-button type="info" size="large" plain @click="goBack">返回方案推荐</el-button>
             </div>
           </div>
         </div>
-        <section v-else class="report-empty" aria-live="polite"><el-icon><Document /></el-icon><h1>未找到这个案例</h1><p>请返回方案推荐页，重新选择案例后查看报告。</p><el-button type="primary" @click="goBack">返回方案推荐</el-button></section>
+        <section v-else class="report-empty" aria-live="polite"><el-icon><Document /></el-icon><h1>未找到干预对象</h1><p>请返回方案推荐页选择对象，再查看对应报告。</p><el-button type="primary" @click="goBack">返回方案推荐</el-button></section>
       </div>
     </main>
   </div>
@@ -180,7 +167,7 @@ import { computed } from 'vue'
 import { ArrowLeft, CircleCheckFilled, Document, Printer } from '@element-plus/icons-vue'
 import { PRODUCT_SHORT_NAME } from '~/utils/product'
 
-useHead({ title: `方案示例报告 · ${PRODUCT_SHORT_NAME}` })
+useHead({ title: `干预方案报告 · ${PRODUCT_SHORT_NAME}` })
 
 const router = useRouter()
 const route = useRoute()
@@ -195,7 +182,7 @@ const getTagType = (type) => {
   return 'success'
 }
 
-// 完整的人员数据（与 plan/index.vue 同步）
+// 方案报告使用预设的人员资料、干预措施及对照值。
 const allPersons = {
   'SZ-284': { id: 'SZ-284', name: '张建国', dept: '第一熔炼车间', years: 18, factors: 'Pb, As', score: 68.5, level: 'level2',
     workflow: [
@@ -225,7 +212,7 @@ const allPersons = {
       { factor: '吸烟：20年烟龄，每日 15 支', impact: 'SHAP 分析显示吸烟贡献了 5% 的额外敏感性。吸烟者呼吸道黏膜纤毛清除功能下降，重金属粉尘沉积率升高。本方案将戒烟干预纳入核心措施之一。' },
       { factor: '年龄：52 岁', impact: '50 岁以上工人肾小球滤率自然下降约 10%，重金属排泄能力减弱，需在驱铅治疗中严格监测肾功能。' }
     ],
-    recommendationSummary: '本方案针对点：铅砷联合暴露下的中枢神经系统保护与戒烟干预。SHAP 分析显示，铅(Pb)贡献了 38% 的额外敏感性，砷(As)贡献了 22%，两者合计 60%——这意味着该个体的风险几乎完全由 Pb 和 As 的协同毒性驱动。更关键的是，20 年吸烟史（每日 15 支）额外贡献了 5% 的敏感性，吸烟导致的呼吸道黏膜纤毛损伤使铅粉尘沉积率升高 15-20%，形成"暴露-吸收"的正反馈。因此，本方案的核心策略是：①立即调离高危岗位切断暴露源；②EDTA 驱铅降低体内蓄积剂量；③GSH 抗氧化保护肝肾靶器官；④将戒烟干预作为独立措施纳入，打破吸烟对铅毒性的放大效应。'
+    recommendationSummary: '铅砷联合暴露下的中枢神经系统保护与戒烟干预。'
   },
   'SZ-105': { id: 'SZ-105', name: '刘伟', dept: '第一熔炼车间', years: 15, factors: 'Pb, Cd', score: 62.1, level: 'level2',
     workflow: [
@@ -254,7 +241,7 @@ const allPersons = {
       { factor: '饮酒：经常饮酒', impact: 'SHAP 分析显示饮酒贡献了 4% 的额外敏感性。酒精与镉在肝脏代谢中存在竞争，长期饮酒会削弱机体对镉的解毒能力。本方案建议严格戒酒。' },
       { factor: '年龄：48 岁', impact: '接近 50 岁，肾脏排泄功能开始自然衰退，镉蓄积风险进一步升高。' }
     ],
-    recommendationSummary: '本方案针对点：铅镉联合暴露下的肾脏不可逆损伤预防与戒酒干预。SHAP 分析显示，铅(Pb)贡献了 32% 的额外敏感性，镉(Cd)贡献了 25%，两者合计 57%。与其他高危对象不同，该个体面临的核心威胁是镉对肾近曲小管的不可逆损伤——镉在肾脏的生物半衰期长达 10-30 年，一旦损伤不可逆转。同时，经常饮酒的习惯额外贡献了 4% 的敏感性，酒精与镉在肝脏代谢中存在竞争，削弱了机体对镉的解毒能力。因此，本方案的核心策略是：①防护升级降低吸入量；②深度肾功能筛查（β2-微球蛋白、NAG 酶）捕获极早期损伤；③驱铅治疗同步保肾；④建立 3-5 年镉蓄积长期监测计划；⑤严格戒酒消除混杂因素。'
+    recommendationSummary: '铅镉联合暴露下的肾脏不可逆损伤预防与戒酒干预。'
   },
   'SZ-032': { id: 'SZ-032', name: '王强', dept: '第一熔炼车间', years: 14, factors: 'As, Ni', score: 55.4, level: 'level2',
     workflow: [
@@ -283,7 +270,7 @@ const allPersons = {
       { factor: '吸烟：10年烟龄，每日 10 支', impact: 'SHAP 分析显示吸烟贡献了 4% 的额外敏感性。吸烟者肺癌风险与砷暴露存在乘法交互效应，联合风险远高于单独暴露。' },
       { factor: '工种：尾气处理组', impact: '尾气处理岗位的砷/镍粉尘浓度高于熔炼岗位约 20%，属于高暴露工种。' }
     ],
-    recommendationSummary: '本方案针对点：砷镍联合暴露下的肝脏保护与皮肤癌前病变筛查。SHAP 分析显示，砷(As)贡献了 30% 的额外敏感性，镍(Ni)贡献了 18%，两者合计 48%。该个体的独特风险在于砷的双重靶器官毒性——肝脏（慢性肝损伤）和皮肤（掌跖角化、色素沉着、Bowen 病）。10 年吸烟史额外贡献了 4% 的敏感性，砷与吸烟存在乘法交互效应，联合致癌风险远高于单独暴露。因此，本方案的核心策略是：①岗位轮换缩短连续暴露时间；②保肝治疗（多烯磷脂酰胆碱 + GSH）；③皮肤科专项筛查排除癌前病变；④砷代谢物形态分析判断暴露来源；⑤建议戒烟以消除砷-吸烟的乘法交互效应。'
+    recommendationSummary: '砷镍联合暴露下的肝脏保护与皮肤癌前病变筛查。'
   },
   'SZ-142': { id: 'SZ-142', name: '李明', dept: '原矿粉碎区', years: 12, factors: 'Pb, Hg', score: 48.2, level: 'level2',
     workflow: [
@@ -312,7 +299,7 @@ const allPersons = {
       { factor: '工种：原矿粉碎区', impact: '原矿粉碎岗位粉尘浓度是熔炼岗位的 1.5 倍，铅/汞吸入风险显著更高。SHAP 模型已将工种作为分层变量纳入。' },
       { factor: '防护现状：KN95 口罩', impact: 'KN95 对金属粉尘的过滤效率约 95%，升级至 P100（99.97%）可进一步降低吸入量约 10 倍。' }
     ],
-    recommendationSummary: '本方案针对点：铅汞联合暴露下的神经毒性协同阻断与序贯排金属治疗。SHAP 分析显示，铅(Pb)贡献了 28% 的额外敏感性，汞(Hg)贡献了 15%，两者合计 43%。该个体的独特风险在于铅和汞均具有强神经毒性，存在协同放大效应——铅破坏血脑屏障通透性，汞直接攻击神经元，两者叠加可加速中枢神经退行性病变。原矿粉碎区的高粉尘浓度（防护不足贡献 3%）是重要的环境因素。因此，本方案的核心策略是：①防护装备全面升级至 P100 级别；②序贯治疗——先 EDTA 驱铅，间隔 1 周后 DMSA 排汞；③WHO-NCTB 神经行为核心测试评估中枢/周围神经功能；④建立 12-24 个月 Pb/Hg 联合长期随访档案。'
+    recommendationSummary: '铅汞联合暴露下的神经毒性协同阻断与序贯排金属治疗。'
   },
   'SZ-089': { id: 'SZ-089', name: '赵铁柱', dept: '原矿粉碎区', years: 11, factors: 'Cd, Cr', score: 41.5, level: 'level1',
     workflow: [
@@ -342,7 +329,7 @@ const allPersons = {
       { factor: '工种：原矿粉碎区', impact: '粉碎岗位粉尘浓度较高，是镉/铬暴露的主要来源。' },
       { factor: '非吸烟者', impact: '不吸烟，无额外的呼吸道暴露叠加效应，SHAP 模型中吸烟贡献为 0。' }
     ],
-    recommendationSummary: '本方案针对点：镉铬联合暴露下的肾小管早期损伤拦截与钙锌竞争性拮抗。SHAP 分析显示，镉(Cd)贡献了 22% 的额外敏感性，铬(Cr)贡献了 12%，两者合计 34%。该个体的独特风险在于镉和铬的肾脏协同毒性——镉直接损伤近曲小管上皮细胞（不可逆），六价铬通过氧化应激加重肾小管损伤。该个体不吸烟，无额外混杂因素叠加，风险纯粹由职业暴露驱动。因此，本方案的核心策略是：①岗位轮换缩短连续暴露时间；②基线检测建立个人暴露档案；③钙锌营养拮抗——钙/锌与镉/铬共用肠黏膜转运蛋白，高水平钙锌可竞争性减少有害金属吸收；④季度 β2-微球蛋白和 NAG 酶监测捕获极早期肾损伤。'
+    recommendationSummary: '镉铬联合暴露下的肾小管早期损伤拦截与钙锌竞争性拮抗。'
   },
   'SZ-311': { id: 'SZ-311', name: '陈刚', dept: '第一熔炼车间', years: 9, factors: 'Pb, As', score: 36.8, level: 'level1',
     workflow: [
@@ -372,7 +359,7 @@ const allPersons = {
       { factor: '非吸烟者', impact: '不吸烟，无额外呼吸道暴露叠加效应。' },
       { factor: '工种：第一熔炼车间', impact: '熔炼车间铅/砷粉尘浓度为全厂最高区域，是主要暴露来源。' }
     ],
-    recommendationSummary: '本方案针对点：铅砷低水平联合暴露下的环境阻断与维生素C拮抗。SHAP 分析显示，铅(Pb)贡献了 20% 的额外敏感性，砷(As)贡献了 12%，两者合计 32%，风险水平中等。该个体不吸烟、不饮酒、年龄较轻（38 岁），混杂因素极少，风险几乎完全由职业暴露驱动——这意味着环境干预的效果预期最佳。因此，本方案的核心策略是：①工位加装局部排风罩从源头降低粉尘浓度；②基线检测确认当前内暴露水平；③维生素 C 1000mg/日——维C可将六价铬还原为三价铬，同时加速铅排泄并抗氧化；④个人卫生规范强化切断经口/经皮肤二次暴露途径；⑤季度血铅监测追踪趋势。'
+    recommendationSummary: '铅砷低水平联合暴露下的环境阻断与维生素C拮抗。'
   },
   'SZ-402': { id: 'SZ-402', name: '孙磊', dept: '尾气处理组', years: 8, factors: 'As, Ni', score: 32.1, level: 'level1',
     workflow: [
@@ -402,7 +389,7 @@ const allPersons = {
       { factor: '吸烟：5年烟龄，每日 8 支', impact: 'SHAP 分析显示吸烟贡献了 3% 的额外敏感性。虽然烟龄较短，但砷与吸烟的乘法交互效应已开始显现。建议尽早戒烟。' },
       { factor: '工种：尾气处理组', impact: '尾气处理岗位砷/镍浓度高于均值约 20%。' }
     ],
-    recommendationSummary: '本方案针对点：砷镍联合暴露下的皮肤癌前病变早筛与戒烟窗口期干预。SHAP 分析显示，砷(As)贡献了 18% 的额外敏感性，镍(Ni)贡献了 10%，两者合计 28%。该个体的核心靶点是砷相关的皮肤角化和色素异常——慢性砷暴露可在 5-15 年后发展为 Bowen 病或皮肤鳞癌。5 年吸烟史额外贡献了 3% 的敏感性，虽然烟龄较短，但砷与吸烟的乘法交互效应正在积累，现在戒烟可以阻断这一进程。因此，本方案的核心策略是：①防护升级至 P100 级别；②砷代谢物形态分析判断暴露来源；③每 6 个月皮肤科专项检查排查癌前病变；④戒烟指导——当前处于砷-吸烟交互效应的早期窗口期，戒烟的边际收益最大。'
+    recommendationSummary: '砷镍联合暴露下的皮肤癌前病变早筛与戒烟窗口期干预。'
   },
   'SZ-175': { id: 'SZ-175', name: '周波', dept: '第一熔炼车间', years: 7, factors: 'Pb', score: 28.5, level: 'level1',
     workflow: [
@@ -432,7 +419,7 @@ const allPersons = {
       { factor: '非吸烟、非饮酒', impact: '无烟酒混杂因素，SHAP 模型中烟酒贡献均为 0。该个体的风险几乎完全由职业暴露驱动，干预效果预期最佳。' },
       { factor: '年龄：35 岁', impact: '相对年轻，肾脏排泄功能良好，铅的生物半衰期较短，干预后恢复预期较快。' }
     ],
-    recommendationSummary: '本方案针对点：单一铅暴露下的标准防护与钙锌竞争性阻断。SHAP 分析显示，铅(Pb)贡献了 18% 的额外敏感性，是唯一的正向风险因子——无镉、砷、汞等其他金属的协同毒性。该个体无吸烟、饮酒等混杂因素，年龄较轻（35 岁），肾脏排泄功能良好，铅的生物半衰期较短，干预后恢复预期最快。这是全部 10 名预警对象中风险结构最简单的案例。因此，本方案的核心策略是：①标准防护（KN95 口罩）即可满足需求；②血铅基线检测确认当前水平；③钙锌竞争性营养补充——钙/锌与铅共用肠黏膜转运蛋白，每日钙片 600mg + 锌 15mg 可有效减少铅的肠道吸收；④季度血铅监测追踪趋势。'
+    recommendationSummary: '单一铅暴露下的标准防护与钙锌竞争性阻断。'
   },
   'SZ-219': { id: 'SZ-219', name: '吴涛', dept: '原矿粉碎区', years: 6, factors: 'Cd, Hg', score: 24.2, level: 'level1',
     workflow: [
@@ -462,7 +449,7 @@ const allPersons = {
       { factor: '非吸烟者', impact: '不吸烟，无额外呼吸道暴露叠加效应。' },
       { factor: '工种：原矿粉碎区', impact: '粉碎区镉/汞粉尘浓度较高，但工龄仅 6 年，累积风险有限。' }
     ],
-    recommendationSummary: '本方案针对点：镉汞联合暴露下的早期肾功能保护与高钙膳食拮抗。SHAP 分析显示，镉(Cd)贡献了 15% 的额外敏感性，汞(Hg)贡献了 8%，两者合计 23%。该个体的独特优势在于工龄最短（6 年）且年龄最轻（32 岁）——这意味着体内蓄积量有限，肾脏尚未出现实质性损伤，是"窗口期"干预的最佳时机。镉和汞均以肾脏为主要靶器官，但早期干预可以阻止蓄积量达到损伤阈值。因此，本方案的核心策略是：①防护配发降低吸入量；②Cd/Hg 基线检测确认当前蓄积水平；③高钙膳食方案——每日牛奶 500ml + 钙片，钙与镉/汞竞争肠道吸收；④肾功能定期监测（β2-微球蛋白）捕获极早期变化；⑤个人卫生强化防止粉尘带入家庭环境。'
+    recommendationSummary: '镉汞联合暴露下的早期肾功能保护与高钙膳食拮抗。'
   },
   'SZ-056': { id: 'SZ-056', name: '郑凯', dept: '尾气处理组', years: 5, factors: 'Cr', score: 18.6, level: 'level1',
     workflow: [
@@ -492,7 +479,7 @@ const allPersons = {
       { factor: '非吸烟者', impact: '不吸烟，无额外呼吸道暴露叠加效应。铬粉尘主要经呼吸道吸入，不吸烟者的肺部清除能力显著优于吸烟者。' },
       { factor: '工种：尾气处理组', impact: '尾气处理岗位铬粉尘浓度较高，但工龄仅 5 年，累积风险最低。' }
     ],
-    recommendationSummary: '本方案针对点：单一铬暴露下的维生素C还原解毒与呼吸道防护。SHAP 分析显示，铬(Cr)贡献了 14% 的额外敏感性，是唯一的正向风险因子。该个体是全部 10 名预警对象中风险最低的——工龄最短（5 年）、年龄最轻（29 岁）、不吸烟，体内蓄积量极其有限。铬的独特毒性在于六价铬（Cr⁶⁺）的强氧化性和致癌性，但维生素 C 可以将六价铬还原为低毒的三价铬（Cr³⁺），这是本方案营养干预的核心机制。因此，本方案的核心策略是：①工位通风改善降低铬粉尘浓度；②基线检测（尿 Cr + 肺功能）确认当前水平；③维生素 C 1000mg/日作为铬中毒的关键拮抗剂；④KN95 口罩强化呼吸防护（铬主要经呼吸道吸入）；⑤季度体检监测。成本效益最优。'
+    recommendationSummary: '单一铬暴露下的维生素C还原解毒与呼吸道防护。'
   }
 }
 
@@ -521,16 +508,12 @@ $color-warn: #F59E0B;
 
 .report-view-wrapper { flex: 1 0 auto; background: #E2E8F0; padding: 40px 0; display: flex; justify-content: center; align-items: flex-start; }
 .report-paper { background: #fff; width: 1000px; height: max-content; padding: 80px; position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.1); border-radius: 2px; }
-.report-watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-35deg); font-size: 80px; color: rgba(0,0,0,0.03); font-weight: 900; pointer-events: none; white-space: nowrap; }
+
 
 .report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
   .rh-left { display: flex; align-items: center; gap: 12px; }
   .report-logo-custom { width: 32px; height: 32px; color: $color-primary; margin-bottom: 4px; }
   h1 { font-size: 24px; color: $text-main; margin: 0 0 10px 0; font-weight: 800; letter-spacing: -1px; } p { font-size: 13px; color: $text-muted; margin: 0; }
-  .risk-seal { border: 3px solid; width: 100px; height: 100px; border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; transform: rotate(15deg);
-    &.seal-danger { border-color: $color-danger; span { font-size: 12px; color: $color-danger; } strong { font-size: 22px; color: $color-danger; } }
-    &.seal-warn { border-color: $color-warn; span { font-size: 12px; color: $color-warn; } strong { font-size: 22px; color: $color-warn; } }
-  }
 }
 
 .report-section { margin-top: 40px; .rs-title { font-size: 18px; font-weight: 800; color: $text-main; border-bottom: 2px solid $text-main; padding-bottom: 8px; margin-bottom: 20px; } &.highlight { background: #F1F5F9; padding: 30px; border-radius: 8px; } }
@@ -608,7 +591,7 @@ $color-warn: #F59E0B;
 }
 @media screen and (max-width: 1280px) {
   .report-paper { padding: 40px; }
-  .report-watermark { font-size: clamp(24px, 4vw, 48px); max-width: 85%; white-space: normal; text-align: center; }
+
   .report-header { gap: 20px; }
   .report-header .rh-left { flex: 1; }
   .report-header .report-logo-custom { flex-shrink: 0; }
@@ -628,15 +611,15 @@ $color-warn: #F59E0B;
   .ep-right-zone { display: none; }
   .report-view-wrapper { padding: 12px; }
   .report-paper { width: 100%; padding: 20px 16px; border-radius: 10px; }
-  .report-watermark { font-size: clamp(18px, 6vw, 36px); max-width: 80%; white-space: normal; text-align: center; }
+
   .report-header { align-items: flex-start; flex-wrap: wrap; gap: 16px; }
   .report-header .rh-left { flex-basis: 100%; gap: 8px; align-items: flex-start; }
   .report-header .report-logo-custom { width: 26px; height: 26px; }
   .report-header h1 { font-size: 18px; }
   .report-header p { font-size: 11px; }
   .report-header .rh-right { margin-left: auto; padding: 0 8px 6px; }
-  .report-header .risk-seal { width: 76px; height: 76px; border-width: 2px; }
-  .report-header .risk-seal strong { font-size: 19px; }
+
+
   .report-section { margin-top: 28px; }
   .report-section .rs-title { font-size: 16px; line-height: 1.7; margin-bottom: 16px; }
   .custom-descriptions :deep(.el-descriptions__table) { table-layout: fixed; }
@@ -676,24 +659,49 @@ $color-warn: #F59E0B;
   .report-btns :deep(.el-button > span) { white-space: normal; }
 }
 
-/* Report presentation keeps the printed example clear and the return action usable. */
+/* Screen and print share the same source note and prevention level. */
 .workspace-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
 .workspace-heading .back-link { font: inherit; font-size: 13px; background: none; border: 0; padding: 4px 0; color: #68859b; }
 .workspace-heading .page-title-top { font-size: 15px; font-weight: 700; }
 .workspace-heading .divider { color: #c9d6e1; }
 .report-view-wrapper { background: #f3f7fb; }
 .report-paper { border: 1px solid #e3ebf3; border-radius: 12px; box-shadow: 0 8px 30px rgba(57, 91, 119, .06); padding: 48px 56px; }
-.report-demo-note { font-size: 11px; line-height: 1.8; color: #7c93a6; background: #f0f6fb; padding: 12px 14px; border-radius: 7px; margin: 0 0 28px; }
-.report-header .risk-seal { transform: none; border: 1px solid #d6e7f3; border-radius: 12px; background: #f4f9fd; width: 112px; height: 80px; }
-.report-header .risk-seal.seal-danger, .report-header .risk-seal.seal-warn { border-color: #d6e7f3; }
-.report-header .risk-seal.seal-danger span, .report-header .risk-seal.seal-warn span { color: #7c9bb1; font-size: 10px; }
-.report-header .risk-seal.seal-danger strong, .report-header .risk-seal.seal-warn strong { color: #4388b6; font-size: 22px; }
+
+
+
+
+
+/* Prevention level is indicated by its name, color and left border. */
+.report-paper { --level-ink: #15675d; --level-tint: #eef8f4; --level-rule: #55a899; border-top: 4px solid var(--level-rule); }
+.report-paper.secondary-prevention { --level-ink: #8b461b; --level-tint: #fff3e7; --level-rule: #c67a42; }
+.prevention-level { display: grid; gap: 3px; padding: 9px 16px; border-left: 3px solid var(--level-rule); background: var(--level-tint); color: var(--level-ink); }
+.prevention-level span { font-size: 12px; }
+.prevention-level strong { font-size: 17px; line-height: 1.4; white-space: nowrap; }
+.report-source { margin: 14px 0 0; padding: 12px 0; border-block: 1px solid #dce3ea; font-size: 12px; line-height: 1.75; color: #516375; }
+.report-footer { justify-content: flex-end; }
+.recommendation-hero { background: #f5f7fd; color: #27354c; border-color: #dce3f0; }
+.recommendation-hero .rh-text { color: #27354c; margin: 0; }
+.recommendation-hero .rh-badge { background: #e8ecf7; color: #384b72; }
+@media screen and (max-width: 700px) {
+  .report-header { gap: 10px; }
+  .report-header .rh-right { margin: 0; padding: 0; }
+  .prevention-level { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; }
+  .prevention-level strong { font-size: 13px; }
+}
+@media print {
+  .system-layout, .main-content { display: block; height: auto; overflow: visible; }
+  .report-view-wrapper { display: block; background: white; padding: 0; }
+  .report-view-wrapper .report-paper { width: 100%; }
+  .report-header, .report-source, .wr-step { break-inside: avoid; }
+  .report-section .rs-title { break-after: avoid; }
+  .report-source { color: #333e4c; }
+}
 .report-section .rs-title { border-bottom: 1px solid #e3ecf4; color: #35546c; font-size: 17px; padding-bottom: 12px; }
 .section-note { color: #899eaf; font-size: 12px; line-height: 1.7; }
 .report-empty { width: min(520px, calc(100% - 32px)); background: #fff; border: 1px solid #e2eaf2; border-radius: 12px; padding: 48px 24px; text-align: center; color: #58758b; }
 .report-empty > .el-icon { font-size: 38px; color: #7db3d6; }
 .report-empty h1 { font-size: 22px; margin-top: 20px; }
 .report-empty p { font-size: 13px; line-height: 1.8; color: #899baa; margin-bottom: 22px; }
-@media (max-width: 700px) { .report-paper { padding: 22px 18px; } .report-demo-note { font-size: 10px; margin-bottom: 22px; } .report-header h1 { font-size: 21px; } .report-header .risk-seal { width: 104px; height: 68px; } .report-section .rs-title { font-size: 16px; } .workspace-heading { gap: 10px; } .report-section { margin-top: 28px; } .or-item .or-delta { white-space: normal; font-size: 11px; } }
-@media print { .report-paper { border: none; border-radius: 0; box-shadow: none; padding: 20px; } .report-demo-note { border: 1px solid #cbd5e1; background: none; color: #475569; } .report-watermark { color: rgba(0,0,0,.035); } }
+@media (max-width: 700px) { .report-paper { padding: 22px 18px; } .report-header h1 { font-size: 21px; } .report-section .rs-title { font-size: 16px; } .workspace-heading { gap: 10px; } .report-section { margin-top: 28px; } .or-item .or-delta { white-space: normal; font-size: 11px; } }
+@media print { .report-paper { border: none; border-radius: 0; box-shadow: none; padding: 20px; } }
 </style>

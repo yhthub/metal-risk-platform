@@ -285,7 +285,7 @@
             <el-icon class="mr-1"><ArrowLeft /></el-icon> 返回数据接入
           </el-button>
           <el-button type="primary" size="large" class="final-run-btn font-bold shadow-lg shadow-blue-500/20" @click="goToPlan">
-            查看方案推荐（演示）
+            查看方案推荐
             <el-icon class="ml-1"><ArrowRight /></el-icon>
           </el-button>
         </div>

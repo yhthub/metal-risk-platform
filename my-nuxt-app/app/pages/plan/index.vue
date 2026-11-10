@@ -15,75 +15,70 @@
       <div class="page-container">
         <PipelineSteps :current="4" />
         <section class="plan-heading" aria-labelledby="plan-title">
-          <div>
-            <h1 id="plan-title">干预方案案例</h1>
-            <p>选择预防场景与案例，浏览管理措施、实施安排和方案报告。</p>
-          </div>
-          <div class="heading-meta"><span><strong>2</strong> 个预防场景</span><span><strong>{{ highRiskPersons.length + mediumRiskPersons.length }}</strong> 个预设案例</span></div>
+          <h1 id="plan-title">干预方案推荐</h1>
+          <p class="source-note"><el-icon aria-hidden="true"><InfoFilled /></el-icon>当前展示预设人员档案与管理方案，个体诊疗需经专业评估。</p>
         </section>
-        <p class="demo-notice"><el-icon><InfoFilled /></el-icon><span>以下为预设案例，供了解干预流程。个体诊疗与用药需由专业人员评估。</span></p>
 
         <section class="scenario-section" aria-labelledby="scenario-title">
-          <div class="section-heading"><h2 id="scenario-title">选择预防场景</h2></div>
-          <div class="scenario-options" role="group" aria-label="预防场景">
-            <button type="button" class="scenario-option" :class="{ selected: selectedLevel === 'level2' }" :aria-pressed="selectedLevel === 'level2'" @click="selectedLevel = 'level2'">
+          <div class="section-heading"><h2 id="scenario-title">预防层级</h2></div>
+          <div class="scenario-options" role="group" aria-label="选择预防层级">
+            <button type="button" class="scenario-option secondary-prevention" :class="{ selected: selectedLevel === 'level2' }" :aria-pressed="selectedLevel === 'level2'" @click="selectedLevel = 'level2'">
               <span class="scenario-icon"><el-icon><FirstAidKit /></el-icon></span>
               <span class="scenario-copy"><strong>二级预防</strong><span>早期筛查 · 专业评估 · 随访管理</span></span>
-              <span class="scenario-count">{{ highRiskPersons.length }} 个案例</span><el-icon v-if="selectedLevel === 'level2'" class="selected-mark"><CircleCheck /></el-icon>
+              <span class="scenario-count">{{ highRiskPersons.length }} 人</span><el-icon v-if="selectedLevel === 'level2'" class="selected-mark"><CircleCheck /></el-icon>
             </button>
-            <button type="button" class="scenario-option" :class="{ selected: selectedLevel === 'level1' }" :aria-pressed="selectedLevel === 'level1'" @click="selectedLevel = 'level1'">
+            <button type="button" class="scenario-option primary-prevention" :class="{ selected: selectedLevel === 'level1' }" :aria-pressed="selectedLevel === 'level1'" @click="selectedLevel = 'level1'">
               <span class="scenario-icon"><el-icon><Sunny /></el-icon></span>
               <span class="scenario-copy"><strong>一级预防</strong><span>健康教育 · 暴露管理 · 持续监测</span></span>
-              <span class="scenario-count">{{ mediumRiskPersons.length }} 个案例</span><el-icon v-if="selectedLevel === 'level1'" class="selected-mark"><CircleCheck /></el-icon>
+              <span class="scenario-count">{{ mediumRiskPersons.length }} 人</span><el-icon v-if="selectedLevel === 'level1'" class="selected-mark"><CircleCheck /></el-icon>
             </button>
           </div>
         </section>
 
         <div class="plan-workspace">
           <aside class="case-panel" aria-labelledby="case-title">
-            <div class="case-heading"><h2 id="case-title">案例对象</h2><span>{{ currentPersons.length }} 个</span></div>
-            <div class="case-list" role="group" aria-label="选择案例对象">
+            <div class="case-heading"><h2 id="case-title">干预对象</h2><span>{{ currentPersons.length }} 人</span></div>
+            <div class="case-list" role="group" aria-label="选择干预对象">
               <button v-for="person in currentPersons" :key="person.id" type="button" class="case-option" :class="{ selected: selectedPerson.id === person.id }" :aria-pressed="selectedPerson.id === person.id" @click="selectPerson(person.id)">
                 <span class="case-avatar" aria-hidden="true">{{ person.name.slice(0, 1) }}</span>
                 <span class="case-copy"><strong>{{ person.name }}</strong><span>{{ person.id }}</span></span>
                 <el-icon class="case-arrow"><ArrowRight /></el-icon>
               </button>
             </div>
-            <p class="case-hint">点击姓名切换。每个案例包含独立的步骤与报告。</p>
           </aside>
 
-          <section :key="selectedPerson.id" class="plan-detail" aria-label="当前案例方案">
+          <section :key="selectedPerson.id" class="plan-detail" aria-label="当前对象的干预方案">
             <div class="person-summary">
               <div class="person-summary-top">
-                <div><span class="detail-kicker">{{ selectedLevel === 'level2' ? '二级预防' : '一级预防' }} · 方案示例</span><h2>{{ selectedPerson.name }} <span>{{ selectedPerson.id }}</span></h2></div>
+                <div><span class="detail-kicker">{{ selectedLevel === 'level2' ? '二级预防' : '一级预防' }} · 干预方案</span><h2>{{ selectedPerson.name }} <span>{{ selectedPerson.id }}</span></h2></div>
                 <el-button type="primary" :icon="Document" @click="goToReport">查看方案报告</el-button>
               </div>
-              <div class="person-meta"><span>{{ selectedPerson.dept }}</span><span>暴露工龄 {{ selectedPerson.years }} 年</span><span>涉及因素 {{ selectedPerson.factors }}</span><span class="example-score">示例风险增幅 {{ selectedPerson.score }}%</span></div>
+              <div class="person-meta"><span>{{ selectedPerson.dept }}</span><span>接触工龄 {{ selectedPerson.years }} 年</span><span>暴露因素 {{ selectedPerson.factors }}</span></div>
             </div>
 
-            <div class="section-heading workflow-heading"><h2>实施步骤</h2><span>共 {{ selectedPerson.workflow.length }} 步 · 展开查看操作与指标</span></div>
+            <div class="section-heading workflow-heading"><h2>实施步骤</h2><span>{{ selectedPerson.workflow.length }} 项措施</span></div>
             <div class="workflow-grid">
-              <article v-for="(step, index) in selectedPerson.workflow" :key="index" class="workflow-card">
+              <article v-for="(step, index) in selectedPerson.workflow" :key="index" class="workflow-card" :data-measure="measureGroup[step.tag]">
                 <div class="workflow-card-header"><span class="step-index">{{ String(index + 1).padStart(2, '0') }}</span><span class="step-tag">{{ step.tag }}</span></div>
                 <h3>{{ step.title }}</h3>
                 <p class="step-description">{{ step.desc }}</p>
                 <div class="step-meta"><span><el-icon><Clock /></el-icon>{{ step.period }}</span><span v-if="step.cost">费用等级：{{ step.cost }}</span></div>
                 <details v-if="step.detail || step.indicator" class="step-more">
                   <summary>查看操作与指标 <span aria-hidden="true">＋</span></summary>
-                  <div v-if="step.detail" class="step-extra"><strong>操作示例</strong><p>{{ step.detail }}</p></div>
-                  <div v-if="step.indicator" class="step-extra"><strong>观察指标示例</strong><p>{{ step.indicator }}</p></div>
+                  <div v-if="step.detail" class="step-extra"><strong>实施要点</strong><p>{{ step.detail }}</p></div>
+                  <div v-if="step.indicator" class="step-extra"><strong>观察指标</strong><p>{{ step.indicator }}</p></div>
                 </details>
               </article>
             </div>
 
             <details class="outcomes-panel">
-              <summary><span><el-icon><TrendCharts /></el-icon>成效展示示例</span><span class="outcomes-toggle">展开查看</span></summary>
+              <summary><span><el-icon><TrendCharts /></el-icon>干预指标对照</span><span class="outcomes-toggle">展开查看</span></summary>
               <div class="outcomes-body">
-                <p>以下百分比为预设展示值，不是本次分析的预测结果或疗效承诺。</p>
+                <p>图中百分比为方案预设对照值。</p>
                 <div class="outcome-grid"><div v-for="outcome in selectedPerson.outcomes" :key="outcome.label" class="outcome-item"><h3>{{ outcome.label }}</h3><div class="outcome-row"><span>干预前</span><div class="outcome-track"><i :style="{ width: outcome.before + '%' }"></i></div><strong>{{ outcome.before }}%</strong></div><div class="outcome-row after"><span>干预后</span><div class="outcome-track"><i :style="{ width: outcome.after + '%' }"></i></div><strong>{{ outcome.after }}%</strong></div></div></div>
               </div>
             </details>
-            <div class="detail-footer"><span>完整案例、步骤与成效示例均可在报告中查看。</span><button type="button" @click="goToReport">查看方案报告 <el-icon><ArrowRight /></el-icon></button></div>
+            <div class="detail-footer"><button type="button" @click="goToReport">查看方案报告 <el-icon><ArrowRight /></el-icon></button></div>
           </section>
         </div>
       </div>
@@ -99,6 +94,14 @@ import { PRODUCT_SHORT_NAME } from '~/utils/product'
 useHead({ title: `方案推荐 · ${PRODUCT_SHORT_NAME}` })
 const router = useRouter()
 const route = useRoute()
+// Group the existing intervention tags by the purpose of the measure.
+const measureGroup = {
+  紧急防护: 'urgent', 紧急阻断: 'urgent', 暴露阻断: 'urgent',
+  精准诊断: 'clinical', 临床干预: 'clinical', 靶器官保护: 'clinical',
+  靶器官评估: 'assessment', 并发症排查: 'assessment', 健康筛查: 'assessment', 专项筛查: 'assessment', 综合评估: 'assessment',
+  疗效追踪: 'monitoring', 定期监测: 'monitoring', 长期监测: 'monitoring', 持续管控: 'monitoring', 长期管控: 'monitoring', 远期防控: 'monitoring',
+  辅助措施: 'prevention', 个人防护: 'prevention', 环境控制: 'prevention', 健康教育: 'prevention', 行为干预: 'prevention', 营养干预: 'prevention',
+}
 const selectedLevel = ref('level2')
 const activePerson = ref('SZ-284')
 const activeMediumPerson = ref('SZ-089')
@@ -300,7 +303,7 @@ const goToReport = () => router.push({ path: '/plan/specplan', query: { person: 
 
 <style scoped>
 * { box-sizing: border-box; }
-.system-layout { display: flex; height: 100vh; overflow: hidden; background: #f6f9fc; color: #22364b; }
+.system-layout { display: flex; height: 100vh; overflow: hidden; background: #f5f7fa; color: #202f47; }
 .main-content { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100vh; overflow-y: auto; }
 .ep-header { position: sticky; top: 0; z-index: 30; flex-shrink: 0; background: #fff; border-bottom: 1px solid #e5edf4; }
 .nav-wrapper { min-height: 64px; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
@@ -311,90 +314,114 @@ const goToReport = () => router.push({ path: '/plan/specplan', query: { person: 
 .page-title-top { font-size: 15px; font-weight: 700; }
 .header-caption { color: #8a9caf; font-size: 12px; }
 .page-container { flex: 1 0 auto; width: 100%; max-width: 1400px; margin: 0 auto; padding: 30px 36px 48px; min-width: 0; box-sizing: border-box; }
-.plan-heading { margin-top: 0; display: flex; justify-content: space-between; gap: 24px; align-items: center; }
-.eyebrow { font-size: 10px; letter-spacing: 1.4px; color: #5791ba; font-weight: 700; }
-.plan-heading h1 { margin: 10px 0 9px; font-size: clamp(21px, 1.9vw, 28px); font-weight: 700; letter-spacing: -.4px; line-height: 1.4; }
-.plan-heading p { color: #74899c; font-size: 13px; margin: 0; line-height: 1.8; }
-.heading-meta { display: flex; gap: 20px; flex-shrink: 0; color: #8799aa; font-size: 11px; }
-.heading-meta span { display: flex; flex-direction: column; gap: 5px; }
-.heading-meta strong { font-size: 24px; color: #4a779a; font-weight: 600; }
-.demo-notice { display: flex; align-items: flex-start; gap: 8px; color: #6d8598; background: #edf5fb; border-radius: 8px; padding: 11px 14px; margin: 22px 0 26px; font-size: 12px; line-height: 1.7; }
-.demo-notice .el-icon { flex-shrink: 0; margin-top: 4px; color: #5e9ac5; }
-.section-heading { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; margin-bottom: 12px; }
-.section-heading h2, .case-heading h2 { font-size: 15px; margin: 0; font-weight: 700; }
-.section-heading > span { font-size: 11px; color: #8b9aac; }
+.plan-heading { margin: 0 0 22px; }
+.plan-heading h1 { margin: 0; font-size: clamp(24px, 2vw, 31px); color: #172d49; line-height: 1.4; font-weight: 750; }
+.source-note { display: flex; align-items: baseline; gap: 7px; margin: 8px 0 0; color: #506379; font-size: 12px; line-height: 1.7; }
+.source-note .el-icon { flex-shrink: 0; color: #59718c; align-self: flex-start; margin-top: 4px; }
+.section-heading, .case-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.section-heading { margin-bottom: 12px; }
+.section-heading h2, .case-heading h2 { margin: 0; color: #213855; font-size: 16px; font-weight: 700; }
+.section-heading > span, .case-heading > span { color: #52667c; font-size: 12px; }
 .scenario-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.scenario-option { display: flex; align-items: center; gap: 13px; text-align: left; width: 100%; padding: 19px; background: #fff; border: 1px solid #e2eaf2; border-radius: 12px; cursor: pointer; color: inherit; font-family: inherit; transition: border-color .15s, background .15s; min-width: 0; }
-.scenario-option:hover { border-color: #a7c9e2; }
-.scenario-option.selected { border-color: #73b0da; background: #f3f9fd; box-shadow: 0 0 0 1px #c5e0f2; }
-.scenario-icon { display: grid; place-items: center; flex-shrink: 0; width: 42px; height: 42px; border-radius: 11px; background: #edf4fa; color: #5c98c2; font-size: 21px; }
-.scenario-option.selected .scenario-icon { background: #dfedf8; color: #287fba; }
-.scenario-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 6px; }
-.scenario-copy strong { font-size: 15px; }
-.scenario-copy > span { color: #7f92a4; font-size: 11px; line-height: 1.6; }
-.scenario-count { color: #6e8ba3; font-size: 11px; white-space: nowrap; }
-.selected-mark { color: #2884bf; flex-shrink: 0; }
-.plan-workspace { display: grid; grid-template-columns: 210px minmax(0, 1fr); align-items: start; gap: 22px; margin-top: 26px; }
-.case-panel { background: #fff; border: 1px solid #e3ebf2; border-radius: 12px; padding: 16px 10px; position: sticky; top: 20px; }
-.case-heading { display: flex; justify-content: space-between; align-items: center; padding: 0 7px 15px; }
-.case-heading > span { font-size: 11px; color: #97a8b7; }
-.case-list { display: flex; flex-direction: column; gap: 7px; }
-.case-option { display: flex; align-items: center; gap: 10px; padding: 12px 10px; min-height: 64px; border: 1px solid transparent; background: transparent; border-radius: 8px; text-align: left; cursor: pointer; font-family: inherit; color: #465e73; }
-.case-option:hover { background: #f4f8fb; }
-.case-option.selected { background: #edf6fc; border-color: #d1e6f5; color: #287eb8; }
-.case-avatar { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; font-size: 13px; font-weight: 600; color: #839ab0; background: #f0f4f8; flex-shrink: 0; }
-.case-option.selected .case-avatar { color: #2b7db7; background: #dceefb; }
-.case-copy { display: flex; flex: 1; flex-direction: column; gap: 5px; min-width: 0; }
-.case-copy strong { font-size: 13px; }
-.case-copy > span { font-size: 10px; color: #92a2b2; letter-spacing: .5px; }
-.case-arrow { font-size: 12px; color: #a5bacb; }
-.case-hint { font-size: 10px; color: #94a5b4; line-height: 1.8; margin: 16px 7px 0; padding-top: 12px; border-top: 1px solid #eef2f6; }
+.scenario-option { display: flex; align-items: center; gap: 14px; min-width: 0; min-height: 78px; padding: 15px 18px; border: 1px solid #d6e1e5; border-inline-start: 4px solid var(--accent); border-radius: 10px; background: #fff; text-align: left; color: #23364c; font: inherit; cursor: pointer; transition: border-color .15s, background .15s; }
+.primary-prevention { --accent: #147666; --tint: #e9f6f1; --icon-bg: #d5eee5; }
+.secondary-prevention { --accent: #a05c28; --tint: #fcf2e8; --icon-bg: #f7e5d4; }
+.scenario-option:hover, .scenario-option.selected { background: var(--tint); border-color: var(--accent); }
+.scenario-option.selected { box-shadow: inset 0 0 0 1px var(--accent); }
+.scenario-icon { display: grid; place-items: center; flex-shrink: 0; width: 42px; height: 42px; border-radius: 11px; background: var(--icon-bg); color: var(--accent); font-size: 22px; }
+.scenario-option.selected .scenario-icon { color: #fff; background: var(--accent); }
+.scenario-copy { display: grid; gap: 5px; flex: 1; min-width: 0; }
+.scenario-copy strong { color: var(--accent); font-size: 16px; font-weight: 700; }
+.scenario-copy > span, .scenario-count { color: #495d70; font-size: 12px; line-height: 1.5; }
+.scenario-count { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.selected-mark { flex-shrink: 0; color: var(--accent); font-size: 18px; }
+.plan-workspace { display: grid; grid-template-columns: 210px minmax(0, 1fr); align-items: start; gap: 20px; margin-top: 24px; }
+.case-panel { position: sticky; top: 78px; padding: 0 9px 10px; border: 1px solid #dbe3ed; border-radius: 12px; background: #fff; }
+.case-heading { padding: 16px 6px 12px; border-bottom: 1px solid #e6ebf0; margin-bottom: 8px; }
+.case-list { display: flex; flex-direction: column; gap: 5px; }
+.case-option { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 55px; padding: 8px 10px; border: 1px solid transparent; border-radius: 7px; text-align: left; cursor: pointer; font: inherit; color: #364b60; background: transparent; }
+.case-option:hover { background: #f4f6fa; }
+.case-option.selected { background: #ebedfa; border-color: #cbd2ef; color: #293d78; box-shadow: inset 3px 0 #5266a7; }
+.case-avatar { flex-shrink: 0; display: grid; place-items: center; width: 32px; height: 32px; background: #edf1f5; color: #56687a; font-size: 14px; font-weight: 670; border-radius: 50%; }
+.case-option.selected .case-avatar { color: #fff; background: #485a91; }
+.case-copy { display: grid; flex: 1; min-width: 0; gap: 3px; }
+.case-copy strong { font-size: 14px; }
+.case-copy > span { color: #56677c; font-size: 11px; letter-spacing: .3px; }
+.case-arrow { flex-shrink: 0; color: #6f8194; font-size: 13px; }
+.case-option.selected .case-arrow { color: #384d88; }
 .plan-detail { min-width: 0; }
-.person-summary { padding: 22px 24px; background: linear-gradient(110deg, #fff, #f5fafd); border: 1px solid #e0ebf3; border-radius: 12px; }
-.person-summary-top { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
-.detail-kicker { color: #7099b9; font-size: 11px; }
-.person-summary h2 { font-size: 23px; font-weight: 700; margin: 8px 0 0; line-height: 1.4; }
-.person-summary h2 > span { color: #8ba0b2; font-size: 12px; font-weight: 500; margin-left: 9px; }
-.person-summary :deep(.el-button) { border-radius: 8px; min-height: 38px; flex-shrink: 0; }
-.person-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 11px; color: #7a90a3; margin-top: 18px; padding-top: 14px; border-top: 1px solid #e7eff5; line-height: 1.6; }
-.person-meta .example-score { color: #8796a5; }
-.workflow-heading { margin-top: 26px; }
+.person-summary { padding: 20px 22px; border-radius: 12px; background: linear-gradient(110deg, #202f50, #32476b); color: #fff; }
+.person-summary-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.detail-kicker { color: #d3e2f4; font-size: 12px; }
+.person-summary h2 { margin: 4px 0 0; color: #fff; font-size: 25px; font-weight: 700; line-height: 1.4; }
+.person-summary h2 > span { color: #d5dfef; font-size: 12px; font-weight: 500; margin-left: 8px; }
+.person-summary :deep(.el-button) { --el-button-bg-color: #fff; --el-button-border-color: #fff; --el-button-text-color: #243758; --el-button-hover-bg-color: #e5ecfc; --el-button-hover-border-color: #e5ecfc; --el-button-hover-text-color: #182a4b; --el-button-active-bg-color: #d6e0f5; --el-button-active-text-color: #172843; flex-shrink: 0; min-height: 38px; border-radius: 7px; font-weight: 650; }
+.person-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #516480; color: #eff3fa; font-size: 12px; line-height: 1.6; }
+.workflow-heading { margin-top: 24px; }
 .workflow-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
-.workflow-card { border: 1px solid #e1eaf2; border-radius: 12px; padding: 20px; background: #fff; min-width: 0; }
-.workflow-card-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.step-index { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: #eef5fb; color: #4b91c0; font-size: 12px; font-weight: 700; }
-.step-tag { color: #7f9aaf; font-size: 10px; background: #f3f7fa; border-radius: 4px; padding: 4px 7px; }
-.workflow-card h3 { margin: 15px 0 9px; font-size: 14px; color: #2e485e; line-height: 1.6; font-weight: 700; }
-.step-description { font-size: 12px; color: #74899b; line-height: 1.9; margin: 0; }
-.step-meta { display: flex; flex-wrap: wrap; gap: 8px 12px; font-size: 10px; color: #8a9dac; margin-top: 14px; line-height: 1.6; }
+.workflow-card { --measure: #415773; --measure-bg: #edf1f6; min-width: 0; border: 1px solid #dbe3ec; border-radius: 10px; background: #fff; padding: 17px 19px; }
+.workflow-card[data-measure="urgent"] { --measure: #9c4b21; --measure-bg: #fff0de; }
+.workflow-card[data-measure="clinical"] { --measure: #69488a; --measure-bg: #f3edf9; }
+.workflow-card[data-measure="assessment"] { --measure: #2f5b92; --measure-bg: #eaf1fb; }
+.workflow-card[data-measure="monitoring"] { --measure: #46616b; --measure-bg: #eaf1f2; }
+.workflow-card[data-measure="prevention"] { --measure: #21685b; --measure-bg: #e7f3ee; }
+.workflow-card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.step-index { color: #526982; font-size: 13px; letter-spacing: .04em; font-weight: 700; font-variant-numeric: tabular-nums; }
+.step-tag { border-radius: 5px; padding: 3px 8px; background: var(--measure-bg); color: var(--measure); font-weight: 600; font-size: 11px; }
+.workflow-card h3 { color: #24384e; margin: 9px 0 5px; font-size: 16px; font-weight: 700; line-height: 1.6; }
+.step-description { color: #465b70; margin: 0; font-size: 13px; line-height: 1.8; }
+.step-meta { display: flex; flex-wrap: wrap; gap: 5px 13px; margin-top: 12px; font-size: 11px; line-height: 1.6; color: #52677b; }
 .step-meta > span { display: inline-flex; align-items: center; gap: 5px; }
-.step-more { border-top: 1px solid #edf2f6; margin-top: 15px; padding-top: 12px; }
-.step-more summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 11px; color: #5d94ba; list-style: none; min-height: 24px; }
+.step-more { border-top: 1px solid #e5eaf0; margin-top: 12px; padding-top: 6px; }
+.step-more summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 12px; color: #344e87; list-style: none; min-height: 31px; }
 summary::-webkit-details-marker { display: none; }
 .step-more[open] summary > span { transform: rotate(45deg); }
-.step-extra { padding: 11px 12px; margin-top: 10px; border-radius: 7px; background: #f7fafc; }
-.step-extra strong { font-size: 10px; color: #7890a4; font-weight: 600; }
-.step-extra p { font-size: 11px; line-height: 1.9; color: #687f93; margin: 5px 0 0; overflow-wrap: anywhere; }
-.outcomes-panel { border: 1px solid #e1eaf2; border-radius: 12px; background: #fff; margin-top: 20px; }
-.outcomes-panel > summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 18px 20px; cursor: pointer; list-style: none; }
-.outcomes-panel summary > span:first-child { display: inline-flex; align-items: center; gap: 9px; color: #496a83; font-size: 13px; font-weight: 600; }
-.outcomes-toggle { font-size: 11px; color: #8da4b6; }
+.step-extra { padding: 10px 12px; margin-top: 7px; border-radius: 6px; background: #f5f7fa; }
+.step-extra strong { color: #3e526a; font-size: 12px; font-weight: 650; }
+.step-extra p { margin: 4px 0 0; color: #465b70; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.outcomes-panel { border: 1px solid #dbe3ec; border-radius: 10px; background: #fff; margin-top: 18px; }
+.outcomes-panel > summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 18px; cursor: pointer; list-style: none; }
+.outcomes-panel summary > span:first-child { display: inline-flex; align-items: center; gap: 9px; color: #344961; font-size: 14px; font-weight: 650; }
+.outcomes-toggle { color: #52677c; font-size: 12px; }
 .outcomes-panel[open] .outcomes-toggle { display: none; }
-.outcomes-body { padding: 0 20px 20px; }
-.outcomes-body > p { margin: 0 0 18px; font-size: 11px; color: #8da0b0; line-height: 1.8; }
-.outcome-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; }
-.outcome-item h3 { margin: 0 0 10px; font-size: 12px; color: #607c92; font-weight: 600; }
-.outcome-row { display: flex; align-items: center; gap: 9px; font-size: 10px; color: #92a1b0; margin-top: 7px; }
+.outcomes-body { padding: 0 18px 18px; }
+.outcomes-body > p { margin: 0 0 14px; color: #4b6176; font-size: 12px; }
+.outcome-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; }
+.outcome-item h3 { margin: 0 0 8px; font-size: 13px; color: #42586d; font-weight: 600; }
+.outcome-row { display: flex; align-items: center; gap: 8px; color: #506579; font-size: 11px; margin-top: 6px; }
 .outcome-row > span { flex-shrink: 0; }
-.outcome-row > strong { width: 30px; text-align: right; font-weight: 500; }
-.outcome-track { flex: 1; height: 7px; background: #edf3f7; border-radius: 4px; overflow: hidden; }
-.outcome-track i { display: block; height: 100%; background: #b4cedf; border-radius: inherit; }
-.after .outcome-track i { background: #6aa9d1; }
-.detail-footer { display: flex; justify-content: space-between; align-items: center; gap: 15px; padding: 20px 2px 0; font-size: 11px; color: #90a1b0; line-height: 1.7; }
-.detail-footer button { display: flex; align-items: center; gap: 7px; padding: 8px 0; border: 0; background: none; color: #4e95c3; cursor: pointer; font-family: inherit; font-size: 12px; white-space: nowrap; }
+.outcome-row > strong { min-width: 32px; text-align: right; font-weight: 600; }
+.outcome-track { flex: 1; height: 7px; background: #edf1f5; border-radius: 5px; overflow: hidden; }
+.outcome-track i { display: block; height: 100%; background: #8292a5; border-radius: inherit; }
+.after .outcome-track i { background: #397c74; }
+.detail-footer { display: flex; justify-content: flex-end; padding: 12px 0 0; }
+.detail-footer button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 0; border: 0; background: none; color: #344e87; cursor: pointer; font: inherit; font-size: 12px; }
 button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid #438fc4; outline-offset: 4px; }
-@media (max-width: 1280px) { .page-container { padding: 26px 24px 40px; } .heading-meta { display: none; } .plan-workspace { grid-template-columns: 180px minmax(0, 1fr); gap: 16px; } .scenario-option { padding: 15px; gap: 10px; } .scenario-count { display: none; } .workflow-card { padding: 17px; } }
-@media (max-width: 900px) { .plan-workspace { grid-template-columns: 1fr; } .case-panel { position: static; padding: 14px; } .case-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); } .case-option { min-height: 58px; padding: 9px; } .case-hint { display: none; } }
-@media (max-width: 600px) { .nav-wrapper { padding: 14px 16px; min-height: 58px; } .nav-left { gap: 12px; } .header-caption { display: none; } .page-container { padding: 20px 14px 32px; }  .plan-heading h1 { font-size: 21px; } .plan-heading p { font-size: 12px; } .demo-notice { margin: 18px 0 22px; font-size: 11px; padding: 10px 12px; } .section-heading { gap: 10px; } .section-heading > span { font-size: 10px; } .scenario-options { grid-template-columns: 1fr; gap: 10px; } .scenario-option { min-height: 80px; padding: 15px; } .scenario-count { display: inline; } .scenario-copy > span { font-size: 10px; } .case-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } .person-summary { padding: 18px; } .person-summary-top { align-items: flex-start; flex-wrap: wrap; gap: 14px; } .person-summary-top :deep(.el-button) { min-height: 42px; } .person-summary h2 { font-size: 22px; } .person-meta { gap: 7px 12px; } .workflow-grid { grid-template-columns: 1fr; } .workflow-card { padding: 18px; } .workflow-card h3 { font-size: 15px; } .step-description { font-size: 12px; } .step-more summary { min-height: 36px; } .outcome-grid { grid-template-columns: 1fr; } .detail-footer { flex-direction: column; align-items: flex-start; gap: 5px; } .detail-footer button { min-height: 40px; } }
+@media (max-width: 1280px) {
+  .plan-workspace { grid-template-columns: 180px minmax(0, 1fr); gap: 16px; }
+  .scenario-option { padding: 14px; gap: 10px; }
+}
+@media (max-width: 900px) {
+  .plan-workspace { grid-template-columns: 1fr; }
+  .case-panel { position: static; }
+  .case-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .page-container { padding: 20px 14px 32px; }
+  .nav-wrapper { min-height: 58px; padding: 14px 16px; }
+  .plan-heading { margin-bottom: 18px; }
+  .plan-heading h1 { font-size: 23px; }
+  .source-note { font-size: 12px; }
+  .scenario-options, .workflow-grid, .outcome-grid { grid-template-columns: 1fr; }
+  .scenario-options { gap: 8px; }
+  .scenario-option { padding: 11px 13px; min-height: 67px; }
+  .case-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .case-option { padding: 8px; }
+  .person-summary { padding: 17px; }
+  .person-summary-top { flex-wrap: wrap; gap: 10px; }
+  .person-summary :deep(.el-button) { min-height: 42px; }
+  .workflow-card { padding: 15px; }
+  .step-more summary, .detail-footer button { min-height: 44px; }
+}
 @media (prefers-reduced-motion: reduce) { .scenario-option { transition: none; } }
 </style>
