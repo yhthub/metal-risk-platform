@@ -6,7 +6,7 @@ export const INDIVIDUAL_DEMO_LABEL = '合成演示数据'
 export const INDIVIDUAL_DEMO_NOTE = '所有数值均为合成示例，仅用于体验录入与参考比较；氡为住宅室内年均环境指标，不是人体样本或工作场所读数。'
 
 export type IndividualDemoData = Record<MeasurementKey, number> & {
-  name: string
+  objectId: string
   gender: 'male' | 'female'
   age: number
   workYears: number
@@ -39,7 +39,7 @@ export function createIndividualDemo(): IndividualDemo {
   return {
     job: 'smelting',
     singleData: {
-      name: 'DEMO-001（合成示例）', gender: 'male', age: 38, workYears: 11,
+      objectId: 'DEMO-001', gender: 'male', age: 38, workYears: 11,
       education: 'high', marital: 'married', smoking: 'never', drinking: 'occasional',
       bmi: 24.2, ppe: 'standard', history: '合成示例：未记录职业病史（非真实人员）',
       pb: 42, cd: 3.2, hg: 6.8, th: 0.4, li: 12, cr: 2.4, ni: 3.6, co: 0.7,

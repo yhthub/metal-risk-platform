@@ -53,8 +53,8 @@
           <div class="bottom-action-bar cohort-action-bar"><el-button type="primary" @click="goToPlan">进入方案推荐</el-button><el-button type="success" plain :icon="Document" @click="goToReportPage">群体分析报告</el-button><el-button @click="downloadCompositeWarning">下载综合预警排序</el-button><el-button @click="downloadCohortSummary">下载全群汇总</el-button><el-button @click="downloadCohortRanking">下载所选结局排序</el-button><el-button @click="downloadAllCohortRecords">下载全部对象结果</el-button></div>
         </section>
         <div class="results-dashboard" v-if="(mode === 'individual' || showIndividualDetail) && reasoningComplete && !isReasoning">
-          <el-alert v-if="mode === 'batch'" class="scope-alert" type="warning" :closable="false" :title="'个人明细：以下所有曲线和贡献图仅属于' + selectedPersonName + '，不能替代上方全群体统计。'" />
-          <div class="alert-conclusion-banner research-banner"><div class="a-icon"><el-icon><WarningFilled /></el-icon></div><div class="a-content"><h4>本次真实模型结果：<span>{{ charts?.label_zh }} · {{ selectedPersonName }}</span></h4><p>共 {{ dashboard!.prediction.results.length }} 项结局，{{ availableCount }} 项提供探索性估计，其余暂不出值。下方图表反映指标估计、模型输入响应与局部贡献，不代表因果效应、安全阈值或职业病风险等级。</p></div></div>
+          <el-alert v-if="mode === 'batch'" class="scope-alert" type="warning" :closable="false" :title="'个人明细：以下所有曲线和贡献图仅属于' + selectedPersonCode + '，不能替代上方全群体统计。'" />
+          <div class="alert-conclusion-banner research-banner"><div class="a-icon"><el-icon><WarningFilled /></el-icon></div><div class="a-content"><h4>本次真实模型结果：<span>{{ charts?.label_zh }} · {{ selectedPersonCode }}</span></h4><p>共 {{ dashboard!.prediction.results.length }} 项结局，{{ availableCount }} 项提供探索性估计，其余暂不出值。下方图表反映指标估计、模型输入响应与局部贡献，不代表因果效应、安全阈值或职业病风险等级。</p></div></div>
           <section><div class="analysis-section-heading"><h3>单人健康指标分析</h3><p>基于本次输入展示指标估计、可估计结局覆盖和模型输入响应。</p></div>
           <div class="results-grid">
             <div class="result-card col-span-4 border-danger">
@@ -98,7 +98,7 @@
     </main>
     <el-dialog v-model="inputDialog" title="核对本次模型输入" width="min(850px, calc(100vw - 24px))" class="risk-input-dialog" destroy-on-close>
       <p class="dialog-note">{{ mode === 'batch' ? '批次必须在数据工作台导入含BMI的真实NHANES格式；J周期原始列的铅单位固定为μg/dL，镉和总汞为μg/L（等价ng/mL）。在此核对全血样本、原始单位与分析物，不按列名替你确认。' : '年龄、性别、BMI和三种全血金属为必填。未知保持空，数值0仅用于实际测得为0的情况。' }}</p>
-      <div v-if="mode === 'individual'" class="input-grid"><label>对象编号<el-input v-model="draft.person.id" placeholder="可选，避免姓名" /></label><label>年龄 / 岁<el-input v-model.number="draft.person.age" type="number" placeholder="18–80岁整数" /></label><label>生理性别<el-select v-model="draft.person.gender" placeholder="未确认" clearable @clear="draft.person.gender = null" @change="draft.person.gender_confirmed = false"><el-option label="女性" value="female" /><el-option label="男性" value="male" /></el-select></label><label>BMI / kg·m⁻²<el-input v-model.number="draft.person.bmi" type="number" /></label></div>
+      <div v-if="mode === 'individual'" class="input-grid"><label>对象编号<el-input :model-value="draft.person.id" readonly aria-description="由系统分配" /></label><label>年龄 / 岁<el-input v-model.number="draft.person.age" type="number" placeholder="18–80岁整数" /></label><label>生理性别<el-select v-model="draft.person.gender" placeholder="未确认" clearable @clear="draft.person.gender = null" @change="draft.person.gender_confirmed = false"><el-option label="女性" value="female" /><el-option label="男性" value="male" /></el-select></label><label>BMI / kg·m⁻²<el-input v-model.number="draft.person.bmi" type="number" /></label></div>
       <el-checkbox class="input-confirmation" v-if="mode === 'individual'" v-model="draft.person.gender_confirmed" :disabled="!draft.person.gender">已明确核对性别，未沿用未经确认的默认值</el-checkbox>
       <div class="dialog-metals"><section v-for="metal in METAL_FIELDS" :key="metal.key"><h4>{{ metal.label }}</h4><label v-if="mode === 'individual'">实测浓度<el-input v-model.number="draft.person[metal.key]" type="number" placeholder="缺测留空" /></label><label>样本<el-select v-model="draft.measurements[metal.key].sample" @change="draft.measurements[metal.key].confirmed = false"><el-option label="未确认" value="" /><el-option label="全血" value="whole_blood" /><el-option label="血清（不适用）" value="serum" /><el-option label="尿样（不适用）" value="urine" /><el-option label="随机尿（不适用）" value="random_urine" /></el-select></label><label>原始单位<el-select v-model="draft.measurements[metal.key].unit" @change="draft.measurements[metal.key].confirmed = false"><el-option label="未确认" value="" /><el-option v-for="unit in unitsFor(metal.key)" :key="unit" :value="unit" :label="unit.replace('ug', 'μg')" /></el-select></label><label>分析物<el-select v-model="draft.measurements[metal.key].analyte" @change="draft.measurements[metal.key].confirmed = false"><el-option label="未确认" value="" /><el-option :label="metal.key === 'hg' ? '总汞（非甲基汞/无机汞）' : metal.key === 'pb' ? '铅' : '镉'" :value="metal.analyte" /><el-option label="其他（不适用）" value="other" /></el-select></label><el-checkbox v-model="draft.measurements[metal.key].confirmed">已核对样本、单位和分析物</el-checkbox></section></div>
       <details v-if="mode === 'individual'" class="dialog-optional"><summary>可选个人因素（NHANES训练口径；不匹配则未知）</summary><div class="input-grid"><label>教育程度<el-select v-model="draft.covariates.education" placeholder="未知" clearable @clear="draft.covariates.education = null"><el-option v-for="item in EDUCATION_OPTIONS" :key="item.value" :label="item.label" :value="item.value" /></el-select></label><label>婚姻<el-select v-model="draft.covariates.marital" placeholder="未知" clearable @clear="draft.covariates.marital = null"><el-option v-for="item in MARITAL_OPTIONS" :key="item.value" :label="item.label" :value="item.value" /></el-select></label><label>终生100支口径吸烟<el-select v-model="draft.covariates.smoking" placeholder="未知" clearable @clear="draft.covariates.smoking = null"><el-option v-for="item in SMOKING_OPTIONS" :key="item.value" :label="item.label" :value="item.value" /></el-select></label><label>过去一年饮酒<el-select v-model="draft.covariates.alcohol_any_past_year" placeholder="未知" clearable @clear="draft.covariates.alcohol_any_past_year = null"><el-option label="是" :value="true" /><el-option label="否" :value="false" /></el-select></label></div></details>
@@ -115,7 +115,7 @@ import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMoun
 import { ArrowLeft, ArrowDown, Document, WarningFilled, Download } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
-import { EDUCATION_OPTIONS, INTERVAL_NOTE, MARITAL_OPTIONS, METAL_FIELDS, PREDICTION_SCOPE_NOTE, SMOKING_OPTIONS, batchPredictionCsv, buildPredictionRequest, clonePrediction, createPredictionDraft, downloadPrediction, formatPredictionNumber, measurementErrors, predictionHasValue, predictionReason } from '~/utils/riskPrediction'
+import { EDUCATION_OPTIONS, INTERVAL_NOTE, MARITAL_OPTIONS, METAL_FIELDS, PREDICTION_SCOPE_NOTE, SMOKING_OPTIONS, batchPredictionCsv, buildPredictionRequest, clonePrediction, createParticipantCode, createPredictionDraft, participantCode, downloadPrediction, formatPredictionNumber, measurementErrors, predictionHasValue, predictionReason } from '~/utils/riskPrediction'
 import { availableShapItems, buildDoseOption, buildGaugeOption, buildImportanceOption, buildJointOption, buildRankOption, chartReason, selectedOutcome } from '~/utils/riskDashboard'
 import { cohortRankingCsv, cohortResponseError, cohortSummaryCsv } from '~/utils/riskCohort'
 import { buildCohortWarning, warningRankingCsv } from '~/utils/cohortWarning'
@@ -175,9 +175,9 @@ const requestLogs = ref<string[]>([])
 const reasoningComplete = computed(() => !!dashboard.value)
 const charts = computed(() => dashboard.value?.charts)
 const availableCount = computed(() => dashboard.value?.prediction.results.filter(predictionHasValue).length || 0)
-const selectedPersonName = computed(() => dashboard.value?.prediction.person_id || draft.value.person.id || '本次对象')
-const hasSource = computed(() => mode.value === 'batch' ? !!batchIntake.value?.file_id : Object.values(draft.value.person).some(value => value !== null && value !== '' && value !== false))
-const sourceName = computed(() => mode.value === 'batch' ? batchIntake.value?.filename || batchIntake.value?.file_id || '尚未导入真实群体文件' : hasSource.value ? '单人：' + (draft.value.person.id || '本次录入对象') : '尚未载入单人数据')
+const selectedPersonCode = computed(() => dashboard.value?.prediction.person_id || draft.value.person.id || '本次对象')
+const hasSource = computed(() => mode.value === 'batch' ? !!batchIntake.value?.file_id : Object.entries(draft.value.person).some(([field, value]) => field !== 'id' && value !== null && value !== '' && value !== false))
+const sourceName = computed(() => mode.value === 'batch' ? (batchIntake.value?.file_id ? '群体批次 · ' + batchIntake.value.file_id : '尚未导入群体文件') : hasSource.value ? '单人：' + (draft.value.person.id || '本次录入对象') : '尚未载入单人数据')
 const targetOptions = [
   { value: 'sbp', label: '收缩压 / mmHg' }, { value: 'dbp', label: '舒张压 / mmHg' },
   { value: 'serum_creatinine_mg_dl', label: '血清肌酐 / mg/dL' }, { value: 'bun_mg_dl', label: '血尿素氮 / mg/dL' },
@@ -207,7 +207,7 @@ const downloadCohortSummary = () => { if (cohortResult.value) downloadCohortCsv(
 const downloadCohortRanking = () => { if (cohortResult.value) downloadCohortCsv(cohortRankingCsv(cohortResult.value, selectedTarget.value), selectedTarget.value + '_ranking') }
 const downloadCompositeWarning = () => { if (cohortResult.value) downloadCohortCsv(warningRankingCsv(buildCohortWarning(cohortResult.value, cohortWarningThreshold.value)), 'composite_warning') }
 const downloadAllCohortRecords = () => { if (cohortResult.value) downloadCohortCsv(batchPredictionCsv(cohortResult.value), 'all_records') }
-const handleFileRemove = () => { epoch++; if (mode.value === 'individual') draft.value = createPredictionDraft(); intake.value = null; batchIntake.value = null; invalidate(); clearCharts(); requestLogs.value = []; isReasoning.value = false }
+const handleFileRemove = () => { epoch++; if (mode.value === 'individual') draft.value = createPredictionDraft(createParticipantCode()); intake.value = null; batchIntake.value = null; invalidate(); clearCharts(); requestLogs.value = []; isReasoning.value = false }
 const confirmInputs = () => {
   inputErrors.value = mode.value === 'batch' ? measurementErrors(draft.value.measurements) : buildPredictionRequest(draft.value).errors
   if (!inputErrors.value.length) inputDialog.value = false
@@ -290,6 +290,7 @@ async function fillDemo() {
   if (response.success && response.data?.payload) {
     batchResult.value = null; selectedRow.value = null; batchIntake.value = null
     draft.value = clonePrediction(response.data.payload)
+    draft.value.person.id = participantCode(draft.value.person.id) || createParticipantCode()
     demoNotice.value = response.data.notice || '显式合成填表示例；运行后由真实模型计算。'
     intake.value = null
   } else predictionError.value = response.error || '未获取到合成示例，不回退为假数据。'
@@ -353,7 +354,10 @@ async function importGroupDemo(variant: 'standard' | 'warning' = 'standard') {
   }
 }
 // RISK_GROUP_DEMO_END
-async function refreshSelectedDashboard(input: PredictionRequest) {
+async function refreshSelectedDashboard(source: PredictionRequest) {
+  const input = clonePrediction(source)
+  const code = participantCode(input.person.id) || createParticipantCode()
+  input.person.id = code
   const target = selectedTarget.value
   const current = ++epoch
   clearCurrentExplanation()
@@ -368,7 +372,10 @@ async function refreshSelectedDashboard(input: PredictionRequest) {
     requestLogs.value.push('请求未完成：' + predictionError.value)
     return
   }
-  dashboard.value = response.data as DashboardResponse
+  const received = response.data as DashboardResponse
+  received.prediction.person_id = code
+  received.input = clonePrediction(input)
+  dashboard.value = received
   setResult(input, dashboard.value.prediction)
   requestLogs.value.push('模型返回12项真实结局，' + dashboard.value.prediction.results.filter(predictionHasValue).length + '项提供探索性估计。')
   requestLogs.value.push('局部解释：' + (dashboard.value.charts.explanation.status === 'AVAILABLE' ? '已由原生模型计算 SHAP' : chartReason(dashboard.value.charts.explanation)))

@@ -84,6 +84,40 @@ def test_xlsx_expansion_guard_is_reused_before_numeric_parse(isolated, monkeypat
     assert result.value.status_code == 413
 
 
+@pytest.mark.parametrize('field', ['patient_name', 'SEQN'])
+def test_import_rejects_identifiable_fields_before_persistence(isolated, field):
+    frame = pd.read_csv(BytesIO(valid_csv()), dtype=str)
+    frame[field] = 'PrivacyFixture'
+    with pytest.raises(data.DatasetValidationError, match='数据清洗与格式转换') as error:
+        asyncio.run(data.import_batch_file(frame.to_csv(index=False).encode(), 'PrivacyFixture.csv'))
+    assert 'PrivacyFixture' not in str(error.value)
+    assert not list(isolated.iterdir()) and not data.data_store
+
+
+def test_workbook_metadata_and_extra_sheets_are_not_retained(isolated):
+    frame = pd.read_csv(BytesIO(valid_csv()), dtype=str)
+    stream = BytesIO()
+    with pd.ExcelWriter(stream, engine='openpyxl') as writer:
+        frame.to_excel(writer, sheet_name='Data', index=False)
+        pd.DataFrame({'full_name': ['PrivacyFixture']}).to_excel(writer, sheet_name='Other', index=False)
+        writer.book.properties.creator = 'PrivacyFixture'
+    result = asyncio.run(data.import_batch_file(stream.getvalue(), 'PrivacyFixture.xlsx'))
+    assert result.filename == 'dataset.xlsx'
+    files = set(isolated.iterdir())
+    stored = isolated / (result.file_id + '_dataset.csv')
+    assert files == {stored, isolated / (result.file_id + '_analysis.json')}
+    assert b'PrivacyFixture' not in b''.join(path.read_bytes() for path in files)
+    assert data._read_tabular_file(stored.read_bytes(), stored.name).iloc[0]['SEQN'] == '0001'
+
+
+def test_legacy_analysis_filenames_hidden_in_disk_and_cache(isolated):
+    path = isolated / 'FILE-archive_analysis.json'
+    path.write_text('{"metadata":{"filename":"PrivacyFixture.xlsx"}}')
+    assert data._get_dataset_analysis('FILE-archive')['metadata']['filename'] == 'dataset.xlsx'
+    data.analysis_store['FILE-archive']['metadata']['filename'] = 'PrivacyFixture.csv'
+    assert data._get_dataset_analysis('FILE-archive')['metadata']['filename'] == 'dataset.csv'
+
+
 def test_cache_eviction_keeps_disk_originals_and_restores_analysis(isolated, monkeypatch):
     monkeypatch.setenv("BATCH_CACHE_MAX_DATASETS", "2")
     payload = valid_csv()
@@ -91,7 +125,7 @@ def test_cache_eviction_keeps_disk_originals_and_restores_analysis(isolated, mon
     assert set(data.data_store) == set(ids[-2:])
     assert set(data.analysis_store) == set(ids[-2:])
     for index, file_id in enumerate(ids):
-        assert isolated.joinpath(f"{file_id}_sample_{index}.csv").read_bytes() == payload
+        assert isolated.joinpath(f"{file_id}_dataset.csv").read_bytes() == payload
         assert isolated.joinpath(f"{file_id}_analysis.json").is_file()
     restored = asyncio.run(data.get_dataset_analysis(ids[0]))
     assert restored["metadata"]["file_id"] == ids[0]
@@ -103,7 +137,7 @@ def test_cache_byte_budget_can_skip_retaining_large_frame_without_deleting(isola
     monkeypatch.setenv("BATCH_CACHE_MAX_BYTES", "1")
     result = asyncio.run(data.import_batch_file(valid_csv(), "sample.csv"))
     assert not data.data_store and not data.analysis_store
-    assert isolated.joinpath(f"{result.file_id}_sample.csv").is_file()
+    assert isolated.joinpath(f"{result.file_id}_dataset.csv").is_file()
     assert asyncio.run(data.get_dataset_analysis(result.file_id))["kpis"]["total_records"] == 1
     assert not data.analysis_store
 

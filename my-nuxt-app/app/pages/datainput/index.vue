@@ -73,7 +73,7 @@
                   <div class="form-section basic-profile-section">
                     <div class="section-heading"><h4 class="section-title"><span class="section-number">01</span> 基础个体档案</h4><span class="section-caption">身份信息与接触背景</span></div>
                     <div class="clinical-input-grid cols-4">
-                      <div class="clinical-input-item"><label class="label" for="individual-name">姓名 / 编号</label><div class="input-wrap"><input id="individual-name" type="text" v-model="formData.singleData.name" placeholder="请输入编号" /></div></div>
+                      <div class="clinical-input-item"><label class="label" for="individual-code">对象编号</label><div class="input-wrap"><input id="individual-code" type="text" :value="formData.singleData.objectId" readonly aria-description="由系统分配" /></div></div>
                       <div class="clinical-input-item"><label class="label" for="individual-gender">性别</label><div class="input-wrap select-wrap"><select id="individual-gender" v-model="formData.singleData.gender" @change="individualGenderConfirmed = false"><option value="">请选择</option><option value="male">男</option><option value="female">女</option></select></div><label style="font-size:12px;color:#64748b"><input type="checkbox" v-model="individualGenderConfirmed" :disabled="!formData.singleData.gender" /> 已核对用于模型编码的性别</label></div>
                       <div class="clinical-input-item"><label class="label" for="individual-age">年龄</label><div class="input-wrap"><input id="individual-age" type="number" min="0" v-model="formData.singleData.age" placeholder="未录入" /><span class="unit">岁</span></div></div>
                       <div class="clinical-input-item"><label class="label" for="individual-work-years">接触工龄</label><div class="input-wrap"><input id="individual-work-years" type="number" min="0" v-model="formData.singleData.workYears" placeholder="未录入" /><span class="unit">年</span></div></div>
@@ -569,6 +569,7 @@ import { renderBatchAnalysisCharts } from '~/composables/useBatchAnalysisCharts'
 import { buildIndividualProfile, parseMeasurement } from '~/utils/individualProfile'
 import { MEASUREMENTS, SAMPLE_OPTIONS, UNIT_OPTIONS, REFERENCE_RETRIEVED_AT, createIndividualMetadata } from '~/utils/individualReferences'
 import { createIndividualDemo } from '~/utils/individualDemo'
+import { createParticipantCode } from '~/utils/riskPrediction'
 import { 
   Coin, DataLine, TrendCharts, Share, DocumentChecked, Upload, DocumentAdd,
   CircleCheckFilled, InfoFilled, ArrowLeft, Male, Female, Avatar
@@ -580,8 +581,8 @@ const router = useRouter()
 const currentStep = ref(1)
 const { getOutcomeConfigs, uploadBatchData, getDatasetAnalysis, getCleaningSchema, getGroupDemo, importGroupDemo } = useApi()
 
-const createEmptySingleData = () => ({
-    name: '', gender: '', age: null, workYears: null,
+const createEmptySingleData = (objectId = createParticipantCode()) => ({
+    objectId, gender: '', age: null, workYears: null,
     pb: null, cd: null, hg: null, th: null, li: null, cr: null, ni: null, co: null, as: null, rn: null,
     education: '', marital: '', smoking: '', drinking: '', bmi: null, ppe: '', history: ''
 })
@@ -601,7 +602,7 @@ const demoSnapshot = ref('')
 const individualSnapshot = () => JSON.stringify({ job: formData.value.job, singleData: formData.value.singleData, metadata: individualMetadata.value, genderConfirmed: individualGenderConfirmed.value })
 const demoEdited = computed(() => demoSource.value && individualSnapshot() !== demoSnapshot.value)
 const hasIndividualInput = computed(() => {
-  const empty = createEmptySingleData()
+  const empty = createEmptySingleData(formData.value.singleData.objectId)
   return individualGenderConfirmed.value || Object.entries(formData.value.singleData).some(([key, value]) => value !== empty[key]) ||
     JSON.stringify(individualMetadata.value) !== JSON.stringify(createIndividualMetadata())
 })
@@ -821,7 +822,7 @@ const setSelectedFile = (file) => {
     ElMessage.error('文件大小不能超过 25 MB')
     return
   }
-  selectedFile.value = file
+  selectedFile.value = new File([file], `群体数据.${extension}`, { type: file.type, lastModified: file.lastModified })
   groupDemoSource.value = null
   batchImportError.value = ''
   uploadResult.value = null
@@ -832,6 +833,7 @@ const setSelectedFile = (file) => {
 
 const handleFileChange = (event) => {
   setSelectedFile(event.target.files?.[0])
+  event.target.value = ''
 }
 
 const handleFileDrop = (event) => {
@@ -941,7 +943,7 @@ const goToRiskWarning = async () => {
       ElMessage.warning('请先成功导入群体数据；不能用页面示例代替真实数据文件。')
       return
     }
-    predictionState.batchIntake.value = { file_id: uploadResult.value.file_id, filename: uploadResult.value.filename }
+    predictionState.batchIntake.value = { file_id: uploadResult.value.file_id }
     await navigateTo('/risk?mode=batch')
     return
   }
@@ -949,7 +951,7 @@ const goToRiskWarning = async () => {
   const number = (value) => parseMeasurement(value).value
   predictionState.batchIntake.value = null
   predictionState.setIntake({
-    person: { id: person.name || '', age: number(person.age), gender: person.gender || null,
+    person: { id: person.objectId, age: number(person.age), gender: person.gender || null,
       gender_confirmed: individualGenderConfirmed.value, bmi: number(person.bmi),
       pb: number(person.pb), cd: number(person.cd), hg: number(person.hg) },
     measurements: Object.fromEntries(['pb', 'cd', 'hg'].map(key => [key, {

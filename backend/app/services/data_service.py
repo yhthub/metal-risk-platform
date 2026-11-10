@@ -3,10 +3,8 @@ import numpy as np
 import os
 import json
 import math
-import re
 import threading
 from io import BytesIO
-from pathlib import Path
 from typing import List, Dict, Any, Optional
 from fastapi.concurrency import run_in_threadpool
 from ..models.schemas import (
@@ -153,11 +151,8 @@ def _get_required_columns(config: Dict[str, Any]) -> List[str]:
     return list(dict.fromkeys(columns))
 
 
-def _safe_filename(filename: str) -> str:
-    """只保留文件名，避免用户提供的路径片段进入上传目录。"""
-    base_name = Path(filename.replace("\\", "/")).name
-    safe_name = re.sub(r"[^0-9A-Za-z._\-\u4e00-\u9fff]", "_", base_name)
-    return safe_name or "dataset.csv"
+def _public_dataset_name(filename: str) -> str:
+    return 'dataset.xlsx' if str(filename).lower().endswith('.xlsx') else 'dataset.csv'
 
 
 def _read_tabular_file(file_content: bytes, filename: str) -> pd.DataFrame:
@@ -172,7 +167,7 @@ def _read_tabular_file(file_content: bytes, filename: str) -> pd.DataFrame:
     # Local import avoids the cleaner -> outcome-config module dependency cycle.
     from .data_cleaning_service import read_table, CleaningError
     try:
-        table = read_table(file_content, filename)
+        table = read_table(file_content, filename, reject_private=True)
     except CleaningError as exc:
         oversized = any(term in str(exc) for term in ("超过", "超出", "过大"))
         raise DatasetValidationError(str(exc), status_code=413 if oversized or exc.status_code == 413 else 422) from exc
@@ -663,8 +658,10 @@ def _import_batch_file(file_content, filename, outcome_id="blood_pressure", prov
         raise DatasetValidationError(f"不支持的预测结局: {outcome_id}")
 
     file_id = generate_file_id()
-    safe_name = _safe_filename(filename)
-    df = _read_tabular_file(file_content, safe_name)
+    df = _read_tabular_file(file_content, filename)
+    safe_name = _public_dataset_name(filename)
+    if provenance and filename in {'NHANES_2017-2018_risk_demo_20.csv', 'NHANES_2017-2018_public_adults_300.csv'}:
+        safe_name = filename
     if df.empty:
         raise DatasetValidationError("上传文件没有可分析的数据行")
 
@@ -708,8 +705,14 @@ def _import_batch_file(file_content, filename, outcome_id="blood_pressure", prov
     except ValueError as exc:
         raise DatasetValidationError("分析结果包含非法非有限数值，未保存本次导入") from exc
 
-    # 原始文件与派生分析分别保存，原始医疗数据绝不覆盖。
-    file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{safe_name}")
+    # For workbooks persist only the validated data, never extra worksheets, comments or author metadata.
+    stored_name = safe_name
+    if filename.lower().endswith('.xlsx'):
+        file_content = df.to_csv(index=False).encode('utf-8-sig')
+        if len(file_content) > MAX_UPLOAD_SIZE:
+            raise DatasetValidationError('工作表转换为可恢复的数据文件后超过限制，请先清洗并分批导入。', status_code=413)
+        stored_name = 'dataset.csv'
+    file_path = os.path.join(UPLOAD_DIR, f"{file_id}_{stored_name}")
     with open(file_path, "wb") as f:
         f.write(file_content)
     analysis_path = os.path.join(UPLOAD_DIR, f"{file_id}_analysis.json")
@@ -744,7 +747,8 @@ def _get_dataset_analysis(file_id: str) -> Dict[str, Any]:
     """获取已生成的真实数据统计结果，必要时从磁盘恢复。"""
     with _cache_lock:
         if file_id in analysis_store:
-            return analysis_store[file_id]
+            analysis = analysis_store[file_id]
+            return _neutral_analysis_filename(analysis)
 
     analysis_path = os.path.join(UPLOAD_DIR, f"{file_id}_analysis.json")
     if not os.path.exists(analysis_path):
@@ -755,8 +759,17 @@ def _get_dataset_analysis(file_id: str) -> Dict[str, Any]:
 
     with open(analysis_path, "r", encoding="utf-8") as f:
         analysis = json.load(f)
+    analysis = _neutral_analysis_filename(analysis)
     _remember_dataset(file_id, analysis=analysis, size=analysis_bytes)
     return analysis
+
+
+def _neutral_analysis_filename(analysis: dict) -> dict:
+    metadata = analysis.get('metadata', {})
+    filename = metadata.get('filename', '')
+    if metadata.get('demo_provenance') and filename in {'NHANES_2017-2018_risk_demo_20.csv', 'NHANES_2017-2018_public_adults_300.csv'}:
+        return analysis
+    return {**analysis, 'metadata': {**metadata, 'filename': _public_dataset_name(filename)}}
 
 
 async def get_data_statistics(file_id: str) -> DataStatistics:

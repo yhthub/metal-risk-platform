@@ -9,6 +9,7 @@ from io import BytesIO, StringIO
 import json
 from pathlib import PurePosixPath
 import re
+import unicodedata
 from typing import Any, Literal
 from zipfile import BadZipFile, ZipFile
 
@@ -182,10 +183,71 @@ class Table:
     warnings: list[str]
 
 
-def _filename(name: str) -> str:
-    basename = PurePosixPath(name.replace("\\", "/")).name
-    safe = re.sub(r"[^0-9A-Za-z._\-\u4e00-\u9fff]", "_", basename)
-    return (safe[:180] or "dataset.csv")
+_NAME_HEADERS = {
+    '姓名', '名字', '全名', '姓', '名', 'name', 'fullname', 'firstname', 'lastname',
+    'middlename', 'familyname', 'givenname', 'surname', 'forename', 'realname', 'legalname',
+    '姓名拼音', '中文名', '英文名', '姓名拼音缩写', '姓氏',
+}
+_PERSON_PREFIXES = ('人员', '受试者', '参与者', '参加者', '对象', '工人', '员工', '职工', '患者', '病人',
+                    '被调查者', '调查对象', 'worker', 'employee', 'patient', 'participant', 'subject', 'person',
+                    'respondent', 'staff', 'doctor', 'physician', 'contact', 'operator', 'researcher')
+_NAME_HEADERS.update(prefix + tail for prefix in _PERSON_PREFIXES for tail in ('name', 'fullname', 'firstname', 'lastname', '名字'))
+_ID_HEADERS = {'seqn', 'id', '编号', '工号', '学号', '病历号', '档案号', '记录编号', '研究编号', '样本编号',
+               'subjectcode', 'recordid', 'sampleid', 'studyid', 'staffid'}
+_ID_HEADERS.update(prefix + tail for prefix in _PERSON_PREFIXES for tail in ('id', '编号', '编码', 'id号', 'code', 'number', 'no'))
+_TABLE_CODE = re.compile(r"(?:[+]?[0-9]{1,16}(?:\.0+)?|(?:P|SZ|DEMO|DEMO-SYNTHETIC|DEMO-CLEAN|ROW)-[0-9]{1,16})")
+
+
+def _field_role(header: str) -> str | None:
+    key = re.sub(r'[\W_]+', '', unicodedata.normalize('NFKC', header).casefold())
+    if '姓名' in key or key in _NAME_HEADERS:
+        return 'name'
+    if key in _ID_HEADERS or re.fullmatch(r'记录编号[0-9]+', key):
+        return 'id'
+    return None
+
+
+def _valid_table_code(value: str) -> bool:
+    code = value.strip()
+    # The CSV formula guard prefixes positive signed IDs with an apostrophe.
+    if code.startswith("'"):
+        code = code[1:].strip()
+    return bool(_TABLE_CODE.fullmatch(code))
+
+
+def _protect_identifiers(data: pd.DataFrame, warnings: list[str], *, reject_private: bool,
+                        mapped_roles: dict[str, str] | None = None) -> None:
+    roles = {key: role for key in data.columns if (role := _field_role(key))}
+    roles.update(mapped_roles or {})
+    if not roles:
+        return
+    if reject_private and 'name' in roles.values():
+        raise CleaningError('文件含姓名字段，请先在“数据清洗与格式转换”中转换为编号后再导入。')
+    # Reserve existing row codes, even if they occur after a row that needs one.
+    reserved = {value.strip() for column in roles for value in data[column] if value.strip().startswith('ROW-')}
+    generated: dict[int, str] = {}
+    replacements = 0
+    for column, role in roles.items():
+        changes = {}
+        for index, value in data[column].items():
+            if not value.strip() or (role == 'id' and _valid_table_code(value)):
+                continue
+            if reject_private:
+                raise CleaningError('对象编号列含无法识别的编号，请先在“数据清洗与格式转换”中按行转换，再导入。')
+            if index not in generated:
+                number = index + 1
+                code = f'ROW-{number:06}'
+                while code in reserved:
+                    number += len(data)
+                    code = f'ROW-{number:06}'
+                generated[index] = code
+                reserved.add(code)
+            changes[index] = generated[index]
+        if changes:
+            data.loc[list(changes), column] = list(changes.values())
+            replacements += len(changes)
+    if replacements:
+        warnings.append(f'已将 {replacements} 个身份字段值转换为文件内记录编号。编号按原始行分配，相同姓名不会合并，空值保持为空。')
 
 
 def _headers(raw: list[str], warnings: list[str]) -> list[str]:
@@ -308,7 +370,8 @@ def _xlsx_table(content: bytes, warnings: list[str]) -> pd.DataFrame:
         raise CleaningError("无法读取 XLSX，请确认文件未损坏、未加密且首行有列名") from exc
 
 
-def read_table(content: bytes, filename: str) -> Table:
+def read_table(content: bytes, filename: str, *, reject_private: bool = False,
+               mappings: list[ColumnMapping] | None = None) -> Table:
     if not content:
         raise CleaningError("文件为空")
     if len(content) > MAX_FILE_BYTES:
@@ -321,7 +384,25 @@ def read_table(content: bytes, filename: str) -> Table:
         data = _xlsx_table(content, warnings)
     else:
         raise CleaningError("仅支持 CSV 和 XLSX；旧版 XLS 请另存为 XLSX 或 CSV")
-    return Table(_filename(filename), data, warnings)
+    # Protect a user-mapped ID along with the other identity columns, before any
+    # filters or row ranges, so references are shared across columns and rows.
+    mapped_roles = {item.source: role for item in (mappings or [])
+                    if item.source in data.columns and not _field_role(item.source) and (role := _field_role(item.target))}
+    _protect_identifiers(data, warnings, reject_private=reject_private, mapped_roles=mapped_roles)
+    # Retain the column for mapping; expose a label describing its new contents.
+    renamed = {}
+    occupied = set(data.columns)
+    for column in data.columns:
+        if _field_role(column) == 'name':
+            label = '记录编号'
+            suffix = 1
+            while label in occupied:
+                suffix += 1
+                label = f'记录编号{suffix}'
+            occupied.add(label)
+            renamed[column] = label
+    data.rename(columns=renamed, inplace=True)
+    return Table('dataset' + extension, data, warnings)
 
 
 def inspect_table(content: bytes, filename: str) -> dict[str, Any]:
@@ -524,7 +605,7 @@ def _normalize_system_numeric_for_csv(data: pd.DataFrame, config: dict[str, Any]
 
 def transform_table(content: bytes, filename: str, options: CleaningOptions) -> tuple[dict[str, Any], pd.DataFrame]:
     schema = get_cleaning_schema(options.outcome_id)
-    table = read_table(content, filename)
+    table = read_table(content, filename, mappings=options.columns)
     data = table.data.copy()
     audit: list[dict[str, Any]] = []
     warnings = list(table.warnings)
@@ -634,5 +715,4 @@ def export_table(content: bytes, filename: str, options_json: str) -> tuple[byte
     if options.mode == "system" and not result["system_ready"]:
         raise CleaningError("无法导出系统格式：请补齐必需列、确认样本/单位/编码、处理不合格记录，且清洗后至少保留一条合格记录")
     payload = _csv_payload(data)
-    basename = PurePosixPath(_filename(filename)).stem
-    return payload, f"cleaned_{basename}.csv", result
+    return payload, f"cleaned_{options.mode}.csv", result

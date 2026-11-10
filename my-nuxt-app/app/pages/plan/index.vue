@@ -22,12 +22,12 @@
         <section class="scenario-section" aria-labelledby="scenario-title">
           <div class="section-heading"><h2 id="scenario-title">预防层级</h2></div>
           <div class="scenario-options" role="group" aria-label="选择预防层级">
-            <button type="button" class="scenario-option secondary-prevention" :class="{ selected: selectedLevel === 'level2' }" :aria-pressed="selectedLevel === 'level2'" @click="selectedLevel = 'level2'">
+            <button type="button" class="scenario-option secondary-prevention" :class="{ selected: selectedLevel === 'level2' }" :aria-pressed="selectedLevel === 'level2'" @click="selectPerson(activePerson)">
               <span class="scenario-icon"><el-icon><FirstAidKit /></el-icon></span>
               <span class="scenario-copy"><strong>二级预防</strong><span>早期筛查 · 专业评估 · 随访管理</span></span>
               <span class="scenario-count">{{ highRiskPersons.length }} 人</span><el-icon v-if="selectedLevel === 'level2'" class="selected-mark"><CircleCheck /></el-icon>
             </button>
-            <button type="button" class="scenario-option primary-prevention" :class="{ selected: selectedLevel === 'level1' }" :aria-pressed="selectedLevel === 'level1'" @click="selectedLevel = 'level1'">
+            <button type="button" class="scenario-option primary-prevention" :class="{ selected: selectedLevel === 'level1' }" :aria-pressed="selectedLevel === 'level1'" @click="selectPerson(activeMediumPerson)">
               <span class="scenario-icon"><el-icon><Sunny /></el-icon></span>
               <span class="scenario-copy"><strong>一级预防</strong><span>健康教育 · 暴露管理 · 持续监测</span></span>
               <span class="scenario-count">{{ mediumRiskPersons.length }} 人</span><el-icon v-if="selectedLevel === 'level1'" class="selected-mark"><CircleCheck /></el-icon>
@@ -38,19 +38,25 @@
         <div class="plan-workspace">
           <aside class="case-panel" aria-labelledby="case-title">
             <div class="case-heading"><h2 id="case-title">干预对象</h2><span>{{ currentPersons.length }} 人</span></div>
-            <div class="case-list" role="group" aria-label="选择干预对象">
+            <div class="case-list" role="group" aria-label="按编号选择干预对象">
               <button v-for="person in currentPersons" :key="person.id" type="button" class="case-option" :class="{ selected: selectedPerson.id === person.id }" :aria-pressed="selectedPerson.id === person.id" @click="selectPerson(person.id)">
-                <span class="case-avatar" aria-hidden="true">{{ person.name.slice(0, 1) }}</span>
-                <span class="case-copy"><strong>{{ person.name }}</strong><span>{{ person.id }}</span></span>
-                <el-icon class="case-arrow"><ArrowRight /></el-icon>
+                <el-icon aria-hidden="true" class="record-symbol"><Postcard /></el-icon>
+                <strong class="record-code">{{ person.id }}</strong>
+                <el-icon v-if="selectedPerson.id === person.id" class="case-arrow" aria-hidden="true"><CircleCheck /></el-icon>
               </button>
             </div>
+            <label class="mobile-object-picker">
+              <span>对象编号</span>
+              <select :value="selectedPerson.id" @change="selectPerson($event.target.value)">
+                <option v-for="person in currentPersons" :key="person.id" :value="person.id">{{ person.id }}</option>
+              </select>
+            </label>
           </aside>
 
           <section :key="selectedPerson.id" class="plan-detail" aria-label="当前对象的干预方案">
             <div class="person-summary">
               <div class="person-summary-top">
-                <div><span class="detail-kicker">{{ selectedLevel === 'level2' ? '二级预防' : '一级预防' }} · 干预方案</span><h2>{{ selectedPerson.name }} <span>{{ selectedPerson.id }}</span></h2></div>
+                <div><span class="detail-kicker">{{ selectedLevel === 'level2' ? '二级预防' : '一级预防' }} · 干预对象</span><h2 class="record-code">{{ selectedPerson.id }}</h2></div>
                 <el-button type="primary" :icon="Document" @click="goToReport">查看方案报告</el-button>
               </div>
               <div class="person-meta"><span>{{ selectedPerson.dept }}</span><span>接触工龄 {{ selectedPerson.years }} 年</span><span>暴露因素 {{ selectedPerson.factors }}</span></div>
@@ -88,7 +94,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { ArrowLeft, ArrowRight, CircleCheck, Clock, Document, FirstAidKit, InfoFilled, Sunny, TrendCharts } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, CircleCheck, Clock, Document, FirstAidKit, InfoFilled, Postcard, Sunny, TrendCharts } from '@element-plus/icons-vue'
 import { PRODUCT_SHORT_NAME } from '~/utils/product'
 
 useHead({ title: `方案推荐 · ${PRODUCT_SHORT_NAME}` })
@@ -108,7 +114,7 @@ const activeMediumPerson = ref('SZ-089')
 
 const highRiskPersons = ref([
   {
-    id: 'SZ-284', name: '张建国', dept: '第一熔炼车间', years: 18, factors: 'Pb, As', score: 68.5, levelClass: 'danger',
+    id: 'SZ-284', dept: '第一熔炼车间', years: 18, factors: 'Pb, As', score: 68.5, levelClass: 'danger',
     workflow: [
       { title: '立即调离高危岗位', tag: '紧急阻断', type: 'danger', desc: '从熔炼一线调至无尘辅助区，彻底脱离 Pb/As 暴露源，防止剂量继续累积。', detail: '当日办理调岗手续，安排至仓库管理或质检辅助岗位。调岗后 1 周内禁止进入熔炼车间区域。', indicator: '调岗后 2 周复查血铅，目标下降 > 15%', period: '立即执行', cost: '中' },
       { title: '职业健康深度体检', tag: '精准诊断', type: 'primary', desc: '全面排查体内重金属蓄积水平与靶器官损伤程度，为后续治疗提供依据。', detail: '全血 Pb、尿 As 定量检测；肝功（ALT/AST）、肾功（肌酐/尿素氮）；尿 β2-微球蛋白、NAG 酶（早期肾小管损伤标志物）；神经传导速度测试；血常规+网织红细胞计数。', indicator: '血 Pb > 400 μg/L 或尿 As > 100 μg/L 时启动驱铅治疗', period: '3-5 个工作日', cost: '低' },
@@ -125,7 +131,7 @@ const highRiskPersons = ref([
     ]
   },
   {
-    id: 'SZ-105', name: '刘伟', dept: '第一熔炼车间', years: 15, factors: 'Pb, Cd', score: 62.1, levelClass: 'danger',
+    id: 'SZ-105', dept: '第一熔炼车间', years: 15, factors: 'Pb, Cd', score: 62.1, levelClass: 'danger',
     workflow: [
       { title: 'P100 全面罩 + 局部负压排风', tag: '紧急防护', type: 'danger', desc: '不调岗但强制升级防护等级，大幅降低 Pb/Cd 吸入量。', detail: '配发 P100 全面罩，工位加装便携式负压排风罩。每日上岗前进行呼吸器密合性自检，每周由安全部门复核一次。', indicator: '2 周后复查血 Pb，预期下降 10-15%', period: '即刻执行', cost: '低' },
       { title: '肾功能深度筛查', tag: '精准诊断', type: 'primary', desc: 'Cd 对肾小管的损伤不可逆且早期隐匿，必须通过专项指标捕获极早期病变。', detail: '尿 Cd 定量、尿 β2-微球蛋白、尿 NAG 酶、尿视黄醇结合蛋白、肾小球滤过率(eGFR)、肾脏超声。', indicator: '尿 Cd > 5 μg/g Cr 或 β2-微球蛋白 > 300 μg/L 提示肾小管损伤', period: '3-5 个工作日', cost: '低' },
@@ -141,7 +147,7 @@ const highRiskPersons = ref([
     ]
   },
   {
-    id: 'SZ-032', name: '王强', dept: '第一熔炼车间', years: 14, factors: 'As, Ni', score: 55.4, levelClass: 'danger',
+    id: 'SZ-032', dept: '第一熔炼车间', years: 14, factors: 'As, Ni', score: 55.4, levelClass: 'danger',
     workflow: [
       { title: '岗位轮换 + 工时管控', tag: '暴露阻断', type: 'danger', desc: '将高暴露岗位连续作业时间缩短至 4 小时以内，配合轮岗降低累积剂量。', detail: '与 SZ-284（已调离）互换岗位，安排间歇性进入熔炼区。每日高暴露时段不超过 4 小时，工间在通风良好区域休息 30 分钟。', indicator: '1 个月后尿 As 代谢物预期下降 20%', period: '长期执行', cost: '低' },
       { title: 'As 代谢物 + Ni 专项检测', tag: '精准诊断', type: 'primary', desc: '检测尿中砷代谢物形态分布与尿镍浓度，评估实际内暴露剂量。', detail: '尿总砷、无机砷/有机砷比值（判断 As 来源）、尿 Ni、发砷、肝功全套、皮肤科会诊（砷角化筛查）。', indicator: '无机砷占比 > 20% 提示职业暴露为主，尿 Ni > 40 μg/L 需重点关注', period: '3-5 个工作日', cost: '低' },
@@ -157,7 +163,7 @@ const highRiskPersons = ref([
     ]
   },
   {
-    id: 'SZ-142', name: '李明', dept: '原矿粉碎区', years: 12, factors: 'Pb, Hg', score: 48.2, levelClass: 'warn',
+    id: 'SZ-142', dept: '原矿粉碎区', years: 12, factors: 'Pb, Hg', score: 48.2, levelClass: 'warn',
     workflow: [
       { title: '标准防护装备全面升级', tag: '暴露阻断', type: 'danger', desc: '配发半面罩+P100滤盒、防化手套、护目镜，强化个人防护。', detail: '由安全员现场指导佩戴，确保面部密合。每周检查滤毒盒使用状况，每月更换一次。工服由企业统一清洗，禁止带回家。', indicator: '2 周后复查血 Pb，评估防护效果', period: '即刻执行', cost: '低' },
       { title: 'Pb/Hg 联合暴露精准检测', tag: '精准诊断', type: 'primary', desc: '同时评估铅和汞的体内蓄积水平及联合毒性效应。', detail: '全血 Pb、尿 Hg、血汞、24h 尿汞排泄量、肾功（肌酐/尿素氮/胱抑素 C）、神经行为功能测试（WHO-NCTB）。', indicator: '血 Pb > 300 μg/L 且尿 Hg > 20 μg/L 时需药物干预', period: '3-5 个工作日', cost: '低' },
@@ -176,7 +182,7 @@ const highRiskPersons = ref([
 
 const mediumRiskPersons = ref([
   {
-    id: 'SZ-089', name: '赵铁柱', dept: '原矿粉碎区', years: 11, factors: 'Cd, Cr', score: 41.5,
+    id: 'SZ-089', dept: '原矿粉碎区', years: 11, factors: 'Cd, Cr', score: 41.5,
     workflow: [
       { title: '岗位轮换与暴露时间管控', tag: '暴露阻断', type: 'warning', desc: '实施轮岗制度，将高暴露岗位连续作业时间缩短至 4 小时以内。', detail: '与低暴露岗位（质检、仓库）轮换，每 2 周轮换一次。工间在通风良好区域休息 30 分钟以上。', indicator: '1 个月后复查尿 Cd，预期下降 10-15%', period: '长期执行', cost: '低' },
       { title: 'Cd/Cr 暴露基线评估', tag: '健康筛查', type: 'primary', desc: '检测尿镉、尿铬及肾功能早期标志物，建立个人暴露基线。', detail: '尿 Cd、尿 Cr、尿 β2-微球蛋白、尿 NAG 酶、血常规、肝肾功能、尿常规。', indicator: '尿 Cd > 3 μg/g Cr 或 β2-微球蛋白 > 200 μg/L 需升级管理', period: '3-5 个工作日', cost: '低' },
@@ -193,7 +199,7 @@ const mediumRiskPersons = ref([
     ]
   },
   {
-    id: 'SZ-311', name: '陈刚', dept: '第一熔炼车间', years: 9, factors: 'Pb, As', score: 36.8,
+    id: 'SZ-311', dept: '第一熔炼车间', years: 9, factors: 'Pb, As', score: 36.8,
     workflow: [
       { title: '工位通风改善', tag: '环境控制', type: 'warning', desc: '在工位加装局部排风罩，降低 Pb/As 粉尘吸入浓度。', detail: '安装便携式负压排风罩，连接粉尘收集池。每日开工前检查排风系统运行状态。', indicator: '工位粉尘浓度下降 > 50%', period: '1-2 周安装', cost: '中' },
       { title: 'Pb/As 基线检测', tag: '健康筛查', type: 'primary', desc: '检测全血铅和尿砷代谢物，评估当前内暴露水平。', detail: '全血 Pb、尿 As（含无机砷/有机砷比值）、肝功能、血常规。', indicator: '血 Pb > 200 μg/L 或尿 As > 50 μg/L 需加强干预', period: '3-5 个工作日', cost: '低' },
@@ -210,7 +216,7 @@ const mediumRiskPersons = ref([
     ]
   },
   {
-    id: 'SZ-402', name: '孙磊', dept: '尾气处理组', years: 8, factors: 'As, Ni', score: 32.1,
+    id: 'SZ-402', dept: '尾气处理组', years: 8, factors: 'As, Ni', score: 32.1,
     workflow: [
       { title: '防护装备升级', tag: '个人防护', type: 'warning', desc: '配发半面罩+P100滤盒和防化手套，强化呼吸与皮肤防护。', detail: '尾气处理岗位 As/Ni 粉尘浓度较高，需升级至 P100 级别防护。每周检查面罩密合性。', indicator: '2 周后尿 As 预期下降 10%', period: '即刻执行', cost: '低' },
       { title: 'As/Ni 基线检测', tag: '健康筛查', type: 'primary', desc: '检测尿砷代谢物和尿镍浓度，评估实际内暴露水平。', detail: '尿总砷、无机砷比值、尿 Ni、肝功、皮肤科筛查（砷角化）。', indicator: '无机砷占比 > 15% 或尿 Ni > 30 μg/L 需重点关注', period: '3-5 个工作日', cost: '低' },
@@ -227,7 +233,7 @@ const mediumRiskPersons = ref([
     ]
   },
   {
-    id: 'SZ-175', name: '周波', dept: '第一熔炼车间', years: 7, factors: 'Pb', score: 28.5,
+    id: 'SZ-175', dept: '第一熔炼车间', years: 7, factors: 'Pb', score: 28.5,
     workflow: [
       { title: '标准防护配发', tag: '个人防护', type: 'warning', desc: '配发 KN95 口罩和防护手套，培训正确使用方法。', detail: '每日上岗前自检口罩密合性。工服由企业统一清洗，禁止带回家中。', indicator: '防护依从率 > 90%', period: '即刻执行', cost: '低' },
       { title: '血铅基线检测', tag: '健康筛查', type: 'primary', desc: '检测全血铅浓度和血常规，评估当前铅暴露水平。', detail: '全血 Pb、血常规（关注网织红细胞、点彩红细胞）、锌原卟啉(ZPP)。', indicator: '血 Pb > 150 μg/L 需加强干预', period: '1-3 个工作日', cost: '低' },
@@ -244,7 +250,7 @@ const mediumRiskPersons = ref([
     ]
   },
   {
-    id: 'SZ-219', name: '吴涛', dept: '原矿粉碎区', years: 6, factors: 'Cd, Hg', score: 24.2,
+    id: 'SZ-219', dept: '原矿粉碎区', years: 6, factors: 'Cd, Hg', score: 24.2,
     workflow: [
       { title: '防护装备配发', tag: '个人防护', type: 'warning', desc: '配发 KN95 口罩、防化手套，强化呼吸与皮肤防护。', detail: '粉碎区粉尘浓度较高，需确保口罩密合性。每周检查更换滤芯。', indicator: '防护依从率 > 90%', period: '即刻执行', cost: '低' },
       { title: 'Cd/Hg 基线检测', tag: '健康筛查', type: 'primary', desc: '检测尿镉和尿汞，评估两种金属的蓄积水平。', detail: '尿 Cd、尿 Hg、尿 β2-微球蛋白、肾功能全套。', indicator: '尿 Cd > 2 μg/g Cr 或尿 Hg > 10 μg/L 需重点关注', period: '3-5 个工作日', cost: '低' },
@@ -261,7 +267,7 @@ const mediumRiskPersons = ref([
     ]
   },
   {
-    id: 'SZ-056', name: '郑凯', dept: '尾气处理组', years: 5, factors: 'Cr', score: 18.6,
+    id: 'SZ-056', dept: '尾气处理组', years: 5, factors: 'Cr', score: 18.6,
     workflow: [
       { title: '工位通风改善', tag: '环境控制', type: 'warning', desc: '在尾气处理工位加装局部排风，降低铬粉尘浓度。', detail: '安装移动式排风除尘设备，配合湿式操作减少粉尘扬起。', indicator: '工位 Cr 浓度下降 > 40%', period: '1-2 周', cost: '中' },
       { title: 'Cr 暴露基线检测', tag: '健康筛查', type: 'primary', desc: '检测尿铬浓度和肺功能，评估当前暴露水平。', detail: '尿 Cr、血常规、肝肾功能、肺功能检测、胸部 X 线。', indicator: '尿 Cr > 30 μg/L 或肺功能异常需加强干预', period: '1-3 个工作日', cost: '低' },
@@ -284,12 +290,7 @@ const selectedPerson = computed(() => {
   const id = selectedLevel.value === 'level2' ? activePerson.value : activeMediumPerson.value
   return currentPersons.value.find(person => person.id === id) || currentPersons.value[0]
 })
-const selectPerson = (id) => {
-  if (selectedLevel.value === 'level2') activePerson.value = id
-  else activeMediumPerson.value = id
-}
-watch(() => route.query.person, (value) => {
-  const id = typeof value === 'string' ? value : ''
+const restoreSelection = (id) => {
   if (highRiskPersons.value.some(person => person.id === id)) {
     selectedLevel.value = 'level2'
     activePerson.value = id
@@ -297,7 +298,12 @@ watch(() => route.query.person, (value) => {
     selectedLevel.value = 'level1'
     activeMediumPerson.value = id
   }
-}, { immediate: true })
+}
+watch(() => route.query.person, restoreSelection, { immediate: true })
+const selectPerson = (id) => {
+  restoreSelection(id)
+  if (route.query.person !== id) router.replace({ path: '/plan', query: { person: id } })
+}
 const goToReport = () => router.push({ path: '/plan/specplan', query: { person: selectedPerson.value.id } })
 </script>
 
@@ -342,11 +348,11 @@ const goToReport = () => router.push({ path: '/plan/specplan', query: { person: 
 .case-option { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 55px; padding: 8px 10px; border: 1px solid transparent; border-radius: 7px; text-align: left; cursor: pointer; font: inherit; color: #364b60; background: transparent; }
 .case-option:hover { background: #f4f6fa; }
 .case-option.selected { background: #ebedfa; border-color: #cbd2ef; color: #293d78; box-shadow: inset 3px 0 #5266a7; }
-.case-avatar { flex-shrink: 0; display: grid; place-items: center; width: 32px; height: 32px; background: #edf1f5; color: #56687a; font-size: 14px; font-weight: 670; border-radius: 50%; }
-.case-option.selected .case-avatar { color: #fff; background: #485a91; }
-.case-copy { display: grid; flex: 1; min-width: 0; gap: 3px; }
-.case-copy strong { font-size: 14px; }
-.case-copy > span { color: #56677c; font-size: 11px; letter-spacing: .3px; }
+.record-symbol { flex-shrink: 0; font-size: 18px; color: #738397; }
+.case-option.selected .record-symbol { color: #485a91; }
+.record-code { font-variant-numeric: tabular-nums; letter-spacing: .045em; }
+.case-option .record-code { flex: 1; font-size: 14px; }
+.mobile-object-picker { display: none; }
 .case-arrow { flex-shrink: 0; color: #6f8194; font-size: 13px; }
 .case-option.selected .case-arrow { color: #384d88; }
 .plan-detail { min-width: 0; }
@@ -354,7 +360,6 @@ const goToReport = () => router.push({ path: '/plan/specplan', query: { person: 
 .person-summary-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .detail-kicker { color: #d3e2f4; font-size: 12px; }
 .person-summary h2 { margin: 4px 0 0; color: #fff; font-size: 25px; font-weight: 700; line-height: 1.4; }
-.person-summary h2 > span { color: #d5dfef; font-size: 12px; font-weight: 500; margin-left: 8px; }
 .person-summary :deep(.el-button) { --el-button-bg-color: #fff; --el-button-border-color: #fff; --el-button-text-color: #243758; --el-button-hover-bg-color: #e5ecfc; --el-button-hover-border-color: #e5ecfc; --el-button-hover-text-color: #182a4b; --el-button-active-bg-color: #d6e0f5; --el-button-active-text-color: #172843; flex-shrink: 0; min-height: 38px; border-radius: 7px; font-weight: 650; }
 .person-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #516480; color: #eff3fa; font-size: 12px; line-height: 1.6; }
 .workflow-heading { margin-top: 24px; }
@@ -415,8 +420,11 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   .scenario-options, .workflow-grid, .outcome-grid { grid-template-columns: 1fr; }
   .scenario-options { gap: 8px; }
   .scenario-option { padding: 11px 13px; min-height: 67px; }
-  .case-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .case-option { padding: 8px; }
+  .case-panel { padding: 0 14px 12px; }
+  .case-heading { margin-bottom: 0; padding: 12px 0 7px; border: 0; }
+  .case-list { display: none; }
+  .mobile-object-picker { display: flex; align-items: center; gap: 12px; color: #42566c; font-size: 13px; }
+  .mobile-object-picker select { flex: 1; min-width: 0; min-height: 44px; border: 1px solid #aab9ce; border-radius: 7px; padding-inline: 12px; background: #fff; color: #293d78; font-weight: 650; font-variant-numeric: tabular-nums; }
   .person-summary { padding: 17px; }
   .person-summary-top { flex-wrap: wrap; gap: 10px; }
   .person-summary :deep(.el-button) { min-height: 42px; }

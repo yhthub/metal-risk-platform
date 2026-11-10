@@ -176,7 +176,7 @@ test('threshold 100 does not force top-tail flags when outcomes disagree', () =>
 })
 test('warning share uses evaluated denominator, distinguishes skipped and never fills missing with zero', () => {
   const result = fixture(11)
-  result.records[10] = { row_number: 11, person_id: 'SKIPPED', status: 'INPUT_NOT_ELIGIBLE', reason: '无BMI', results: null }; refreshCounts(result)
+  result.records[10] = { row_number: 11, person_id: '93713', status: 'INPUT_NOT_ELIGIBLE', reason: '无BMI', results: null }; refreshCounts(result)
   const output = warning.buildCohortWarning(result)
   assert.equal(output.evaluated_count, 10); assert.equal(output.not_evaluated_count, 1); assert.equal(output.warning_count, 2)
   assert.equal(output.percentage, 20); assert.equal(output.total_percentage, 2 / 11 * 100)
@@ -192,13 +192,17 @@ test('Top20 display limits do not change complete warning counts or include unfl
   assert.equal(warning.buildWarningRankOption(warning.buildCohortWarning(fixture(4))), null)
   assert.equal(warning.cohortDisplayId(1), 'P-000001'); assert.equal(warning.cohortDisplayId(1000000), 'P-1000000'); assert.equal(warning.cohortDisplayId(NaN), 'P-UNKNOWN')
 })
-test('escaped tooltips retain original IDs; CSV neutralizes formulas and preserves all twelve outcomes', () => {
-  const result = fixture(10); result.records[9].person_id = '=1+1<img src=x onerror=alert(1)>'
+test('only coded identifiers reach tooltips and exports, preserving all twelve outcomes', () => {
+  const result = fixture(10)
+  const invalidInput = fixture(10); invalidInput.records[9].person_id = '=1+1<img src=x onerror=alert(1)>'
+  const invalidOutput = warning.buildCohortWarning(invalidInput)
+  assert.equal(warning.buildWarningRankOption(invalidOutput), null)
+  assert(!warning.warningRankingCsv(invalidOutput).includes('<img'))
   const output = warning.buildCohortWarning(result)
   const text = warning.buildWarningRankOption(output).tooltip.formatter([{ dataIndex: 0 }])
-  assert(text.includes('&lt;img')); assert(!text.includes('<img')); assert(text.includes('P-000010'))
+  assert(text.includes('93712')); assert(!text.includes('<img')); assert(text.includes('P-000010'))
   const csv = warning.warningRankingCsv(output)
-  assert.equal(csv.split('\r\n').length, 121); assert(csv.includes("'=1+1<img")); assert(csv.includes('P-000010')); assert(csv.includes('HDL'))
+  assert.equal(csv.split('\r\n').length, 121); assert(!csv.includes('<img')); assert(csv.includes('P-000010')); assert(csv.includes('HDL'))
   assert.equal(output.algorithm_version, 'cohort_relative_midrank_v1')
   assert(csv.split('\r\n').slice(1).every(line => line.startsWith('"cohort_relative_midrank_v1",')))
   assert.match(csv, /不是疾病概率/)

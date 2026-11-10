@@ -82,12 +82,19 @@ export const useApi = () => {
   const getGroupDemo = async () => await request('/api/datainput/demo')
   const importGroupDemo = async () => await request('/api/datainput/demo/import', { method: 'POST' })
 
+  // Preserve the table format without sending the original participant-linked filename.
+  const tableForm = (file: File) => {
+    const extension = /\.(csv|xlsx)$/i.exec(file.name)?.[1]?.toLowerCase()
+    const body = new FormData()
+    body.append('file', file, extension ? `dataset.${extension}` : 'dataset')
+    return body
+  }
+
   /**
    * 上传群体数据并生成指定结局的统计分析
    */
   const uploadBatchData = async (file: File, outcomeId: string) => {
-    const body = new FormData()
-    body.append('file', file)
+    const body = tableForm(file)
     body.append('outcome_id', outcomeId)
     return await request('/api/datainput/batch', {
       method: 'POST',
@@ -107,8 +114,7 @@ export const useApi = () => {
   }
 
   const cleaningBody = (file: File, options?: any) => {
-    const body = new FormData()
-    body.append('file', file)
+    const body = tableForm(file)
     if (options !== undefined) body.append('options', JSON.stringify(options))
     return body
   }

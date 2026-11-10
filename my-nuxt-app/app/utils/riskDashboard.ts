@@ -1,5 +1,5 @@
 /** Pure ECharts builders for the original risk dashboard and report. */
-import { formatPredictionNumber, predictionHasValue } from './riskPrediction'
+import { cohortParticipantCode, formatPredictionNumber, predictionHasValue } from './riskPrediction'
 import type { BatchPredictionResponse, PredictionOutcome, PredictionRequest, PredictionResponse } from './riskPrediction'
 import { RISK_PALETTE, chartGradient, featureAccent } from './riskPalette'
 export interface ChartBlock { status: string; reason?: string | null; note?: string }
@@ -26,7 +26,7 @@ export function availableShapItems(charts: DashboardCharts | null | undefined): 
 }
 export function buildRankOption(prediction: PredictionResponse, target: string, batch?: DashboardBatchResponse | null): ChartOption | null {
   const current = selectedOutcome(prediction, target)
-  const rows = batch ? batch.records.map(record => ({ id: record.person_id, row: selectedOutcome({ ...prediction, results: record.results || [] }, target) })) : [{ id: prediction.person_id || '本次对象', row: current }]
+  const rows = batch ? batch.records.map(record => ({ id: cohortParticipantCode(record.person_id, record.row_number), row: selectedOutcome({ ...prediction, results: record.results || [] }, target) })) : [{ id: cohortParticipantCode(prediction.person_id, 1), row: current }]
   const valid = rows.filter(item => item.row && predictionHasValue(item.row)).sort((a, b) => (b.row!.prediction as number) - (a.row!.prediction as number)).slice(0, 10)
   if (!valid.length || !current) return null
   return { tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (params: any[]) => params.map(item => html(item.name) + '：' + formatPredictionNumber(item.value) + ' ' + html(current.unit)).join('<br/>') }, grid: { left: '3%', right: '12%', top: '8%', bottom: '15%', containLabel: true }, xAxis: { type: 'value', name: current.unit, splitLine: { lineStyle: { type: 'dashed' } } }, yAxis: { type: 'category', inverse: true, data: valid.map(item => item.id), axisTick: { show: false }, axisLabel: { width: 100, overflow: 'truncate' } }, series: [{ type: 'bar', name: current.label_zh, barMaxWidth: 34, data: valid.map(item => item.row!.prediction), itemStyle: { color: blue, borderRadius: [0, 4, 4, 0] }, label: { show: true, position: 'right', formatter: (item: any) => formatPredictionNumber(item.value), color: '#2563EB' } }] }

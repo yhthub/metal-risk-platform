@@ -26,7 +26,7 @@ async def get_person_plan(person_id: str):
     """
     plan = await get_intervention_plan(person_id)
     if plan is None:
-        raise HTTPException(status_code=404, detail=f"未找到人员 {person_id} 的干预方案")
+        raise HTTPException(status_code=404, detail="未找到该对象编号的干预方案")
     return plan
 
 
@@ -44,31 +44,13 @@ async def list_all_plans(level: Optional[InterventionLevel] = None):
 
 @router.get("/high-risk", response_model=List[InterventionPlan], summary="获取高危人群干预方案")
 async def list_high_risk_plans():
-    """
-    获取高危人群（二级预防）的干预方案
-
-    包含 4 名高危人员：
-    - SZ-284 张伟（因果风险增幅 68.5%）
-    - SZ-105 李强（因果风险增幅 62.1%）
-    - SZ-032 王刚（因果风险增幅 55.4%）
-    - SZ-142 刘明（因果风险增幅 48.2%）
-    """
+    """按对象编号列出二级预防方案。"""
     return await get_high_risk_plans()
 
 
 @router.get("/medium-risk", response_model=List[InterventionPlan], summary="获取中危人群干预方案")
 async def list_medium_risk_plans():
-    """
-    获取中危人群（一级预防）的干预方案
-
-    包含 6 名中危人员：
-    - SZ-089 赵铁柱（因果风险增幅 41.5%）
-    - SZ-311 陈刚（因果风险增幅 36.8%）
-    - SZ-402 孙磊（因果风险增幅 32.1%）
-    - SZ-175 周波（因果风险增幅 28.5%）
-    - SZ-219 吴涛（因果风险增幅 24.2%）
-    - SZ-056 郑凯（因果风险增幅 18.6%）
-    """
+    """按对象编号列出一级预防方案。"""
     return await get_medium_risk_plans()
 
 
@@ -83,7 +65,7 @@ async def generate_person_report(person_id: str):
     """
     plan = await get_intervention_plan(person_id)
     if plan is None:
-        raise HTTPException(status_code=404, detail=f"未找到人员 {person_id} 的干预方案")
+        raise HTTPException(status_code=404, detail="未找到该对象编号的干预方案")
 
     # 构建报告数据
     report = {
@@ -97,10 +79,10 @@ async def generate_person_report(person_id: str):
         "level_name": "二级预防（高危人群早期筛查与临床干预）" if plan.level == InterventionLevel.LEVEL2 else "一级预防（中危人群健康教育与环境阻断）",
         "workflow": [step.model_dump() for step in plan.workflow],
         "outcomes": [outcome.model_dump() for outcome in plan.outcomes],
-        "report_title": f"{plan.name}({plan.person_id}) 个人化干预方案报告",
+        "report_title": f"{plan.person_id} · 干预方案报告",
         "report_date": "2026-05-12",
-        "reviewer": "Dr. 李华 (职防所)",
-        "review_date": "2026-05-15"
+        "reviewer": None,
+        "review_date": None
     }
 
     return report

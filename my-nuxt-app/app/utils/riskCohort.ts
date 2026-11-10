@@ -1,5 +1,5 @@
 /** Whole-upload views. Display pagination never limits the inference population. */
-import { csvCell, formatPredictionNumber, predictionHasValue, PREDICTION_SCOPE_NOTE } from './riskPrediction'
+import { cohortParticipantCode, csvCell, formatPredictionNumber, participantCode, predictionHasValue, PREDICTION_SCOPE_NOTE } from './riskPrediction'
 import type { BatchPredictionOutcome, BatchPredictionResponse, PredictionOutcome, PredictionRequest } from './riskPrediction'
 import type { ChartOption } from './riskDashboard'
 import { RISK_PALETTE, chartGradient, rankingGradient } from './riskPalette'
@@ -68,7 +68,7 @@ export function cohortResponseError(value: any): string | null {
   const ids = new Set<string>(); let accepted = 0
   for (let index = 0; index < value.records.length; index++) {
     const row = value.records[index]
-    if (!row || row.row_number !== index + 1 || typeof row.person_id !== 'string' || !row.person_id || ids.has(row.person_id))
+    if (!row || row.row_number !== index + 1 || !participantCode(row.person_id) || (row.input?.person?.id != null && row.input.person.id !== row.person_id) || ids.has(row.person_id))
       return '群体结果编号或原始行号不一致，未生成排序。'
     ids.add(row.person_id)
     if (row.status === 'ESTIMATES_NOT_DIAGNOSES') {
@@ -97,7 +97,7 @@ export function buildCohortView(result: CohortPredictionResponse, target: string
   for (const record of result.records) {
     const outcome = record.results?.find(item => item.target === target)
     if (!outcome || !predictionHasValue(outcome)) continue
-    rankings.push({ rank: 0, row_number: record.row_number, person_id: record.person_id,
+    rankings.push({ rank: 0, row_number: record.row_number, person_id: cohortParticipantCode(record.person_id, record.row_number),
       prediction: outcome.prediction as number, age: record.input?.person.age ?? null, gender: record.input?.person.gender ?? null, input: record.input, outcome })
   }
   rankings.sort((a, b) => b.prediction - a.prediction || a.row_number - b.row_number)

@@ -13,7 +13,7 @@ function compile(relative) {
   }).outputText
 }
 const utility = {}
-vm.runInNewContext(compile('app/utils/riskPrediction.ts'), { exports: utility, setTimeout() {} })
+vm.runInNewContext(compile('app/utils/riskPrediction.ts'), { exports: utility, crypto: require('node:crypto').webcrypto, setTimeout() {} })
 const cache = new Map()
 const stateModule = {}
 vm.runInNewContext(compile('app/composables/usePredictionState.ts'), {
@@ -30,6 +30,20 @@ check('dashboard and batch records are memory-only, shared and initially empty',
   assert.equal(state.selectedTarget.value, 'sbp')
   assert.equal(state.cohortWarningThreshold.value, 80)
   assert.equal(stateModule.usePredictionState().dashboard, state.dashboard)
+})
+check('an old free-text identifier receives one stable replacement across draft, chart and report state', () => {
+  const old = plain(state.draft.value); old.person.id = 'Legacy free text'
+  state.draft.value = plain(old)
+  state.lastRequest.value = plain(old)
+  state.dashboard.value = { input: plain(old), prediction: { person_id: old.person.id } }
+  const view = stateModule.usePredictionState()
+  const code = view.draft.value.person.id
+  assert.match(code, /^P-[0-9]{12}$/)
+  assert.equal(view.lastRequest.value.person.id, code)
+  assert.equal(view.dashboard.value.prediction.person_id, code)
+  assert.equal(view.dashboard.value.input.person.id, code)
+  assert.equal(stateModule.usePredictionState().draft.value.person.id, code)
+  state.invalidate()
 })
 check('composite threshold is shared with reports and kept independent of single-target navigation', () => {
   const reportState = stateModule.usePredictionState()

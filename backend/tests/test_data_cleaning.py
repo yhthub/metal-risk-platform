@@ -167,17 +167,43 @@ class SchemaAndOptionsTests(unittest.TestCase):
 
 
 class TableReadingTests(unittest.TestCase):
+    def test_names_are_replaced_before_preview_filtering_and_export(self):
+        marker = 'PrivacyFixture'
+        grid = [['Full Name', '人员编号', 'measurement'],
+                [marker, marker, '7'], [marker, 'ROW-000001', '8'], [marker, '0003', '9'], ['', '', '']]
+        for content, ext in ((csv_bytes(grid[0], grid[1:]), 'csv'), (xlsx_bytes(grid), 'xlsx')):
+            filename = marker + '.' + ext
+            inspection = cleaning.inspect_table(content, filename)
+            self.assertNotIn(marker, json.dumps(inspection))
+            rows = inspection['preview']
+            self.assertEqual(rows[0]['记录编号'], rows[0]['人员编号'])
+            self.assertNotEqual(rows[0]['记录编号'], rows[1]['人员编号'])
+            self.assertNotEqual(rows[0]['记录编号'], rows[1]['记录编号'])
+            self.assertEqual(rows[2]['人员编号'], '0003')
+            self.assertEqual(rows[3]['记录编号'], '')
+            out, download_name, preview = cleaning.export_table(content, filename, options(row_start=2, drop_duplicates=True))
+            self.assertNotIn(marker.encode(), out)
+            self.assertNotIn(marker, download_name)
+            self.assertEqual(preview['preview'][0]['记录编号'], rows[1]['记录编号'])
+            self.assertEqual(exported_records(out)[1][0], rows[1]['记录编号'])
+
+    def test_manual_mapping_to_identifier_masks_free_text_without_filling_blank_ids(self):
+        raw = csv_bytes(['source', 'value'], [['PrivacyFixture', '1'], ['', '2']])
+        config = options(columns=[{'source': 'source', 'target': 'SEQN'}, {'source': 'value', 'target': 'value'}])
+        view = cleaning.preview_table(raw, 'input.csv', config)
+        self.assertEqual([r['SEQN'] for r in view['preview']], ['ROW-000001', ''])
+
     def test_csv_preserves_ids_na_strings_blank_values_and_quotes(self):
         payload = csv_bytes(["ID", "value", "note"], [["0007", "NA", "A,B\nC"], ["0008", "", "None"]])
         preview = cleaning.inspect_table(payload, "../private.CSV")
-        self.assertEqual(preview["filename"], "private.CSV")
+        self.assertEqual(preview["filename"], "dataset.csv")
         self.assertEqual(preview["preview"][0], {"ID": "0007", "value": "NA", "note": "A,B\nC"})
         self.assertEqual(preview["preview"][1]["value"], "")
         self.assertEqual(preview["total_rows"], 2)
 
     def test_gb18030_encoding_is_supported_and_reported(self):
         result = cleaning.inspect_table("编号,姓名\r\n0001,测试\r\n".encode("gb18030"), "fixture.csv")
-        self.assertEqual(result["preview"][0]["姓名"], "测试")
+        self.assertEqual(result["preview"][0]["记录编号"], "ROW-000001")
         self.assertTrue(any("GB18030" in value for value in result["warnings"]))
 
     def test_duplicate_and_empty_headers_are_not_mangled(self):
@@ -393,7 +419,7 @@ class TransformTests(unittest.TestCase):
         payload = csv_bytes(["姓名", "id"], [["测试", "0001"]])
         exported, name, result = cleaning.export_table(payload, "../input.csv", options())
         self.assertTrue(exported.startswith(b"\xef\xbb\xbf"))
-        self.assertEqual(name, "cleaned_input.csv")
+        self.assertEqual(name, "cleaned_custom.csv")
         self.assertEqual(dict(zip(exported_records(exported)[0], exported_records(exported)[1])), result["preview"][0])
 
     def test_formula_injection_is_protected_even_without_trimming(self):

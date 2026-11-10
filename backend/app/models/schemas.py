@@ -1,6 +1,8 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 from typing import List, Optional, Dict, Any
 from enum import Enum
+
+from ..utils.participant_ids import ParticipantID, new_participant_id
 
 
 class JobType(str, Enum):
@@ -66,7 +68,7 @@ class InterventionLevel(str, Enum):
 # 个体数据模型
 class IndividualData(BaseModel):
     """单人录入数据"""
-    id: str = Field(..., description="工号，如 SZ-284")
+    id: ParticipantID = Field(default_factory=new_participant_id, description="对象编号，如 SZ-284")
     gender: Gender = Field(..., description="性别")
     age: int = Field(..., ge=18, le=100, description="年龄")
     work_years: float = Field(..., ge=0, description="暴露工龄(年)")
@@ -173,12 +175,16 @@ class ModelInfo(BaseModel):
 class HighRiskPerson(BaseModel):
     """高危人员信息"""
     id: str = Field(..., description="工号")
-    name: str = Field(..., description="姓名")
     dept: str = Field(..., description="部门")
     years: int = Field(..., description="工龄")
     factors: str = Field(..., description="风险因子")
     score: float = Field(..., description="因果风险增幅(%)")
     level: RiskLevel = Field(..., description="风险等级")
+
+    @computed_field(description="对象编号（兼容旧版显示字段）")
+    @property
+    def name(self) -> str:
+        return self.id
 
 
 # 风险评估结果
@@ -308,7 +314,6 @@ class OutcomeMetric(BaseModel):
 class InterventionPlan(BaseModel):
     """干预方案"""
     person_id: str = Field(..., description="人员工号")
-    name: str = Field(..., description="姓名")
     dept: str = Field(..., description="部门")
     years: int = Field(..., description="工龄")
     factors: str = Field(..., description="风险因子")
@@ -316,6 +321,11 @@ class InterventionPlan(BaseModel):
     level: InterventionLevel = Field(..., description="干预级别")
     workflow: List[WorkflowStep] = Field(..., description="工作流步骤")
     outcomes: List[OutcomeMetric] = Field(..., description="预期成效")
+
+    @computed_field(description="对象编号（兼容旧版显示字段）")
+    @property
+    def name(self) -> str:
+        return self.person_id
 
 
 # 知识库信息

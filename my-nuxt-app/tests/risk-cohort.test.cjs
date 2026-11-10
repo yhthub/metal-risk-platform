@@ -21,7 +21,7 @@ function load(name) {
 const cohort = load('riskCohort')
 const targets = ['sbp', 'dbp', 'creatinine', 'bun', 'uric_acid', 'uacr', 'hba1c', 'cholesterol', 'hdl', 'alt', 'ast', 'ggt']
 function fixture(count = 601) {
-  const records = Array.from({ length: count }, (_, index) => ({ row_number: index + 1, person_id: 'PUBLIC-' + (index + 1), status: 'ESTIMATES_NOT_DIAGNOSES', input: { person: { age: 40, gender: index % 2 ? 'female' : 'male' } },
+  const records = Array.from({ length: count }, (_, index) => ({ row_number: index + 1, person_id: String(93703 + index), status: 'ESTIMATES_NOT_DIAGNOSES', input: { person: { age: 40, gender: index % 2 ? 'female' : 'male' } },
     results: targets.map(target => ({ target, label_zh: target, unit: 'unit', prediction: index, status: 'EXPLORATORY_ESTIMATE' })) }))
   const stats = { n: count, mean: (count - 1) / 2, median: (count - 1) / 2, q1: 0, q3: count - 1, min: 0, max: count - 1, std: 1 }
   const group = { group: 'male', label_zh: '男性', eligible_count: count, estimated_count: count, withheld_count: 0, mean_prediction: stats.mean, statistics: stats }
@@ -38,7 +38,7 @@ test('a result after row 500 enters the global ranking instead of disappearing b
   const before = plain(result)
   const view = cohort.buildCohortView(result, 'sbp')
   assert.equal(view.rankings.length, 601)
-  assert.equal(view.rankings[0].person_id, 'PUBLIC-601')
+  assert.equal(view.rankings[0].person_id, '94303')
   assert.equal(view.rankings[0].rank, 1)
   assert.equal(view.rankings[600].rank, 601)
   const chart = cohort.buildCohortRankOption(result, 'sbp')
@@ -49,7 +49,7 @@ test('a result after row 500 enters the global ranking instead of disappearing b
 test('partial, legacy and misleadingly complete page responses are rejected', () => {
   for (const mutate of [r => { r.complete = false }, r => { r.analysis_scope = 'page' }, r => { r.has_more = true },
     r => { r.offset = 500 }, r => { r.limit = 20 }, r => { r.records.pop() }, r => { r.processed_records-- },
-    r => { r.records[1].person_id = r.records[0].person_id }, r => { r.records[0].row_number = 2 },
+    r => { r.records[1].person_id = 'Imported free text' }, r => { r.records[1].person_id = r.records[0].person_id }, r => { r.records[0].row_number = 2 },
     r => { r.records[0].results.pop() }, r => { r.summary[0].estimated_count-- }]) {
     const result = fixture(3)
     mutate(result)
@@ -110,8 +110,8 @@ test('CSV export includes all persons and all outcomes in separate clearly scope
   const result = fixture(601)
   const ranking = cohort.cohortRankingCsv(result, 'sbp')
   assert.equal(ranking.split('\r\n').length, 602)
-  assert(ranking.includes('PUBLIC-601'))
-  assert(ranking.includes('PUBLIC-1'))
+  assert(ranking.includes('94303'))
+  assert(ranking.includes('93703'))
   assert.match(ranking, /不是临床高危等级或疾病概率/)
   const summary = cohort.cohortSummaryCsv(result)
   assert.equal(summary.split('\r\n').length, 13)
@@ -121,7 +121,8 @@ test('CSV export includes all persons and all outcomes in separate clearly scope
 test('rank tooltips and downloadable participant identifiers are escaped', () => {
   const result = fixture(1)
   result.records[0].person_id = '=1+1'
-  assert(cohort.cohortRankingCsv(result, 'sbp').includes("'=1+1"))
+  assert(!cohort.cohortRankingCsv(result, 'sbp').includes('=1+1'))
+  assert(cohort.cohortRankingCsv(result, 'sbp').includes('P-000001'))
   const option = cohort.buildCohortRankOption(result, 'sbp')
   assert(!option.tooltip.formatter([{ name: '<img src=x>', value: 12 }]).includes('<img'))
 })

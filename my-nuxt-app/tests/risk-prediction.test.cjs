@@ -12,20 +12,20 @@ const source = fs.readFileSync(sourcePath, 'utf8')
 const transpiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }, reportDiagnostics: true })
 assert.equal(transpiled.diagnostics.length, 0)
 const exportsObject = {}
-vm.runInNewContext(transpiled.outputText, { exports: exportsObject, setTimeout: () => {} })
+vm.runInNewContext(transpiled.outputText, { exports: exportsObject, crypto: require('node:crypto').webcrypto, setTimeout: () => {} })
 const lib = exportsObject
 const plain = value => JSON.parse(JSON.stringify(value))
 let count = 0
 function check(name, run) { run(); count++; console.log('PASS ' + name) }
 function fixture() {
   const draft = lib.createPredictionDraft()
-  Object.assign(draft.person, { id: 'SYNTHETIC', age: 45, gender: 'female', gender_confirmed: true, bmi: 24, pb: 1.2, cd: 0.3, hg: 1 })
+  Object.assign(draft.person, { id: 'SZ-017', age: 45, gender: 'female', gender_confirmed: true, bmi: 24, pb: 1.2, cd: 0.3, hg: 1 })
   for (const metal of lib.METAL_FIELDS) Object.assign(draft.measurements[metal.key], { sample: 'whole_blood', unit: metal.unit, analyte: metal.analyte, confirmed: true })
   return draft
 }
 const validRow = { target: 'sbp', label_zh: '收缩压', unit: 'mmHg', prediction: 120.5, status: 'EXPLORATORY_ESTIMATE', reference_interval: { lower: 100, upper: 140, nominal_calibration_level: .9, guaranteed_coverage: false }, test_metrics: { MAE: 12, RMSE: 16, R2: .2, n: 500 }, selection_R2: .3, model_family: ['xgboost'], candidate_id: 'a' }
 const withheldRow = { ...validRow, target: 'uacr_mg_g', label_zh: '尿白蛋白 / 肌酐比', unit: 'mg/g', prediction: 999, status: 'INSUFFICIENT_VALIDATED_ACCURACY', reason: '验证不足', reference_interval: null }
-const response = { model_version: 'v5', run_id: 'fixture-only', profile: 'basic', person_id: '=HYPERLINK("evil")', status: 'ESTIMATES_NOT_DIAGNOSES', scope: 'exploratory', results: [validRow, withheldRow], warnings: [] }
+const response = { model_version: 'v5', run_id: 'fixture-only', profile: 'basic', person_id: 'SZ-017', status: 'ESTIMATES_NOT_DIAGNOSES', scope: 'exploratory', results: [validRow, withheldRow], warnings: [] }
 check('empty form defaults are genuinely unknown and independently allocated', () => {
   const first = lib.createPredictionDraft(); const second = lib.createPredictionDraft()
   assert.equal(first.person.gender, null); assert.equal(first.person.gender_confirmed, false)
@@ -34,6 +34,20 @@ check('empty form defaults are genuinely unknown and independently allocated', (
   for (const key of ['pb', 'cd', 'hg']) { assert.equal(first.measurements[key].confirmed, false); assert.equal(first.measurements[key].sample, '') }
   first.measurements.pb.confirmed = true
   assert.equal(second.measurements.pb.confirmed, false)
+})
+check('invalid legacy identifiers cannot reach inference payloads or exported person IDs', () => {
+  for (const code of ['93703','P-000001','SZ-105','DEMO-001','DEMO-SYNTHETIC-001','DEMO-CLEAN-01']) assert.equal(lib.participantCode(code), code)
+  for (const untrusted of ['中文标识','FreeText12','ABC-123','A Person','', '=FORMULA()']) {
+    const old = fixture(); old.person.id = untrusted
+    const { payload } = lib.buildPredictionRequest(old)
+    assert.match(payload.person.id, /^P-[0-9]{12}$/)
+    assert.equal(old.person.id, untrusted)
+    const legacyResult = { ...response, person_id: untrusted }
+    assert.match(lib.predictionCsv(legacyResult), /P-000001/)
+    const json = JSON.parse(lib.predictionJson(payload, legacyResult))
+    assert.equal(json.input.person.id, payload.person.id)
+    assert.equal(json.result.person_id, payload.person.id)
+  }
 })
 check('missing and illegal numerics never become zero', () => {
   for (const value of ['', '  ', null, undefined, false, true, {}, NaN, Infinity, 'x', '0x10', '0o12', '0b10']) assert.equal(lib.parsePredictionNumber(value), null)
@@ -86,7 +100,7 @@ check('CSV exports units/status/limitations and escapes formulas, quotes and mul
   assert.equal(lib.csvCell('a,"b"\nc'), '"a,""b""\nc"')
   const csv = lib.predictionCsv(response)
   assert(csv.startsWith('\uFEFF')); assert.match(csv, /test_MAE/); assert.match(csv, /mmHg/); assert.match(csv, /验证不足/); assert.match(csv, /不保证个体覆盖率/)
-  assert(!csv.includes('"999"')); assert.match(csv, /'\=HYPERLINK/)
+  assert(!csv.includes('"999"')); assert.match(csv, /SZ-017/)
 })
 check('JSON report carries the actual request, response and scope warnings', () => {
   const result = JSON.parse(lib.predictionJson(fixture(), response))

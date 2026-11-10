@@ -179,7 +179,7 @@ check('existing batch visual-results and chart renderer remain intact beside exp
   assert.match(currentWithPublicSource, /图表为未加权描述性统计/)
   const publicDisclosure = /^            <details v-if="groupDemoSource && analysisData\?\.metadata\.warnings\?\.length" class="analysis-notes-details">[\s\S]*?^            <\/details>\n/gm
   assert.equal((currentWithPublicSource.match(publicDisclosure) || []).length, 1)
-  const current = currentWithPublicSource.replace(publicSourceLine, '').replace(publicDisclosure, '')
+  const chartSection = text => text.replace(publicSourceLine, '').replace(publicDisclosure, '')
     .replace('ref="groupDashboardRef" ', '')
     .replace('v-if="!groupDemoSource && analysisData?.metadata.warnings?.length"', 'v-if="analysisData?.metadata.warnings?.length"')
   for (const [start, end] of [['          <!-- 群体模式大屏 -->', '          <!-- 单人模式科研图表 -->'], ['const initBatchECharts', '/* ==============================================']]) {
@@ -190,7 +190,7 @@ check('existing batch visual-results and chart renderer remain intact beside exp
       return text.slice(begin, finish)
     }
     const currentEnd = end.includes('setTimeout') ? '\n  showDashboard.value = true\n  currentStep.value = 2' : end
-    assert.equal(get(current, start, currentEnd).trimEnd(), get(baseline, start, end).trimEnd())
+    assert.equal(get(chartSection(currentWithPublicSource), start, currentEnd).trimEnd(), get(chartSection(baseline), start, end).trimEnd())
   }
 })
 
@@ -222,9 +222,11 @@ async function componentChecks() {
     '~/utils/individualProfile': helpers,
     '~/utils/individualReferences': refs,
     '~/utils/individualDemo': demo,
+    '~/utils/product': { PRODUCT_SHORT_NAME: 'test' },
+    '~/utils/riskPrediction': { createParticipantCode: () => 'P-000000000001' },
     echarts: chartApi
   }, {
-    document: { getElementById: id => nodes.get(id) }, window: { scrollTo() {} }, useRouter: () => ({}),
+    document: { getElementById: id => nodes.get(id) }, window: { scrollTo() {} }, useHead() {}, useRouter: () => ({}),
     usePredictionState: () => ({ invalidate() {}, setIntake() {}, batchIntake: vue.ref(null) }),
     useApi: () => ({ getOutcomeConfigs: () => { apiCalls++; throw Error('Unexpected API') }, uploadBatchData: () => { apiCalls++; throw Error('Unexpected API') }, getDatasetAnalysis: () => { apiCalls++; throw Error('Unexpected API') } })
   })
@@ -391,7 +393,7 @@ async function componentChecks() {
     assert.equal(options.get('singleChartRadar').series[0].data[0].value.length, 5)
     assert.equal(options.get('singleChartAnomaly').series[0].data[0].value, 50)
     assert(component.individualProfile.value.rows.every(item => item.metadata.confirmed))
-    assert.match(component.formData.value.singleData.name, /合成/)
+    assert.equal(component.formData.value.singleData.objectId, 'DEMO-001')
     assert.match(component.formData.value.singleData.history, /非真实/)
     assertSynthetic(false)
   })
@@ -464,7 +466,7 @@ async function componentChecks() {
   })
 
   const existingInputs = [
-    ['name only', () => { component.formData.value.singleData.name = 'Existing person' }],
+    ['work years only', () => { component.formData.value.singleData.workYears = 4 }],
     ['measured zero', () => { component.formData.value.singleData.pb = 0 }],
     ['invalid measurement', () => { component.formData.value.singleData.pb = 'invalid' }],
     ['metadata only', () => { component.individualMetadata.value.pb.unit = 'μg/L' }]
@@ -505,7 +507,7 @@ async function componentChecks() {
     })
   }
   await asyncCheck('cancelling clear on a modified visible demo keeps synthetic provenance and all seven chart instances', async () => {
-    component.formData.value.singleData.name = 'Modified demo'
+    component.formData.value.singleData.workYears = 18
     component.individualMetadata.value.cd.sample = 'random_urine'
     component.handleMetadataChange('cd')
     await settle()

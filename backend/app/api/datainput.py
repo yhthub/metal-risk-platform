@@ -149,5 +149,5 @@ async def get_record(record_id: str):
     """根据工号获取单条记录"""
     record = await get_record_by_id(record_id)
     if record is None:
-        raise HTTPException(status_code=404, detail=f"记录不存在: {record_id}")
+        raise HTTPException(status_code=404, detail="未找到该对象编号的记录")
     return record

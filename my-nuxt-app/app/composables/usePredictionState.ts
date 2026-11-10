@@ -1,4 +1,4 @@
-import { clonePrediction, createPredictionDraft } from '~/utils/riskPrediction'
+import { clonePrediction, createParticipantCode, createPredictionDraft, participantCode } from '~/utils/riskPrediction'
 import type { BatchPredictionResponse, PredictionDraft, PredictionRequest, PredictionResponse } from '~/utils/riskPrediction'
 import type { DashboardResponse } from '~/utils/riskDashboard'
 import type { CohortPredictionResponse } from '~/utils/riskCohort'
@@ -18,6 +18,16 @@ export const usePredictionState = () => {
   const selectedTarget = useState<string>('prediction:target', () => 'sbp')
   const selectedRow = useState<number | null>('prediction:row', () => null)
   const lastDashboardRequest = useState<{ input: PredictionRequest; target: string } | null>('prediction:dashboard-request', () => null)
+  // Older in-memory drafts may contain a free-text identifier. Assign one replacement
+  // for the whole active record, including the report and the selected model response.
+  const code = participantCode(draft.value.person.id) || createParticipantCode()
+  if (draft.value.person.id !== code) draft.value.person.id = code
+  for (const input of [intake.value, lastRequest.value, lastDashboardRequest.value?.input, dashboard.value?.input]) {
+    if (input && !participantCode(input.person.id)) input.person.id = code
+  }
+  for (const output of [lastResult.value, dashboard.value?.prediction]) {
+    if (output && !participantCode(output.person_id)) output.person_id = code
+  }
   const invalidate = () => {
     lastResult.value = null
     lastRequest.value = null
@@ -27,7 +37,14 @@ export const usePredictionState = () => {
     selectedRow.value = null
     lastDashboardRequest.value = null
   }
-  const setIntake = (payload: PredictionRequest) => { intake.value = clonePrediction(payload); batchIntake.value = null; draft.value = clonePrediction(payload); lastRequest.value = null; invalidate() }
+  const setIntake = (payload: PredictionRequest) => {
+    const copy = clonePrediction(payload)
+    copy.person.id = participantCode(copy.person.id) || createParticipantCode()
+    intake.value = copy
+    batchIntake.value = null
+    draft.value = clonePrediction(copy)
+    invalidate()
+  }
   const setResult = (payload: PredictionRequest, result: PredictionResponse) => { lastRequest.value = clonePrediction(payload); lastResult.value = clonePrediction(result) }
   return { intake, batchIntake, draft, lastRequest, lastResult, dashboard, batchResult, cohortResult, cohortWarningThreshold, cohortWarningDemoPreset,
     selectedTarget, selectedRow, lastDashboardRequest, invalidate, setIntake, setResult }

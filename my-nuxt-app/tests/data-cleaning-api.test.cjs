@@ -31,8 +31,9 @@ const check = (name, run) => { run(); checks++; console.log('PASS ' + name) }
     assert.equal(requests.at(-1).url, 'http://127.0.0.1:8001/api/datainput/cleaning/schema?outcome_id=blood%20pressure%26x')
     assert.equal(requests.at(-1).options.headers.Authorization, 'Bearer scoped-key')
   })
-  const file = new Blob(['SEQN,age\r\n00042,40'], { type: 'text/csv' })
+  const file = new File(['SEQN,age\r\n00042,40'], 'private-original-file.csv', { type: 'text/csv' })
   await api.inspectCleaningFile(file)
+  assert.equal(requests.at(-1).options.body.get('file').name, 'dataset.csv')
   check('inspection uploads actual multipart file, not a local pathname', () => {
     const call = requests.at(-1)
     assert.equal(call.url.endsWith('/cleaning/inspect'), true)

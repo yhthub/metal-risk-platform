@@ -38,7 +38,7 @@ check('demo is explicitly synthetic and distinguishes residential radon from hum
   assert.match(demo.INDIVIDUAL_DEMO_NOTE, /所有数值均为合成/)
   assert.match(demo.INDIVIDUAL_DEMO_NOTE, /住宅室内年均/)
   assert.match(demo.INDIVIDUAL_DEMO_NOTE, /不是人体样本或工作场所/)
-  assert.match(demo.createIndividualDemo().singleData.name, /DEMO.*合成/)
+  assert.equal(demo.createIndividualDemo().singleData.objectId, 'DEMO-001')
   assert.match(demo.createIndividualDemo().singleData.history, /非真实人员/)
 })
 check('all expected form fields are filled with valid existing options and finite nonnegative values', () => {
@@ -57,7 +57,7 @@ check('all expected form fields are filled with valid existing options and finit
     assert.equal(profile.parseMeasurement(fixture.singleData[field]).state, 'valid', field)
   }
   assert.deepEqual(Object.keys(fixture.singleData).sort(), [
-    'name', 'gender', 'age', 'workYears', 'education', 'marital', 'smoking', 'drinking', 'bmi', 'ppe', 'history',
+    'objectId', 'gender', 'age', 'workYears', 'education', 'marital', 'smoking', 'drinking', 'bmi', 'ppe', 'history',
     ...refs.MEASUREMENTS.map(item => item.key)
   ].sort())
   assert.equal(Object.keys(fixture.metadata).length, 10)
@@ -121,7 +121,7 @@ check('factory returns independent nested mutable objects and deterministic repe
     }
   }
   first.singleData.pb = 900
-  first.singleData.name = 'edited'
+  first.singleData.objectId = 'P-900012'
   first.metadata.pb.unit = 'μg/dL'
   first.metadata.as.confirmed = false
   assert.deepEqual(plain(demo.createIndividualDemo()), plain(second))

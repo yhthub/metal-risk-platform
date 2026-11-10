@@ -37,16 +37,16 @@ AVAILABLE_MODELS = [
 
 # 模拟高危人员数据
 MOCK_HIGH_RISK_PERSONS = [
-    {"id": "SZ-284", "name": "张伟", "dept": "第一熔炼车间", "years": 15, "factors": "Pb, As, Cd", "score": 68.5},
-    {"id": "SZ-105", "name": "李强", "dept": "第一熔炼车间", "years": 12, "factors": "Pb, As", "score": 62.1},
-    {"id": "SZ-032", "name": "王刚", "dept": "原矿粉碎区", "years": 18, "factors": "Pb, Cd, Hg", "score": 55.4},
-    {"id": "SZ-142", "name": "刘明", "dept": "尾气处理组", "years": 10, "factors": "As, Cr", "score": 48.2},
-    {"id": "SZ-089", "name": "赵铁柱", "dept": "原矿粉碎区", "years": 11, "factors": "Cd, Cr", "score": 41.5},
-    {"id": "SZ-311", "name": "陈刚", "dept": "第一熔炼车间", "years": 9, "factors": "Pb, As", "score": 36.8},
-    {"id": "SZ-402", "name": "孙磊", "dept": "尾气处理组", "years": 8, "factors": "As, Ni", "score": 32.1},
-    {"id": "SZ-175", "name": "周波", "dept": "第一熔炼车间", "years": 7, "factors": "Pb", "score": 28.5},
-    {"id": "SZ-219", "name": "吴涛", "dept": "原矿粉碎区", "years": 6, "factors": "Cd, Hg", "score": 24.2},
-    {"id": "SZ-056", "name": "郑凯", "dept": "尾气处理组", "years": 5, "factors": "Cr", "score": 18.6}
+    {"id": "SZ-284", "dept": "第一熔炼车间", "years": 15, "factors": "Pb, As, Cd", "score": 68.5},
+    {"id": "SZ-105", "dept": "第一熔炼车间", "years": 12, "factors": "Pb, As", "score": 62.1},
+    {"id": "SZ-032", "dept": "原矿粉碎区", "years": 18, "factors": "Pb, Cd, Hg", "score": 55.4},
+    {"id": "SZ-142", "dept": "尾气处理组", "years": 10, "factors": "As, Cr", "score": 48.2},
+    {"id": "SZ-089", "dept": "原矿粉碎区", "years": 11, "factors": "Cd, Cr", "score": 41.5},
+    {"id": "SZ-311", "dept": "第一熔炼车间", "years": 9, "factors": "Pb, As", "score": 36.8},
+    {"id": "SZ-402", "dept": "尾气处理组", "years": 8, "factors": "As, Ni", "score": 32.1},
+    {"id": "SZ-175", "dept": "第一熔炼车间", "years": 7, "factors": "Pb", "score": 28.5},
+    {"id": "SZ-219", "dept": "原矿粉碎区", "years": 6, "factors": "Cd, Hg", "score": 24.2},
+    {"id": "SZ-056", "dept": "尾气处理组", "years": 5, "factors": "Cr", "score": 18.6}
 ]
 
 
@@ -73,7 +73,6 @@ async def run_risk_assessment(model_id: str, file_id: str = None) -> RiskAssessm
         level = calculate_risk_level(person["score"])
         high_risk_persons.append(HighRiskPerson(
             id=person["id"],
-            name=person["name"],
             dept=person["dept"],
             years=person["years"],
             factors=person["factors"],
@@ -100,7 +99,6 @@ async def get_high_risk_persons(assessment_id: str) -> List[HighRiskPerson]:
         level = calculate_risk_level(person["score"])
         persons.append(HighRiskPerson(
             id=person["id"],
-            name=person["name"],
             dept=person["dept"],
             years=person["years"],
             factors=person["factors"],

@@ -212,7 +212,7 @@ import { buildCohortWarning, warningRankingCsv } from '~/utils/cohortWarning'
 
 useHead({ title: `风险分析报告 · ${PRODUCT_SHORT_NAME}` })
 const route = useRoute()
-const { lastResult, lastRequest, dashboard, cohortResult, cohortWarningThreshold, batchIntake, selectedTarget } = usePredictionState()
+const { lastResult, lastRequest, dashboard, cohortResult, cohortWarningThreshold, selectedTarget } = usePredictionState()
 const isBatchMode = computed(() => route.query.mode === 'batch')
 const cohort = computed<CohortPredictionResponse | null>(() => isBatchMode.value && cohortResult.value?.complete === true && !cohortResponseError(cohortResult.value) ? cohortResult.value : null)
 const cohortEmptyReason = computed(() => cohortResult.value ? cohortResponseError(cohortResult.value) || '请先完成整份群体文件计算。' : '请在群体风险分析页完成整份上传文件的模型计算。本页不会以单人结果、当前分页或模拟数值替代全群体报告。')
@@ -231,7 +231,7 @@ const cohortDistributionOption = computed(() => cohort.value ? buildCohortDistri
 const cohortGenderOption = computed(() => cohort.value ? buildCohortGroupOption(cohort.value, currentTarget.value, 'gender') : null)
 const cohortAgeOption = computed(() => cohort.value ? buildCohortGroupOption(cohort.value, currentTarget.value, 'age') : null)
 const selectedLabel = computed(() => isBatchMode.value ? cohortView.value?.label_zh || '所选指标' : charts.value?.label_zh || (result.value ? selectedOutcome(result.value, currentTarget.value)?.label_zh : null) || '所选指标')
-const sourceLabel = computed(() => isBatchMode.value ? cohort.value ? '全群导入 · ' + (batchIntake.value?.file_id === cohort.value.file_id ? batchIntake.value.filename || cohort.value.file_id : cohort.value.file_id) : '暂无完整群体结果' : hasReport.value ? '本次单人录入' : '暂无本次输入')
+const sourceLabel = computed(() => isBatchMode.value ? cohort.value ? '全群导入 · ' + cohort.value.file_id : '暂无完整群体结果' : hasReport.value ? '本次单人录入' : '暂无本次输入')
 const availableCount = computed(() => result.value?.results.filter(predictionHasValue).length || 0)
 const activeOutcome = computed(() => selectedOutcome(result.value, currentTarget.value))
 const modelChartAllowed = computed(() => !!activeOutcome.value && predictionHasValue(activeOutcome.value))

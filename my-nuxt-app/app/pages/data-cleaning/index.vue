@@ -25,17 +25,17 @@
           <div class="section-heading"><div><span class="section-number">01</span><h3>上传原始数据</h3></div><span class="subtle">CSV / XLSX · 最大 {{ maxUploadMb }} MB · Excel 读取第一个工作表</span></div>
           <div class="source-upload-row">
             <label class="upload-zone" :class="{ disabled: busy }" for="cleaning-source-file">
-              <el-icon><UploadFilled /></el-icon><span><strong>{{ sourceInfo ? sourceInfo.filename : '选择原始数据文件' }}</strong><small>{{ sourceInfo ? '可重新选择文件，原预览将被清除' : '表头放在第一行；一行代表一名受试者或一条记录' }}</small></span>
+              <el-icon><UploadFilled /></el-icon><span><strong>{{ sourceInfo ? '原始数据文件已载入' : '选择原始数据文件' }}</strong><small>{{ sourceInfo ? '可重新选择文件，原预览将被清除' : '表头放在第一行；一行代表一名受试者或一条记录' }}</small></span>
               <span class="upload-link">{{ inspecting ? '读取中…' : sourceInfo ? '更换文件' : '浏览文件' }}</span>
             </label>
             <input id="cleaning-source-file" ref="fileInputRef" class="file-input" type="file" accept=".csv,.xlsx" :disabled="busy" @change="selectSourceFile" />
             <div class="source-stats"><div><span>原始数据行</span><strong>{{ sourceInfo ? formatCount(sourceInfo.total_rows) : '—' }}</strong></div><div><span>原始字段列</span><strong>{{ sourceInfo ? sourceInfo.columns.length : '—' }}</strong></div></div>
           </div>
-          <p class="privacy-note">旧版 XLS 请先另存为 XLSX。文件仅用于本次格式处理；不要上传非必要身份信息。清洗不等于数据正确性、科学有效性或临床评估。</p>
+          <p class="privacy-note">已识别的姓名字段会按原始行转为编号。上传前请移除备注、列标题等自由文本中的个人信息。旧版 XLS 请先另存为 XLSX。</p>
           <div v-if="demoActive" class="demo-loaded-note" role="status"><strong>已载入合成示例 · 可以开始体验</strong><p>已选好去除空格、删除空白行和完全重复行。按预设规则预览后，12 行 / 21 列将整理为 10 行 / 20 个系统字段；你也可以修改规则或切换自定义格式。</p><details><summary>示例说明与操作提示</summary><p>所有记录均为人工构造，不是真实受试者。字段按本页所列的血液样本、单位和 NHANES 分类编码设置；表头有空格，附带一列演示备注。系统格式只保留已映射字段，不填补缺失值。</p><p>点击“一键清洗并预览”，查看处理记录；阅读字段口径后勾选确认项，即可下载 CSV。若下载原始案例后手动上传，请自行勾选“删除完全重复的输出行”。</p></details></div>
           <el-alert v-if="sourceError" :title="sourceError" type="error" :closable="false" show-icon />
           <div v-if="sourceInfo?.warnings?.length" class="notice-list"><p v-for="(warning, index) in sourceInfo.warnings" :key="index">{{ warning }}</p></div>
-          <details v-if="sourceInfo" class="preview-details"><summary>查看原始数据预览 <span>前 {{ sourcePreviewRows.length }} 行；表头两端空白自动去除，单元格值尚未清洗</span></summary>
+          <details v-if="sourceInfo" class="preview-details"><summary>查看原始数据预览 <span>前 {{ sourcePreviewRows.length }} 行，身份字段已按编号展示</span></summary>
             <div class="table-scroll" tabindex="0" aria-label="原始数据预览，可横向滚动"><table class="data-table"><thead><tr><th v-for="column in sourceInfo.columns" :key="column">{{ column }}</th></tr></thead><tbody><tr v-for="(row, rowIndex) in sourcePreviewRows" :key="rowIndex"><td v-for="column in sourceInfo.columns" :key="column" :title="displayCell(row[column])">{{ displayCell(row[column]) }}</td></tr><tr v-if="!sourcePreviewRows.length"><td :colspan="Math.max(1, sourceInfo.columns.length)">文件没有数据行。</td></tr></tbody></table></div>
           </details>
         </section>
@@ -349,11 +349,10 @@ async function downloadResult() {
     if (generation !== processingGeneration || capturedFingerprint !== fingerprint.value) return
     if (!response.success) { processError.value = response.error || '下载文件生成失败。'; return }
     if (!(response.data instanceof Blob)) { processError.value = '下载响应不是文件，请检查后端。'; return }
-    const safeBase = capturedFile.name.replace(/\.[^.]+$/, '').replace(/[^\p{L}\p{N}_-]/gu, '_').slice(0, 100) || 'data'
     const url = URL.createObjectURL(response.data)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${safeBase}_${capturedOptions.mode === 'system' ? 'system' : 'cleaned'}.csv`
+    link.download = capturedOptions.mode === 'system' ? 'cleaned_system.csv' : 'cleaned_custom.csv'
     document.body.appendChild(link)
     link.click()
     link.remove()

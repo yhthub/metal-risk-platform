@@ -7,13 +7,15 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from ..utils.participant_ids import ParticipantID, new_participant_id
+
 
 class PredictionInput(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
 
 
 class PredictionPerson(PredictionInput):
-    id: Optional[str] = Field(default=None, max_length=100)
+    id: ParticipantID = Field(default_factory=new_participant_id, description="对象编号")
     age: int = Field(ge=18, le=80, description="NHANES adult age, capped at 80; not an age-to-risk rule")
     gender: Literal["male", "female"]
     gender_confirmed: Literal[True]

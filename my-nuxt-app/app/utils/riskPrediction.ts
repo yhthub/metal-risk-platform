@@ -40,8 +40,18 @@ export const MARITAL_OPTIONS = [{ value: 'married', label: '已婚' }, { value: 
 export const SMOKING_OPTIONS = [{ value: 'less_than_100_lifetime', label: '终生吸烟少于 100 支' }, { value: 'former', label: '终生至少 100 支，目前已戒烟' }, { value: 'current', label: '终生至少 100 支，目前仍吸烟' }]
 export const PREDICTION_SCOPE_NOTE = '基于 NHANES 公开横断面数据的当次生理 / 生化指标估计，不是未来发病概率、临床诊断或重金属的因果效应。美国一般人群模型向中国职业暴露人群的适用性尚未验证。'
 export const INTERVAL_NOTE = '探索性残差范围：来自历史校准误差，不保证个体覆盖率，不是临床正常范围，也不是可靠的 90% 置信区间。'
-export function createPredictionDraft(): PredictionDraft {
-  return { person: { id: '', age: null, gender: null, gender_confirmed: false, bmi: null, pb: null, cd: null, hg: null }, measurements: { pb: { sample: '', unit: '', analyte: '', confirmed: false }, cd: { sample: '', unit: '', analyte: '', confirmed: false }, hg: { sample: '', unit: '', analyte: '', confirmed: false } }, covariates: { education: null, marital: null, smoking: null, alcohol_any_past_year: null } }
+/** Only assigned codes can travel from intake into charts, exports and model requests. */
+export function participantCode(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const text = value.trim()
+  return /^(?:[0-9]{1,13}|(?:P|SZ|DEMO|DEMO-CLEAN|DEMO-SYNTHETIC)-[0-9]{1,16})$/.test(text) ? text : ''
+}
+export function createParticipantCode(): string {
+  const words = crypto.getRandomValues(new Uint32Array(2))
+  return 'P-' + Array.from(words, n => String(n % 1_000_000).padStart(6, '0')).join('')
+}
+export function createPredictionDraft(id = ''): PredictionDraft {
+  return { person: { id, age: null, gender: null, gender_confirmed: false, bmi: null, pb: null, cd: null, hg: null }, measurements: { pb: { sample: '', unit: '', analyte: '', confirmed: false }, cd: { sample: '', unit: '', analyte: '', confirmed: false }, hg: { sample: '', unit: '', analyte: '', confirmed: false } }, covariates: { education: null, marital: null, smoking: null, alcohol_any_past_year: null } }
 }
 export function clonePrediction<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T }
 export function parsePredictionNumber(value: unknown): number | null {
@@ -56,6 +66,7 @@ export function buildPredictionRequest(draft: PredictionDraft): { payload: Predi
   for (const key of ['age', 'bmi', 'pb', 'cd', 'hg'] as const) payload.person[key] = parsePredictionNumber(draft.person[key])
   const errors: string[] = []
   const p = payload.person
+  p.id = participantCode(p.id) || createParticipantCode()
   if (p.age === null || !Number.isInteger(p.age) || p.age < 18 || p.age > 80) errors.push('请输入 18–80 岁整数年龄；80 岁为 NHANES 顶码，超过 80 岁不能按 80 岁录入。')
   if (!['male', 'female'].includes(p.gender || '') || p.gender_confirmed !== true) errors.push('请选择并核对训练口径对应的生理性别。')
   if (p.bmi === null || p.bmi <= 0) errors.push('BMI 必须是大于 0 的实测值。')
@@ -85,13 +96,19 @@ export function csvCell(value: unknown): string {
 }
 export function predictionCsv(result: PredictionResponse): string {
   const columns = ['person_id', 'model_version', 'run_id', 'target', 'label_zh', 'unit', 'prediction', 'status', 'reason', 'exploratory_lower', 'exploratory_upper', 'test_MAE', 'test_RMSE', 'test_R2', 'test_n', 'scope_note', 'interval_note']
-  const rows = result.results.map(row => [result.person_id, result.model_version, result.run_id, row.target, row.label_zh, row.unit, predictionHasValue(row) ? row.prediction : null, row.status, predictionHasValue(row) ? '' : predictionReason(row), predictionHasValue(row) ? row.reference_interval?.lower : null, predictionHasValue(row) ? row.reference_interval?.upper : null, row.test_metrics?.MAE, row.test_metrics?.RMSE, row.test_metrics?.R2, row.test_metrics?.n, PREDICTION_SCOPE_NOTE, INTERVAL_NOTE])
+  const rows = result.results.map(row => [participantCode(result.person_id) || 'P-000001', result.model_version, result.run_id, row.target, row.label_zh, row.unit, predictionHasValue(row) ? row.prediction : null, row.status, predictionHasValue(row) ? '' : predictionReason(row), predictionHasValue(row) ? row.reference_interval?.lower : null, predictionHasValue(row) ? row.reference_interval?.upper : null, row.test_metrics?.MAE, row.test_metrics?.RMSE, row.test_metrics?.R2, row.test_metrics?.n, PREDICTION_SCOPE_NOTE, INTERVAL_NOTE])
   return '\uFEFF' + [columns, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n')
 }
-export function predictionJson(request: PredictionRequest, result: PredictionResponse): string { return JSON.stringify({ exported_at: new Date().toISOString(), input: request, result, notes: [PREDICTION_SCOPE_NOTE, INTERVAL_NOTE] }, null, 2) }
+export function predictionJson(request: PredictionRequest, result: PredictionResponse): string {
+  const id = participantCode(result.person_id) || participantCode(request.person.id) || 'P-000001'
+  return JSON.stringify({ exported_at: new Date().toISOString(), input: { ...request, person: { ...request.person, id } }, result: { ...result, person_id: id }, notes: [PREDICTION_SCOPE_NOTE, INTERVAL_NOTE] }, null, 2)
+}
+export function cohortParticipantCode(value: unknown, row: number): string {
+  return participantCode(value) || 'P-' + String(row).padStart(6, '0')
+}
 export function batchPredictionCsv(result: BatchPredictionResponse): string {
   const columns = ['file_id', 'model_version', 'run_id', 'row_number', 'person_id', 'record_status', 'record_reason', 'target', 'label_zh', 'unit', 'prediction', 'outcome_status', 'outcome_reason', 'exploratory_lower', 'exploratory_upper', 'test_MAE', 'scope_note', 'interval_note']
-  const rows = result.records.flatMap(record => record.results?.length ? record.results.map(row => [result.file_id, result.model_version, result.run_id, record.row_number, record.person_id, record.status, record.reason, row.target, row.label_zh, row.unit, predictionHasValue(row) ? row.prediction : null, row.status, predictionHasValue(row) ? '' : predictionReason(row), predictionHasValue(row) ? row.reference_interval?.lower : null, predictionHasValue(row) ? row.reference_interval?.upper : null, row.test_metrics?.MAE, PREDICTION_SCOPE_NOTE, INTERVAL_NOTE]) : [[result.file_id, result.model_version, result.run_id, record.row_number, record.person_id, record.status, record.reason, '', '', '', null, '', '', null, null, null, PREDICTION_SCOPE_NOTE, INTERVAL_NOTE]])
+  const rows = result.records.flatMap(record => record.results?.length ? record.results.map(row => [result.file_id, result.model_version, result.run_id, record.row_number, cohortParticipantCode(record.person_id, record.row_number), record.status, record.reason, row.target, row.label_zh, row.unit, predictionHasValue(row) ? row.prediction : null, row.status, predictionHasValue(row) ? '' : predictionReason(row), predictionHasValue(row) ? row.reference_interval?.lower : null, predictionHasValue(row) ? row.reference_interval?.upper : null, row.test_metrics?.MAE, PREDICTION_SCOPE_NOTE, INTERVAL_NOTE]) : [[result.file_id, result.model_version, result.run_id, record.row_number, cohortParticipantCode(record.person_id, record.row_number), record.status, record.reason, '', '', '', null, '', '', null, null, null, PREDICTION_SCOPE_NOTE, INTERVAL_NOTE]])
   return '\uFEFF' + [columns, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n')
 }
 export function downloadPrediction(content: string, format: 'csv' | 'json', filenamePrefix = 'NHANES_individual_prediction'): void {

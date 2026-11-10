@@ -2,7 +2,7 @@
 import { cohortResponseError } from './riskCohort'
 import type { CohortPredictionResponse } from './riskCohort'
 import type { ChartOption } from './riskDashboard'
-import { csvCell, formatPredictionNumber, predictionHasValue } from './riskPrediction'
+import { cohortParticipantCode, csvCell, formatPredictionNumber, predictionHasValue } from './riskPrediction'
 import { RISK_PALETTE, rankingGradient } from './riskPalette'
 
 export type WarningDirection = 'HIGH' | 'LOW'
@@ -73,7 +73,7 @@ export function buildCohortWarning(result: CohortPredictionResponse, threshold =
   const rows: CohortWarningRow[] = records.map(record => {
     const saved = new Map((Array.isArray(record.results) ? record.results : []).filter(object).map(row => [row.target, row]))
     const eligible = record.status === 'ESTIMATES_NOT_DIAGNOSES' && !!record.input
-    return { row_number: record.row_number, display_id: cohortDisplayId(record.row_number), person_id: record.person_id,
+    return { row_number: record.row_number, display_id: cohortDisplayId(record.row_number), person_id: cohortParticipantCode(record.person_id, record.row_number),
       status: 'NOT_EVALUATED', score: null, rank: null, is_warning: false, used_count: 0, threshold: safeThreshold,
       reason: eligible ? '' : record.reason || '该对象不满足模型必需输入，未参与综合排序。',
       outcomes: COHORT_WARNING_TARGETS.map(definition => {
