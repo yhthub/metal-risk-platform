@@ -11,9 +11,10 @@ import unittest
 from unittest.mock import patch
 
 from app.rag_config import RagSettings
+from app.services.corpus_retrieval_service import CorpusUnavailable, RetrievalTimeout
 from app.services.local_llm_service import ModelUnavailableError
 from app.services.rag_agent_service import (
-    InvalidGenerationError, RagAgentService, evidence_context,
+    GENERAL_KNOWLEDGE_NOTICE, InvalidGenerationError, RagAgentService,
 )
 
 
@@ -27,13 +28,15 @@ def generated(answer, *, finish="stop", usage=None):
 
 
 class FixtureModel:
-    def __init__(self, responses, default_max_tokens=3200):
+    def __init__(self, responses, events, default_max_tokens=3200):
+        self.events = events
         self.responses = list(responses)
         self.default_max_tokens = default_max_tokens
         self.calls = []
         self.close_calls = 0
 
     def generate(self, messages, *, max_tokens=None):
+        self.events.append("generate")
         self.calls.append({"messages": copy.deepcopy(messages), "max_tokens": max_tokens,
                            "effective_max_tokens": self.default_max_tokens if max_tokens is None else max_tokens})
         if not self.responses:
@@ -51,7 +54,8 @@ class FixtureRetriever:
     mode = "bm25"
     knowledge_bases = ["pubmed"]
 
-    def __init__(self, count=5):
+    def __init__(self, events, count=5):
+        self.events = events
         self.calls = []
         self.hits = [{"chunk_id": f"synthetic/{index}", "source": "pubmed",
                       "title": f"Synthetic source {index}", "doi": None, "pmid": None,
@@ -60,6 +64,7 @@ class FixtureRetriever:
                       "retrieval_channels": ["bm25"]} for index in range(count)]
 
     def search(self, query, **kwargs):
+        self.events.append("search")
         self.calls.append({"query": query, **kwargs})
         hits = copy.deepcopy(self.hits)
         return {"mode": "bm25", "hits": hits, "sparse_hits": hits, "dense_hits": [], "degraded": False,
@@ -74,9 +79,10 @@ class KnowledgeSynthesisTests(unittest.TestCase):
                                timeout=5, max_tokens=max_tokens, context_chars=6000,
                                top_k=5, candidate_k=32, concurrency=1, context_window=16384,
                                answer_strategy=strategy)
+        events = []
         model = FixtureModel(responses if responses is not None else [generated(PRELIMINARY), generated(FINAL)],
-                             default_max_tokens=max_tokens)
-        retriever = FixtureRetriever(count)
+                             events, default_max_tokens=max_tokens)
+        retriever = FixtureRetriever(events, count)
         service = RagAgentService(retriever, lambda: model, settings, allow_general_fallback=allow_general)
         service.prompt_budget.checked = True  # Never inspect a tokenizer/model asset.
         return service, retriever, model
@@ -96,8 +102,9 @@ class KnowledgeSynthesisTests(unittest.TestCase):
                    {"role": "assistant", "content": "PRIOR_ASSISTANT_MARKER: invented conclusion."}]
         result = self.chat(service, question, history=history)
         self.assertEqual(len(model.calls), 2)
-        self.assertEqual([call["effective_max_tokens"] for call in model.calls], [640, 3200])
-        self.assertEqual(model.calls[0]["max_tokens"], 640)
+        self.assertEqual([call["effective_max_tokens"] for call in model.calls], [1800, 3200])
+        self.assertEqual(model.events, ["generate", "search", "generate"])
+        self.assertNotIn(PRELIMINARY, retriever.calls[0]["query"])
         for call in model.calls:
             self.assertIn(question, self.text(call))
             self.assertIn("PRIOR_USER_MARKER", self.text(call))
@@ -130,16 +137,34 @@ class KnowledgeSynthesisTests(unittest.TestCase):
         self.assertNotIn(PRELIMINARY, json.dumps(result, ensure_ascii=False))
         self.assertEqual(len(model.calls), 2)
 
-    def test_no_hits_go_directly_to_one_general_generation(self):
-        service, _, model = self.make_service([generated("A general explanation without literature claims.")], count=0)
+    def test_no_hits_returns_the_pre_retrieval_answer_with_an_explicit_provenance_notice(self):
+        service, _, model = self.make_service([generated(PRELIMINARY)], count=0)
         result = self.chat(service)
-        self.assertEqual(len(model.calls), 1)
-        self.assertEqual(model.calls[0]["effective_max_tokens"], 3200)
-        self.assertFalse(result.get("preparation", {}).get("invoked", False))
+        self.assertEqual(model.events, ["generate", "search"])
+        self.assertEqual(model.calls[0]["effective_max_tokens"], 1800)
+        self.assertTrue(result["preparation"]["invoked"])
+        self.assertTrue(result["preparation"]["used"])
+        self.assertEqual(result["answer"], GENERAL_KNOWLEDGE_NOTICE + "\n\n" + PRELIMINARY)
         self.assertEqual(result["answer_mode"], "general_knowledge")
         self.assertEqual(result["evidence_support"], "none")
         self.assertEqual(result["retrieval"]["selected_count"], 0)
         self.assertEqual(result["evidence_cards"], [])
+        self.assertEqual(result["citations"], [])
+
+    def test_retrieval_timeout_and_unavailability_reuse_the_clean_answer(self):
+        for error in (RetrievalTimeout("fixture timeout"), CorpusUnavailable("fixture unavailable")):
+            with self.subTest(error=type(error).__name__):
+                service, retriever, model = self.make_service([generated(PRELIMINARY)])
+                def unavailable(*args, **kwargs):
+                    model.events.append("search")
+                    raise error
+                with patch.object(retriever, "search", side_effect=unavailable):
+                    result = self.chat(service)
+                self.assertEqual(model.events, ["generate", "search"])
+                self.assertIn(PRELIMINARY, result["answer"])
+                self.assertEqual(result["evidence_cards"], [])
+                self.assertEqual(result["citations"], [])
+                self.assertEqual(result["answer_mode"], "general_knowledge")
 
     def test_final_without_citations_is_general_without_a_third_call_and_keeps_actual_context_count(self):
         answer = "This is a general explanation, without a supported conclusion from the excerpts."
@@ -156,27 +181,65 @@ class KnowledgeSynthesisTests(unittest.TestCase):
         self.assertEqual(result["retrieval"]["selected_count"], 5)
         self.assertIn(answer, result["answer"])
 
-    def test_final_abstention_is_returned_without_marker_or_extra_general_generation(self):
-        service, _, model = self.make_service([generated(PRELIMINARY),
-                                             generated("INSUFFICIENT_EVIDENCE: The relationship cannot be established.")])
+    def test_public_irrelevance_and_legacy_abstention_reuse_the_full_general_answer(self):
+        for verdict in ("USE_GENERAL_KNOWLEDGE", "INSUFFICIENT_EVIDENCE: No useful source.", "INSUFFICIENT_EVIDENCE"):
+            with self.subTest(verdict=verdict):
+                service, _, model = self.make_service([generated(PRELIMINARY), generated(verdict)])
+                result = self.chat(service)
+                self.assertEqual(model.events, ["generate", "search", "generate"])
+                self.assertEqual(result["answer_mode"], "general_knowledge")
+                self.assertEqual(result["answer"], GENERAL_KNOWLEDGE_NOTICE + "\n\n" + PRELIMINARY)
+                self.assertFalse(result["has_retrieval_support"])
+                self.assertEqual(result["retrieval"]["selected_count"], 5)
+                self.assertEqual(result["citations"], [])
+                self.assertEqual(result["evidence_cards"], [])
+
+    def test_an_ordinary_sentence_about_a_marker_is_not_a_verdict(self):
+        answer = "The supplied label USE_GENERAL_KNOWLEDGE is just a string here [E1]."
+        service, _, model = self.make_service([generated(PRELIMINARY), generated(answer)])
         result = self.chat(service)
-        self.assertEqual(len(model.calls), 2)
-        self.assertEqual(result["answer_mode"], "strict_abstention")
+        self.assertEqual(result["answer"], answer)
+        self.assertEqual([x["id"] for x in result["citations"]], ["E1"])
+
+    def test_long_preliminary_claim_can_be_corrected_with_partial_and_conflicting_support(self):
+        # Synthetic model outputs verify orchestration and attribution, not a model's medical judgment.
+        initial = "Initially unverified: the synthetic effect may extend beyond adults. " + ("Background. " * 110).rstrip()
+        final = "In this fixture the detected change was confined to exposed adults [E1]. A second sample did not show that change [E2]. The evidence says nothing about children."
+        service, retriever, model = self.make_service([generated(initial), generated(final)])
+        retriever.hits[0]["content"] = "Synthetic adult-only sample observed a change. " * 5
+        retriever.hits[1]["content"] = "Second synthetic adult sample did not show this change. " * 5
+        result = self.chat(service, "Does the synthetic adult observation also apply to children?")
+        self.assertEqual(model.events, ["generate", "search", "generate"])
+        self.assertIn(initial, self.text(model.calls[1]))
+        self.assertNotIn(initial, result["answer"])
+        self.assertEqual(result["answer"], final)
+        self.assertEqual([x["chunk_id"] for x in result["citations"]], ["synthetic/0", "synthetic/1"])
         self.assertFalse(result["evidence_supported"])
-        self.assertNotIn("INSUFFICIENT_EVIDENCE", result["answer"])
-        self.assertIn("The relationship cannot be established.", result["answer"])
 
     def test_preliminary_citations_and_identifiers_are_discarded_not_promoted_to_sources(self):
-        for brief in ("A preliminary unsupported source [E99].", "Preliminary DOI 10.1234/brief-only."):
+        for brief in ("A preliminary unsupported source [E99].", "Preliminary DOI 10.1234/brief-only.",
+                      "https://example.org/unverified", "", "USE_GENERAL_KNOWLEDGE"):
             with self.subTest(brief=brief):
                 service, _, model = self.make_service([generated(brief), generated(FINAL)])
                 result = self.chat(service)
                 self.assertEqual(len(model.calls), 2)
                 self.assertFalse(result["preparation"]["used"])
                 self.assertTrue(result["preparation"]["discard_reason"])
-                self.assertNotIn(brief, self.text(model.calls[1]))
+                if brief and brief != "USE_GENERAL_KNOWLEDGE":
+                    self.assertNotIn(brief, self.text(model.calls[1]))
                 self.assertEqual([citation["id"] for citation in result["citations"]], ["E1"])
-                self.assertNotIn(brief, json.dumps(result, ensure_ascii=False))
+                if brief and brief != "USE_GENERAL_KNOWLEDGE":
+                    self.assertNotIn(brief, json.dumps(result, ensure_ascii=False))
+
+    def test_standalone_draft_with_optional_reading_can_be_reused_without_retrieval(self):
+        draft = "Group means alone cannot establish individual changes.\n\n延伸阅读 [说明](https://example.org/reading)"
+        service, _, model = self.make_service([generated(draft)], count=0)
+        result = self.chat(service)
+        self.assertEqual(model.events, ["generate", "search"])
+        self.assertIn(draft, result["answer"])
+        self.assertEqual(result["answer_mode"], "general_knowledge")
+        self.assertFalse(result["supplemental_links"]["verified_by_retrieval"])
+        self.assertEqual(result["citations"], [])
 
     def test_final_unknown_citations_and_preliminary_only_identifier_still_fail_without_a_third_call(self):
         answers = ("Invented citation [E99].", "Real citation [E1] and invented [E1, E99].",
@@ -243,9 +306,9 @@ class KnowledgeSynthesisTests(unittest.TestCase):
 
     def test_no_hits_allows_supplemental_links_without_creating_retrieval_support(self):
         service, _, model = self.make_service(
-            [generated("General explanation. Further reading: [WHO](https://www.who.int/).")], count=0)
+            [generated("Discard this [E99]."), generated("General explanation. Further reading: [WHO](https://www.who.int/).")], count=0)
         result = self.chat(service)
-        self.assertEqual(len(model.calls), 1)
+        self.assertEqual(model.events, ["generate", "search", "generate"])
         self.assertEqual(result["answer_mode"], "general_knowledge")
         self.assertEqual(result["citations"], [])
         self.assertEqual(result["evidence_cards"], [])
@@ -280,29 +343,7 @@ class KnowledgeSynthesisTests(unittest.TestCase):
         self.assertEqual(len(model.calls), 2)
         self.assertTrue(result["generation_truncated"])
 
-    def test_preparation_is_dropped_before_budget_shrinks_the_five_excerpts(self):
-        service, _, model = self.make_service()
-        original_count = service.prompt_budget.count
-
-        def count(messages):
-            if PRELIMINARY in "\n".join(message["content"] for message in messages):
-                return service.settings.context_window
-            return original_count(messages)
-
-        with patch.object(service.prompt_budget, "count", side_effect=count):
-            with patch("app.services.rag_agent_service.evidence_context", wraps=evidence_context) as context:
-                result = self.chat(service)
-        self.assertEqual(len(model.calls), 2)
-        self.assertFalse(result["preparation"]["used"])
-        self.assertNotIn(PRELIMINARY, self.text(model.calls[1]))
-        self.assertEqual(result["retrieval"]["selected_count"], 5)
-        self.assertTrue(context.call_args_list)
-        self.assertTrue(all((call.args[1] if len(call.args) > 1 else call.kwargs["limit"]) == 6000
-                            for call in context.call_args_list))
-        self.assertLessEqual(result["prompt_budget"]["input_tokens_reserved"] +
-                             result["prompt_budget"]["output_tokens_reserved"], 16384)
-
-    def test_budget_shrink_after_dropping_preparation_reports_only_final_prompt_cards(self):
+    def test_budget_shrink_preserves_usable_preparation_and_only_reports_final_prompt_cards(self):
         service, _, model = self.make_service()
         original_count = service.prompt_budget.count
 
@@ -313,7 +354,8 @@ class KnowledgeSynthesisTests(unittest.TestCase):
         with patch.object(service.prompt_budget, "count", side_effect=count):
             result = self.chat(service)
         self.assertEqual(len(model.calls), 2)
-        self.assertFalse(result["preparation"]["used"])
+        self.assertTrue(result["preparation"]["used"])
+        self.assertIn(PRELIMINARY, self.text(model.calls[1]))
         ids = re.findall(r"\[(E\d+)\] SOURCE=", self.text(model.calls[1]))
         self.assertGreater(len(ids), 0)
         self.assertLess(len(ids), 5)
@@ -322,8 +364,8 @@ class KnowledgeSynthesisTests(unittest.TestCase):
         self.assertLessEqual(result["prompt_budget"]["input_tokens_reserved"] +
                              result["prompt_budget"]["output_tokens_reserved"], 16384)
 
-    def test_no_excerpt_fits_budget_uses_only_a_second_general_call(self):
-        service, _, model = self.make_service([generated(PRELIMINARY), generated("A general explanation without citations.")])
+    def test_no_excerpt_fits_budget_returns_the_original_answer_without_a_second_call(self):
+        service, _, model = self.make_service([generated(PRELIMINARY)])
         original_count = service.prompt_budget.count
 
         def count(messages):
@@ -332,20 +374,19 @@ class KnowledgeSynthesisTests(unittest.TestCase):
 
         with patch.object(service.prompt_budget, "count", side_effect=count):
             result = self.chat(service)
-        self.assertEqual(len(model.calls), 2)
+        self.assertEqual(model.events, ["generate", "search"])
         self.assertEqual(result["answer_mode"], "general_knowledge")
         self.assertEqual(result["retrieval"]["selected_count"], 0)
         self.assertEqual(result["evidence_cards"], [])
-        self.assertNotIn("EXCERPT_ONLY_MARKER", self.text(model.calls[1]))
-        self.assertNotIn(PRELIMINARY, self.text(model.calls[1]))
-        self.assertFalse(result["preparation"]["used"])
+        self.assertIn(PRELIMINARY, result["answer"])
+        self.assertTrue(result["preparation"]["used"])
 
     def test_preparation_own_input_and_output_budget_is_checked_before_any_generation(self):
         service, _, model = self.make_service()
         with patch.object(service.prompt_budget, "count", return_value=16384):
             with self.assertRaises(ValueError):
                 self.chat(service)
-        self.assertEqual(model.calls, [])
+        self.assertEqual(model.events, [])
 
     def test_transport_failures_at_either_stage_do_not_trigger_extra_calls_and_release_capacity(self):
         for responses, calls in (([ModelUnavailableError("fixture transport failure")], 1),
@@ -368,7 +409,7 @@ class KnowledgeSynthesisTests(unittest.TestCase):
             with self.subTest(strategy=strategy, allow_general=allow_general):
                 service, _, model = self.make_service([generated(FINAL)], strategy=strategy, allow_general=allow_general)
                 result = self.chat(service)
-                self.assertEqual(len(model.calls), 1)
+                self.assertEqual(model.events, ["search", "generate"])
                 self.assertEqual(result["answer_mode"], "retrieval_grounded")
                 self.assertEqual(result["evidence_support"], "retrieved_excerpts")
                 self.assertTrue(result["evidence_supported"])

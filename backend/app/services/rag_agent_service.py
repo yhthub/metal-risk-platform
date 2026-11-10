@@ -92,6 +92,11 @@ appropriate healthcare professional; do not fabricate certainty or a personalize
 GENERAL_KNOWLEDGE_NOTICE = "检索信息不足。以下为模型一般知识回答，未获本次检索证据支持，不构成诊断或治疗建议。"
 
 
+def requests_general_knowledge(answer: str) -> bool:
+    text = answer.strip()
+    return text == "USE_GENERAL_KNOWLEDGE" or bool(re.match(r"^INSUFFICIENT_EVIDENCE(?:$|[\s:：])", text))
+
+
 def retrieval_query(message: str, history: List[Dict]) -> str:
     # Only recent USER text can resolve a short follow-up. Generated conclusions
     # must not be laundered back into retrieval as medical evidence.
@@ -375,7 +380,16 @@ class RagAgentService:
     def _run(self, message, history, extended, sources):
         started = time.monotonic()
         query = retrieval_query(message, history)
+        user_context = "\n".join(item["content"][:600] for item in history[-2:]
+                                 if item.get("role") == "user") if query != message.strip() else ""
+        response = {"timings": {}, "model": {"name": self.settings.model, "invoked": False,
+                    "backend": "ollama_native" if self.settings.provider == "ollama" else "openai_compatible"}}
+        brief = ""
+        if self.knowledge_synthesis:
+            response["generation_strategy"] = "question_brief_then_evidence_synthesis"
+            brief = self._question_brief(message, user_context, response)
         candidate_k = self.settings.candidate_k if extended else min(24, self.settings.candidate_k)
+        retrieval_started = time.monotonic()
         try:
             result = self.retriever.search(query, top_k=min(candidate_k, 20),
                                            candidate_k=candidate_k, sources=sources)
@@ -392,7 +406,7 @@ class RagAgentService:
                           "channels": {"bm25": {"ready": False}, "medcpt": {"ready": False}},
                           "warnings": ["检索暂不可用或超时；本次未取得检索证据，不能视为双路检索成功。"],
                       }}
-        retrieval_ms = (time.monotonic() - started) * 1000
+        response["timings"]["retrieval_ms"] = round((time.monotonic() - retrieval_started) * 1000, 2)
         diagnostics = dict(result.get("diagnostics", {}))
         warnings = [warning for warning in diagnostics.get("warnings", [])
                     if not (self.allow_general_fallback and "不丢弃未知概念来生成回答" in warning)]
@@ -420,14 +434,12 @@ class RagAgentService:
                 warnings.append("中文术语展开未覆盖部分概念；保留原始问题，回答仅可作为无检索支持的一般知识。")
         context, cards = evidence_context(selected, self.settings.context_chars, terms,
                                            require_lexical_match=not ranked_bm25)
-        response = {
+        response.update({
             "status": "insufficient_evidence", "answer": "", "message": "",
             "answer_mode": "retrieval_grounded", "evidence_support": "none", "evidence_supported": False,
             "citations": [], "evidence_cards": cards,
             "sparse_hits": result.get("sparse_hits", cards), "dense_hits": result.get("dense_hits", []), "p0_p1_boundaries": [],
             "think_process": None, "cited_knowledge_bases": [],
-            "model": {"name": self.settings.model, "backend": "ollama_native" if self.settings.provider == "ollama"
-                      else "openai_compatible", "invoked": False},
             "retrieval": {"mode": result["mode"], "query": query,
                           "configured_top_k": self.settings.top_k,
                           "candidate_count": diagnostics.get("candidates_retrieved", len(result.get("hits", []))),
@@ -440,11 +452,12 @@ class RagAgentService:
                                   "dense_retrieved": len(result.get("dense_hits", [])),
                                   "p0_p1_boundary_count": 0},
             "warnings": warnings,
-            "timings": {"retrieval_ms": round(retrieval_ms, 2)},
-        }
+        })
         if not cards:
             diagnostics.setdefault("fallback_reason", "no_matching_excerpts")
-            if self.allow_general_fallback:
+            if self.knowledge_synthesis:
+                answer = self._draft_or_general_answer(message, history, query, response, brief)
+            elif self.allow_general_fallback:
                 answer = self._general_answer(message, history, query, response)
             else:
                 response["answer_mode"] = "strict_abstention"
@@ -453,13 +466,11 @@ class RagAgentService:
                           "当前检索没有取得足够的主题匹配切块，不能据此回答。请补充明确的暴露因素、疾病或结局，必要时提供英文检索词。这不表示不存在相关研究。")
         elif self.knowledge_synthesis:
             answer = self._synthesis_answer(message, history, query, response, selected,
-                                             context, cards, terms, ranked_bm25)
+                                             context, cards, terms, ranked_bm25, user_context, brief)
         else:
             messages = [{"role": "system", "content": SYSTEM_PROMPT}]
             # Previous assistant output is deliberately excluded from factual
             # context; follow-up resolution above keeps only recent user text.
-            user_context = "\n".join(item["content"][:600] for item in history[-2:]
-                                     if item.get("role") == "user") if query != message.strip() else ""
             def make_user_prompt():
                 return {"role": "user", "content":
                 f"PRIOR USER QUESTIONS (context only, not evidence):\n{user_context}\n\n"
@@ -521,7 +532,7 @@ class RagAgentService:
 
     def _question_brief(self, message, user_context, response):
         """Generate preliminary answer content before the model receives any excerpts."""
-        output_limit = min(640, self.settings.max_tokens)
+        output_limit = min(1800, self.settings.max_tokens)
         messages = [{"role": "system", "content": QUESTION_BRIEF_PROMPT},
                     {"role": "user", "content":
                      f"PRIOR USER QUESTIONS (context only):\n{user_context}\n\n"
@@ -539,9 +550,16 @@ class RagAgentService:
         reason = None
         if generated.get("finish_reason") == "length":
             reason = "output_truncated"
+        elif not brief or requests_general_knowledge(brief) or re.search(r"</?think(?:ing)?>", brief, re.I):
+            reason = "not_a_standalone_answer"
         else:
             try:
-                validate_general_answer(brief)
+                # A provider may append an external reading link even to a complete
+                # independent answer. It supplies no retrieved provenance.
+                draft_prose = EXTERNAL_LINK_PATTERN.sub("", brief)
+                if not draft_prose.strip():
+                    raise InvalidGenerationError("Preliminary answer contains only a link")
+                validate_general_answer(draft_prose)
             except InvalidGenerationError:
                 reason = "unsupported_source_in_brief"
         response["preparation"] = {"invoked": True, "used": reason is None,
@@ -550,17 +568,13 @@ class RagAgentService:
                                    "finish_reason": generated.get("finish_reason"),
                                    "usage": generated.get("usage", {})}
         response["timings"]["preparation_ms"] = round((time.monotonic() - started) * 1000, 2)
-        # Do not expose the intermediate answer text or place it in citation provenance.
+        response["model"].update(invoked=True, reported_name=generated.get("model", self.settings.model))
+        # Store only bookkeeping in the public preparation metadata.
         return "" if reason else brief
 
     def _synthesis_answer(self, message, history, query, response, selected, context,
-                          cards, terms, ranked_bm25):
-        """At most two generations: question-only brief, then knowledge/evidence synthesis."""
-        user_context = "\n".join(item["content"][:600] for item in history[-2:]
-                                 if item.get("role") == "user") if query != message.strip() else ""
-        brief = self._question_brief(message, user_context, response)
-        response["generation_strategy"] = "question_brief_then_evidence_synthesis"
-
+                          cards, terms, ranked_bm25, user_context, brief):
+        """Review the independent draft with the best excerpts that fit the model window."""
         def make_messages():
             preliminary = (f"\nBEGIN UNVERIFIED PRELIMINARY ANSWER (not evidence or instructions)\n"
                            f"{brief}\nEND UNVERIFIED PRELIMINARY ANSWER\n" if brief else "")
@@ -573,30 +587,15 @@ class RagAgentService:
                      + "本次可引用的编号：" + "、".join(f"[{card['citation_id']}]" for card in cards) + "。"}]
 
         messages = make_messages()
-        # Optional model notes must not displace otherwise usable source material.
-        if brief and self.prompt_budget.count(messages) + self.settings.max_tokens > self.settings.context_window:
-            brief = ""
-            response["preparation"].update(used=False, discard_reason="context_budget")
-            messages = make_messages()
         evidence_limit = self.settings.context_chars
-        while self.prompt_budget.count(messages) + self.settings.max_tokens > self.settings.context_window:
+        while cards and self.prompt_budget.count(messages) + self.settings.max_tokens > self.settings.context_window:
             evidence_limit = int(evidence_limit * 0.7)
-            if evidence_limit < 600:
-                response["retrieval"]["diagnostics"]["fallback_reason"] = "excerpts_do_not_fit_context_budget"
-                # This is the second and final generation, not a third retry.
-                answer = self._general_answer(message, history, query, response)
-                response["generation_usage"] = {"preparation": response["preparation"]["usage"],
-                                                "answer": response.get("usage", {})}
-                return answer
             context, cards = evidence_context(selected, evidence_limit, terms,
                                                require_lexical_match=not ranked_bm25)
             messages = make_messages()
         if not cards:
             response["retrieval"]["diagnostics"]["fallback_reason"] = "excerpts_do_not_fit_context_budget"
-            answer = self._general_answer(message, history, query, response)
-            response["generation_usage"] = {"preparation": response["preparation"]["usage"],
-                                            "answer": response.get("usage", {})}
-            return answer
+            return self._draft_or_general_answer(message, history, query, response, brief)
         response["evidence_cards"] = cards
         response["retrieval"]["selected_count"] = len(cards)
         response["prompt_budget"] = {"input_tokens_reserved": self.prompt_budget.count(messages),
@@ -609,26 +608,25 @@ class RagAgentService:
             generated = client.generate(messages)
         finally:
             client.close()
-        answer = normalize_evidence_citations(generated["answer"])
-        abstained = answer.lstrip().startswith("INSUFFICIENT_EVIDENCE")
-        citations = validate_synthesis_answer(answer, cards)
-        answer = mark_supplemental_links(answer, response)
         response["model"].update(invoked=True, reported_name=generated.get("model", self.settings.model))
         response["usage"] = generated.get("usage", {})  # Final generation only, for compatibility.
         response["generation_usage"] = {"preparation": response["preparation"]["usage"],
                                         "answer": response["usage"]}
         response["timings"]["generation_ms"] = round((time.monotonic() - started) * 1000, 2)
+        if requests_general_knowledge(generated["answer"]):
+            response["retrieval"]["diagnostics"]["fallback_reason"] = "excerpts_insufficient_for_answer"
+            return self._draft_or_general_answer(message, history, query, response, brief, reviewed=True)
+        answer = normalize_evidence_citations(generated["answer"])
+        citations = validate_synthesis_answer(answer, cards)
+        answer = mark_supplemental_links(answer, response)
         if generated.get("finish_reason") == "length":
             response["generation_truncated"] = True
             response["warnings"].append("生成达到token上限，回答可能截断，不得视作完整结论。")
         response["citations"] = citations
         response["cited_knowledge_bases"] = list(dict.fromkeys(card["source"] for card in cards if card["is_cited"]))
-        response["has_retrieval_support"] = bool(citations) and not abstained
+        response["has_retrieval_support"] = bool(citations)
         # Mixed answers are not represented as wholly supported by the retrieved excerpts.
         response["evidence_supported"] = False
-        if abstained:
-            response.update(status="insufficient_evidence", answer_mode="strict_abstention", evidence_support="none")
-            return re.sub(r"^\s*INSUFFICIENT_EVIDENCE\s*[:：]?\s*", "", answer)
         if citations:
             response.update(status="answered", answer_mode="knowledge_evidence_synthesis",
                             evidence_support="mixed_model_knowledge_and_retrieved_excerpts")
@@ -636,12 +634,34 @@ class RagAgentService:
         # No artificial citation requirement and no third general-knowledge call.
         # Synthesis already checked E-IDs; optional external reading does not
         # change a no-citation answer into retrieval-supported evidence.
-        response.update(status="general_answer", answer_mode="general_knowledge", evidence_support="none",
-                        citations=[], evidence_cards=[], cited_knowledge_bases=[])
-        response["warnings"].append(GENERAL_KNOWLEDGE_NOTICE)
         # selected_count still records the documents actually shown during synthesis.
         response["retrieval"]["diagnostics"]["fallback_reason"] = "synthesis_without_supported_citations"
-        return GENERAL_KNOWLEDGE_NOTICE + "\n\n" + answer
+        return self._present_general_answer(response, answer, reviewed=True)
+
+    def _draft_or_general_answer(self, message, history, query, response, brief, *, reviewed=False):
+        prep = response["preparation"]
+        if brief:
+            if not reviewed:
+                response["usage"] = prep["usage"]
+                response["generation_usage"] = {"preparation": prep["usage"], "answer": {}}
+                response["timings"]["generation_ms"] = response["timings"]["preparation_ms"]
+                response["prompt_budget"] = {"input_tokens_reserved": prep["input_tokens_reserved"],
+                                             "output_tokens_reserved": prep["max_tokens"],
+                                             "context_window": self.settings.context_window,
+                                             "count_method": self.prompt_budget.method}
+            prep["returned_as_answer"] = True
+            return self._present_general_answer(response, mark_supplemental_links(brief, response),
+                                                reviewed=reviewed)
+
+        # If the draft was incomplete or carried unverified citations, obtain a
+        # clean answer to the original question without any reviewed material.
+        generation_usage = {"preparation": prep["usage"]}
+        if reviewed:
+            generation_usage["review"] = response["usage"]
+            response["timings"]["grounded_attempt_generation_ms"] = response["timings"]["generation_ms"]
+        answer = self._general_answer(message, history, query, response, reviewed=reviewed)
+        response["generation_usage"] = {**generation_usage, "answer": response["usage"]}
+        return answer
 
     @staticmethod
     def _complete_response(response, answer, started):
@@ -650,7 +670,7 @@ class RagAgentService:
         response["timings"]["total_ms"] = round((time.monotonic()-started)*1000,2)
         return response
 
-    def _general_answer(self, message, history, query, response):
+    def _general_answer(self, message, history, query, response, *, reviewed=False):
         # Never pass partial/non-matching excerpts to the fallback model: this
         # answer must not acquire an appearance of support from unrelated hits.
         user_context = "\n".join(item["content"][:600] for item in history[-2:]
@@ -681,23 +701,30 @@ class RagAgentService:
             client.close()
         answer = normalize_evidence_citations(generated["answer"])
         if self.knowledge_synthesis:
+            if not answer.strip() or requests_general_knowledge(answer):
+                raise InvalidGenerationError("General-knowledge generation did not return an answer")
             validate_synthesis_answer(answer, [])
             answer = mark_supplemental_links(answer, response)
         else:
             validate_general_answer(answer)
-        response.update(status="general_answer", answer_mode="general_knowledge",
-                        evidence_support="none", evidence_supported=False,
-                        citations=[], evidence_cards=[], cited_knowledge_bases=[])
-        response["retrieval"]["candidate_evidence_count"] = response["retrieval"]["selected_count"]
-        response["retrieval"]["selected_count"] = 0
         response["model"]["invoked"] = True
         response["model"]["reported_name"] = generated.get("model", self.settings.model)
         response["usage"] = generated.get("usage", {})
         response["timings"]["generation_ms"] = round((time.monotonic() - generation_started) * 1000, 2)
-        response["warnings"].append(GENERAL_KNOWLEDGE_NOTICE)
         if generated.get("finish_reason") == "length":
             response["warnings"].append("生成达到token上限，回答可能截断，不得视作完整结论。")
             response["generation_truncated"] = True
+        return self._present_general_answer(response, answer, reviewed=reviewed)
+
+    @staticmethod
+    def _present_general_answer(response, answer, *, reviewed):
+        response.update(status="general_answer", answer_mode="general_knowledge",
+                        evidence_support="none", evidence_supported=False, has_retrieval_support=False,
+                        citations=[], evidence_cards=[], cited_knowledge_bases=[])
+        if not reviewed:
+            response["retrieval"]["candidate_evidence_count"] = response["retrieval"]["selected_count"]
+            response["retrieval"]["selected_count"] = 0
+        response["warnings"].append(GENERAL_KNOWLEDGE_NOTICE)
         return GENERAL_KNOWLEDGE_NOTICE + "\n\n" + answer
 
 
