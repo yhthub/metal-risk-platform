@@ -17,7 +17,7 @@ from .local_llm_service import LocalLlmService
 from .hybrid_retrieval_service import HybridRetrievalService
 from .prompt_budget import PromptBudget
 from .retrieval_text import term_aliases, term_present
-from .synthesis_prompts import QUESTION_BRIEF_PROMPT, SYNTHESIS_PROMPT, SYNTHESIS_OUTPUT_CONTRACT
+from .synthesis_prompts import NO_EVIDENCE_PROMPT, QUESTION_BRIEF_PROMPT, SYNTHESIS_PROMPT, SYNTHESIS_OUTPUT_CONTRACT
 
 
 class RagBusyError(RuntimeError):
@@ -569,9 +569,6 @@ class RagAgentService:
                      f"PRIOR USER QUESTIONS (context only):\n{user_context}\n\n"
                      f"CURRENT ORIGINAL QUESTION:\n{message}\n{preliminary}\n"
                      f"BEGIN UNTRUSTED EXCERPTS\n{context}\nEND UNTRUSTED EXCERPTS\n"
-                     "Answer the original question as a coherent explanation. Integrate your background "
-                     "knowledge with relevant evidence; correct the preliminary answer where needed. "
-                     "Cite only what the supplied evidence actually supports, using exact [E#] IDs."
                      + SYNTHESIS_OUTPUT_CONTRACT
                      + "本次可引用的编号：" + "、".join(f"[{card['citation_id']}]" for card in cards) + "。"}]
 
@@ -658,10 +655,9 @@ class RagAgentService:
         # answer must not acquire an appearance of support from unrelated hits.
         user_context = "\n".join(item["content"][:600] for item in history[-2:]
                                  if item.get("role") == "user") if query != message.strip() else ""
-        general_prompt = SYNTHESIS_PROMPT if self.knowledge_synthesis else GENERAL_KNOWLEDGE_PROMPT
+        general_prompt = NO_EVIDENCE_PROMPT if self.knowledge_synthesis else GENERAL_KNOWLEDGE_PROMPT
         general_instruction = (
-            "No usable retrieval evidence is available. Give a general explanation and do not use [E#]. "
-            "Optional external links are model-suggested further reading, not verified retrieval sources."
+            "本轮没有可用检索资料。按用户原问作答，不加检索编号；外部链接仅可作延伸阅读。"
             if self.knowledge_synthesis else
             "No usable retrieval evidence is available. Give an explicitly unverified general explanation; "
             "if you do not know, say so. Do not provide citations, identifiers, or sources.")
