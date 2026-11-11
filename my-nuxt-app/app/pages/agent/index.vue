@@ -347,7 +347,7 @@ onMounted(refreshStatus)
 }
 .welcome-eyebrow { font-size: 12px; color: #7b9cb8; letter-spacing: .18em; }
 .welcome-panel h2 { margin: 13px 0 14px; color: #284766; font-size: 29px; font-weight: 600; letter-spacing: .04em; }
-.welcome-panel > p { margin: 0 auto; font-size: 14px; line-height: 1.8; color: #7b8da2; }
+.welcome-panel > p { margin: 0 auto; font-size: 14px; line-height: 1.8; color: #7b8da2; text-wrap: balance; }
 .quick-prompts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; margin-top: 36px; text-align: left; }
 .quick-prompts button { position: relative; min-height: 150px; padding: 20px 20px 32px; border: 1px solid #e1e9f2; border-radius: 14px; background: #fff; color: #445d76; font: inherit; text-align: left; cursor: pointer; transition: border-color .18s, transform .18s, box-shadow .18s; }
 .quick-prompts button:hover { transform: translateY(-2px); border-color: #a8c9e4; box-shadow: 0 8px 22px #315c8410; }

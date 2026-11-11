@@ -610,7 +610,7 @@ $color-danger: #EF4444;
 .risk-ready { display:flex; align-items:center; justify-content:center; gap:clamp(14px,2.1vw,30px); padding:clamp(18px,3vw,36px) 16px; }
 .risk-ready img { display:block; flex:none; width:clamp(72px,9vw,126px); height:auto; }
 .risk-ready h2 { margin:0 0 4px; font-size:clamp(16px,1.3vw,19px); line-height:1.5; color:$text-main; }
-.risk-ready p { margin:0; max-width:36em; font-size:13px; line-height:1.7; color:$text-muted; }
+.risk-ready p { margin:0; max-width:36em; font-size:13px; line-height:1.7; color:$text-muted; text-wrap:balance; }
 
 .gemini-thinking-container {
   background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; margin-bottom: 30px; overflow: hidden; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);

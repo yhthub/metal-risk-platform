@@ -1659,7 +1659,7 @@ $color-danger: #F87171;
   .intake-art { width: clamp(70px, 19cqw, 100px); align-self: center; }
 }
 .group-demo-eyebrow { color: #4c80aa; font-size: 11px; letter-spacing: .8px; font-weight: 700; }
-.group-demo-heading h4 { margin: 8px 0; color: #233f5b; font-size: 17px; }
+.group-demo-heading h4 { margin: 8px 0; color: #233f5b; font-size: 17px; text-wrap: balance; }
 .group-demo-heading p, .group-demo-details p { margin: 0; color: #64748b; font-size: 13px; line-height: 1.8; }
 .btn-group-demo { display: flex; align-items: center; justify-content: center; gap: 7px; padding: 12px 16px; border: 0; border-radius: 8px; color: #fff; background: #267cbd; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
 .btn-group-demo:disabled { opacity: .55; cursor: not-allowed; }
