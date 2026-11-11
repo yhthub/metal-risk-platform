@@ -1,5 +1,16 @@
 import type { CausalSource } from './causalEvidence'
 
+export interface StudyComparison {
+  population: string
+  measure: string
+  result: string
+}
+
+export interface FieldCheck {
+  verify: string
+  record: string
+}
+
 export interface KnowledgeRelation {
   id: string
   metals: string[]
@@ -13,6 +24,8 @@ export interface KnowledgeRelation {
   topic?: 'renal' | 'sbp' | 'other'
   source: Omit<CausalSource, 'year'> & { year?: number }
   studyType: string
+  study?: StudyComparison
+  field?: FieldCheck
 }
 
 export const elementNames: Record<string, string> = {

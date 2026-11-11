@@ -50,7 +50,7 @@ const nhanesRenalStudy: CausalSource = {
   issuer: 'American Journal of Epidemiology',
   year: 2009,
   locator: '表 2，模型 3',
-  url: 'https://doi.org/10.1093/aje/kwp248',
+  url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC2781739/',
 }
 
 const jointRenalSource: CausalSource = {

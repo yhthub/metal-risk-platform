@@ -8,7 +8,7 @@
       </header>
       <div class="workspace">
         <header class="intro">
-          <div><h1>职业暴露知识图谱</h1><p>选一种元素，看看它和健康有什么关系，以及工作中可以怎样防护。</p></div>
+          <div><h1>职业暴露知识图谱</h1><p>选择暴露元素，查阅健康影响、作用机制与岗位防护的研究依据。</p></div>
           <button id="open-atlas" class="search-button" @click="openSearch"><el-icon><Search /></el-icon>查找资料</button>
         </header>
         <nav class="elements" aria-label="选择暴露元素">
@@ -25,9 +25,13 @@
           <span v-if="risk.mode">{{ risk.current ? '来自本次风险分析' : '来自风险页的指标选择' }}<template v-if="targetLabel"> · {{ targetLabel }}</template></span>
           <span v-else-if="selectedPlan">档案涉及{{ readElements(selectedPlan.factors).map(code => elementNames[code]).join('、') }}</span>
           <button v-if="topic !== 'all'" class="clear" @click="showAll">当前仅看{{ topicName }} · 查看全部</button>
+          <nav v-if="visible.length" class="jump-links" aria-label="跳至本页资料">
+            <button v-if="visible.some(p => p.study)" aria-controls="study-heading" @click="jumpToSheet('study-heading')">研究对照 <el-icon><Bottom /></el-icon></button>
+            <button v-if="visible.some(p => p.field)" aria-controls="control-heading" @click="jumpToSheet('control-heading')">岗位核查 <el-icon><Bottom /></el-icon></button>
+          </nav>
         </div>
 
-        <section class="explorer" aria-labelledby="graph-heading">
+        <section ref="explorer" class="explorer" aria-labelledby="graph-heading">
           <div class="graph-column">
             <header class="graph-head">
               <div><h2 id="graph-heading">{{ focusName ? focusName + '的' : '' }}{{ view === 'graph' ? '关系图' : '资料清单' }}</h2>
@@ -57,15 +61,20 @@
               <button v-if="focusName && topic !== 'all'" @click="showAll">查看{{ focusName }}的全部资料</button>
             </div>
           </div>
-          <aside v-if="active" class="desktop-evidence" aria-label="所选关系的依据" aria-live="polite">
+          <aside v-if="active" ref="evidencePanel" class="desktop-evidence" tabindex="-1" aria-label="所选关系的依据" aria-live="polite">
             <CausalEvidenceDetail :path="active" />
           </aside>
         </section>
 
-        <footer v-if="hasPlan" class="continue-row">
-          <div><el-icon><FirstAidKit /></el-icon><span>{{ matchedPlan ? '对象 ' + matchedPlan.id : focusName + '相关岗位' }}</span></div>
-          <NuxtLink id="causal-plan-link" :to="planRoute">查看干预方案 <el-icon><ArrowRight /></el-icon></NuxtLink>
-        </footer>
+        <CausalEvidenceDossier v-if="focusName && (visible.length || hasPlan)" :paths="visible" :name="focusName" @inspect="inspectDossier">
+          <template v-if="topic !== 'all'" #reset><button class="clear" @click="showAll">查看{{ focusName }}的全部资料</button></template>
+          <template v-if="hasPlan" #plan>
+            <footer class="continue-row">
+              <div><el-icon><FirstAidKit /></el-icon><span>{{ matchedPlan ? '对象 ' + matchedPlan.id : focusName + '相关岗位' }}</span></div>
+              <NuxtLink id="causal-plan-link" :to="planRoute">查看干预方案 <el-icon><ArrowRight /></el-icon></NuxtLink>
+            </footer>
+          </template>
+        </CausalEvidenceDossier>
       </div>
       <el-dialog v-model="searchOpen" title="查找图谱资料" width="min(600px, 94vw)" align-center append-to-body destroy-on-close @opened="searchInput?.focus()">
         <label class="search-field"><el-icon><Search /></el-icon><input ref="searchInput" v-model="search" type="search" aria-label="搜索金属、健康影响或防护措施" placeholder="搜索金属、健康影响或防护措施" /></label>
@@ -85,7 +94,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
-import { ArrowLeft, ArrowRight, Connection, FirstAidKit, List, Reading, Search } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Bottom, Connection, FirstAidKit, List, Reading, Search } from '@element-plus/icons-vue'
 import { knowledgeRelations } from '~/utils/knowledgeCatalog'
 import { elementNames, readElements, relationKinds, type KnowledgeRelation } from '~/utils/knowledgeTypes'
 import { riskPathContext, riskTargetOptions } from '~/utils/causalNavigation'
@@ -101,6 +110,8 @@ const mobileEvidence = ref(false)
 const searchOpen = ref(false)
 const search = ref('')
 const searchInput = ref<HTMLInputElement | null>(null)
+const explorer = ref<HTMLElement | null>(null)
+const evidencePanel = ref<HTMLElement | null>(null)
 const risk = computed(() => riskPathContext(route.query, state.dashboard.value, state.cohortResult.value))
 const riskBack = computed(() => risk.value.mode ? { path: '/risk', query: { mode: risk.value.mode } } : '/risk')
 const selectedPlan = computed(() => getInterventionPlan(risk.value.mode ? risk.value.person : route.query.person))
@@ -172,14 +183,26 @@ function choosePerson(id: string) {
   return router.replace({ path: '/causal', query })
 }
 function onSmallScreen() { return window.matchMedia('(max-width: 760px)').matches }
+function jumpToSheet(id: string) {
+  const heading = document.getElementById(id)
+  heading?.focus({ preventScroll: true })
+  heading?.scrollIntoView({ block: 'start' })
+}
 async function selectPath(id: string) {
   await navigate(focus.value, topic.value, id)
   if (onSmallScreen()) mobileEvidence.value = true
 }
+async function inspectDossier(id: string) {
+  await selectPath(id)
+  if (onSmallScreen()) return
+  await nextTick()
+  evidencePanel.value?.focus({ preventScroll: true })
+  explorer.value?.scrollIntoView({ block: 'start' })
+}
 const searchResults = computed(() => {
   const term = search.value.trim().toLowerCase()
   if (!term) return knowledgeRelations
-  return knowledgeRelations.filter(p => [p.from, p.to, p.title, p.finding, p.source.title, relationKinds[p.kind], ...p.metals, ...p.metals.map(m => elementNames[m])].join(' ').toLowerCase().includes(term))
+  return knowledgeRelations.filter(p => [p.from, p.to, p.title, p.finding, p.study?.population, p.study?.measure, p.study?.result, p.field?.verify, p.field?.record, p.source.title, p.source.issuer, relationKinds[p.kind], ...p.metals, ...p.metals.map(m => elementNames[m])].join(' ').toLowerCase().includes(term))
 })
 function openSearch() { search.value = ''; searchOpen.value = true }
 async function openResult(path: KnowledgeRelation) {
@@ -195,7 +218,7 @@ async function openResult(path: KnowledgeRelation) {
 .main-content { min-width:0; flex:1; overflow:auto; background:radial-gradient(ellipse 65% 490px at 94% 5%,#e8f3ef 0%,#eef5f238 63%,transparent 96%),linear-gradient(120deg,#f8fafc,#f7f9f8 60%,#f5f7fa); }
 .crumb { min-height:49px; padding:0 clamp(16px,3vw,42px); display:flex; align-items:center; gap:14px; background:#fff; border-bottom:1px solid #e2e9ec; font-size:13px; }
 .crumb a,.continue-row a { display:inline-flex; align-items:center; gap:5px; color:#46676d; text-decoration:none; }.crumb > span { color:#9dadb3; }
-.workspace { box-sizing:border-box; max-width:1460px; margin:auto; padding:clamp(22px,3.1vw,52px) clamp(16px,2.8vw,44px) 65px; }
+.workspace { box-sizing:border-box; max-width:1750px; margin:auto; padding:clamp(20px,2.15vw,38px) clamp(16px,2.5vw,42px) 58px; }
 .intro,.graph-head,.continue-row,.browse-context { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .intro h1 { margin:0; font-size:clamp(26px,3vw,42px); line-height:1.2; letter-spacing:-.045em; color:#183940; font-weight:720; }
 .intro p,.graph-head p { margin:9px 0 0; font-size:14px; color:#506874; line-height:1.7; }
@@ -210,13 +233,14 @@ button:focus-visible,select:focus-visible,summary:focus-visible,a:focus-visible 
 .elements .joint-tab { background:#eef1f7; color:#52627b; }.joint-tab .el-icon { font-size:16px; }
 .browse-context { justify-content:flex-start; flex-wrap:wrap; column-gap:16px; row-gap:5px; margin:10px 0 18px; font-size:12px; color:#5a6d75; }
 .person { display:flex; align-items:center; gap:7px; }.person select { max-width:min(215px,60vw); padding:5px 18px 5px 4px; border:0; background:transparent; color:#36535b; font-weight:600; }
+.jump-links { display:flex; align-items:center; gap:12px; margin-left:auto; }.jump-links button { display:inline-flex; align-items:center; gap:4px; padding:5px 0; background:none; color:#355f65; border:0; font-size:12px; }.jump-links button:hover { text-decoration:underline; text-underline-offset:3px; }
 .clear { font-size:12px; background:none; padding:4px 0; color:#27656d; border:0; text-decoration:underline; text-underline-offset:3px; }
 .explorer { display:grid; grid-template-columns:minmax(0,1.9fr) minmax(260px,.93fr); align-items:start; gap:clamp(12px,1.4vw,22px); }
-.graph-column { min-width:0; background:#ffffffde; border:1px solid #dce5e8; border-radius:20px; box-shadow:0 6px 24px #263a4d05; overflow:hidden; }
+.graph-column { min-width:0; background:#fff; border:1px solid #cfdddb; border-radius:12px; overflow:hidden; }
 .graph-head { padding:clamp(14px,1.5vw,23px) clamp(14px,1.6vw,25px) 12px; }
 .graph-head h2 { margin:0; font-size:clamp(18px,1.65vw,24px); color:#25474c; line-height:1.4; }.graph-head p { margin-top:2px; font-size:12px; }
 .switch { display:inline-flex; gap:2px; flex:none; padding:3px; border:1px solid #e1e8e8; background:#f2f6f5; border-radius:16px; }.switch button { min-height:31px; border:0; border-radius:13px; padding:4px 8px; font-size:12px; color:#516b73; background:transparent; }.switch button[aria-pressed=true] { color:#225e64; background:#fff; box-shadow:0 1px 4px #29464920; }
-.graph-column :deep(.metal-map) { border-radius:0 0 18px 18px; }
+.graph-column :deep(.metal-map) { border-radius:0 0 11px 11px; }
 .desktop-evidence { position:sticky; top:14px; min-width:0; }
 .mobile-preview { display:none; }.list-view { padding:0 clamp(14px,1.6vw,25px) 12px; }
 .list-view h3 { margin:13px 0 5px; color:#46696c; font-size:13px; }
@@ -224,7 +248,7 @@ button:focus-visible,select:focus-visible,summary:focus-visible,a:focus-visible 
 .list-view button[aria-pressed=true],.list-view button:hover,.search-results button:hover { background:#edf5f1; border-radius:9px; }
 .list-view small,.search-results small { display:block; color:#60767b; font-size:12px; }
 .empty-state { text-align:center; padding:35px 16px 48px; }.empty-state > .el-icon { font-size:28px; color:#748e99; }.empty-state h3 { font-size:16px; }.empty-state p { font-size:13px; color:#536e74; }.empty-state button { border:1px solid #c7d9d7; padding:7px 13px; border-radius:20px; background:white; color:#305f63; }
-.continue-row { margin-top:16px; padding:14px 4px 0; border-top:1px solid #dde5e5; font-size:13px; }.continue-row > div { display:flex; align-items:center; gap:7px; color:#506573; }.continue-row a { font-weight:600; color:#285e6a; padding:5px; }
+.continue-row { margin:0; padding:12px 16px; border-top:1px solid #dde5e2; background:#f6f9f6; font-size:13px; flex-wrap:wrap; }.continue-row > div { display:flex; align-items:center; gap:7px; color:#506573; }.continue-row a { font-weight:600; color:#285e6a; padding:5px; }.desktop-evidence:focus-visible { outline:2px solid #387a79; outline-offset:3px; border-radius:12px; }
 .search-field { display:flex; align-items:center; gap:9px; padding:8px 12px; border:1px solid #c9d9d9; border-radius:10px; }.search-field input { width:100%; min-width:0; outline:none; padding:4px 0; border:0; color:#2a4851; }.search-field:focus-within { border-color:#44837e; }
 .search-results { max-height:min(55dvh,490px); margin-top:10px; overflow:auto; }.search-results p { font-size:14px; }
 :global(.mobile-evidence.el-drawer) { border-radius:22px 22px 0 0; max-height:calc(100dvh - 20px); }

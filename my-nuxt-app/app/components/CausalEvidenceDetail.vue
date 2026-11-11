@@ -22,7 +22,7 @@ import { relationKinds, type KnowledgeRelation } from '~/utils/knowledgeTypes'
 defineProps<{ path: KnowledgeRelation }>()
 </script>
 <style scoped>
-.evidence { --accent:#257a75; --tint:#eef7f4; min-width:0; overflow-wrap:anywhere; background:linear-gradient(145deg,var(--tint),#fff 66%); border:1px solid #dae5e4; border-radius:19px; padding:clamp(16px,2vw,26px); color:#283f4b; }
+.evidence { --accent:#257a75; --tint:#eef7f4; min-width:0; overflow-wrap:anywhere; background:linear-gradient(175deg,var(--tint),#fff 45%); border:1px solid #d2dedb; border-top:3px solid var(--accent); border-radius:12px; padding:clamp(16px,1.6vw,25px); color:#283f4b; }
 .mechanism { --accent:#926333; --tint:#fbf4e9; }.control { --accent:#695685; --tint:#f5f1fa; }
 header { display:flex; flex-wrap:wrap; align-items:center; gap:6px 11px; font-size:12px; color:#536876; }
 .category { display:inline-flex; align-items:center; gap:6px; color:var(--accent); font-weight:650; }.category i { width:8px; height:8px; border-radius:50%; background:var(--accent); }

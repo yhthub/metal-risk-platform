@@ -70,6 +70,12 @@ test('each element has sourced findings, mechanisms and controls; original deep 
   }
   for (const r of knowledgeRelations) {
     assert.ok(r.from && r.to && r.finding && r.limit && r.studyType, r.id)
+    if (r.kind === 'control') {
+      assert.ok(r.field?.verify.trim() && r.field?.record.trim(), r.id)
+    }
+    if (r.study || r.kind !== 'control') {
+      assert.ok(r.study?.population.trim() && r.study?.measure.trim() && r.study?.result.trim(), r.id)
+    }
     assert.ok(r.source.title && r.source.issuer && r.source.locator, r.id)
     assert.equal(new URL(r.source.url).protocol, 'https:', r.id)
     assert.ok(r.metals.every(metal => Object.hasOwn(elementNames, metal)), r.id)

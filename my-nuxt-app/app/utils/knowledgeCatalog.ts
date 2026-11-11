@@ -1,6 +1,8 @@
 import { controlSources, pathways } from './causalEvidence'
 import { coreMetalRelations } from './coreMetalEvidence'
 import { extendedMetalRelations } from './extendedMetalEvidence'
+import { additionalFieldEvidence } from './additionalFieldEvidence'
+import { existingFieldChecks, existingStudyChecks } from './evidenceDossier'
 import type { KnowledgeRelation } from './knowledgeTypes'
 
 const plainLabels: Record<string, string> = {
@@ -69,4 +71,11 @@ const jointExposure: KnowledgeRelation[] = [
       url: 'https://www.cdc.gov/niosh/hhe/reports/pdfs/2015-0050-3308.pdf' } },
 ]
 
-export const knowledgeRelations = [...earlierStudies, ...earlierControls, ...coreMetalRelations, ...extendedMetalRelations, ...selenium, ...jointExposure]
+const existingRelations = [...earlierStudies, ...earlierControls, ...coreMetalRelations, ...extendedMetalRelations, ...selenium, ...jointExposure]
+
+export const knowledgeRelations: KnowledgeRelation[] = [
+  ...existingRelations.map(path => path.kind === 'control'
+    ? { ...path, field: existingFieldChecks[path.id] }
+    : { ...path, study: existingStudyChecks[path.id] }),
+  ...additionalFieldEvidence,
+]

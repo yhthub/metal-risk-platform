@@ -1,173 +1,183 @@
 <template>
-  <figure v-if="paths.length" ref="frame" class="metal-map" data-path-graph
-    :data-layout="compact ? 'tree' : 'radial'" :aria-label="hub.name + '的研究与防护关系'">
-    <div class="network-canvas" :style="{ height: height + 'px' }">
-      <svg class="branches" :viewBox="`0 0 ${width} ${height}`" aria-hidden="true" focusable="false">
-        <circle v-if="!compact" class="orbit" :cx="hubX" :cy="hubY" r="65" />
-        <g v-for="node in painted" :key="node.item.id" :class="['branch', node.item.kind, { current: selectedId === node.item.id, hovering: hoverId === node.item.id }]"
-          :data-graph-edge="node.item.id" :aria-pressed="selectedId === node.item.id"
-          @pointerenter="hoverId = node.item.id" @pointerleave="hoverId = ''" @click="emit('select', node.item.id)">
-          <path class="stroke-glow" :d="node.d" /><path class="stroke" :d="node.d" /><path class="stroke-hit" :d="node.d" />
+  <figure v-if="paths.length" class="metal-map" :data-layout="compact ? 'tree' : 'radial'"
+    data-path-graph :aria-label="elementLabel + '的证据关系图'">
+    <div ref="canvas" class="network-canvas" :class="{ compact, single: paths.length === 1 }">
+      <svg class="connections" aria-hidden="true" focusable="false">
+        <g v-for="wire in wires" :key="wire.id" :class="['wire', wire.kind, { current: wire.id === selectedId, hovering: wire.id === hoverId }]"
+          :data-graph-edge="wire.id" :aria-pressed="wire.id === selectedId"
+          @pointerenter="hoverId = wire.id" @pointerleave="hoverId = ''" @click="emit('select', wire.id)">
+          <path class="ink" :d="wire.d" /><path class="hit" :d="wire.d" />
         </g>
       </svg>
-      <div class="hub" :class="{ compact, compound: hub.symbol.length > 3 }" :style="{ left: hubX + 'px', top: hubY + 'px' }" data-graph-hub>
-        <div class="hub-disc">
-          <strong>{{ hub.symbol }}</strong>
-          <span v-if="!compact">{{ hub.name }}</span>
+
+      <div ref="hub" data-graph-hub class="specimen" :class="{ paired: elements.length > 1 }">
+        <div v-for="symbol in elements" :key="symbol" class="element-tile"
+          :aria-label="(names[symbol] || symbol) + (atomicNumbers[symbol] ? '，原子序数 ' + atomicNumbers[symbol] : '')">
+          <small :title="'原子序数 ' + atomicNumbers[symbol]">{{ atomicNumbers[symbol] }}</small>
+          <b>{{ symbol }}</b><span>{{ names[symbol] || symbol }}</span>
         </div>
-        <span v-if="compact" class="hub-caption">{{ hub.name }}</span>
       </div>
-      <button v-for="node in nodes" :key="node.item.id" type="button" :data-graph-node="node.item.id"
-        :data-graph-kind="node.item.kind" :aria-pressed="selectedId === node.item.id"
-        :aria-label="[categoryNames[node.item.kind], node.item.from, node.item.to, '查看依据'].join('，')"
-        class="leaf" :class="[node.item.kind, node.side, { current: selectedId === node.item.id }]"
-        :style="{ left: node.left + 'px', width: node.boxWidth + 'px', top: node.y + 'px' }"
-        @pointerenter="hoverId = node.item.id" @pointerleave="hoverId = ''"
-        @focus="hoverId = node.item.id" @blur="hoverId = ''" @click="emit('select', node.item.id)">
-        <span class="leaf-sign" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><path :d="icons[node.item.kind]" /></svg>
-        </span>
-        <span class="leaf-copy">
-          <span class="leaf-label">{{ node.item.to }}</span>
-          <span v-if="node.caption" class="leaf-caption">{{ node.caption }}</span>
-        </span>
-      </button>
+
+      <div v-for="bank in banks" :key="bank.side" :class="['bank',bank.side]">
+        <button v-for="item in bank.items" :key="item.id" type="button" class="leaf" :class="item.kind"
+          :data-graph-node="item.id" :data-graph-kind="item.kind" :aria-pressed="selectedId === item.id"
+          :aria-label="[categoryNames[item.kind], item.from, item.to, item.studyType, '查看依据'].join('，')"
+          @pointerenter="hoverId = item.id" @pointerleave="hoverId = ''"
+          @focus="hoverId = item.id" @blur="hoverId = ''" @click="emit('select', item.id)">
+          <span class="leaf-meta"><i aria-hidden="true" />{{ categoryNames[item.kind] }}
+            <time v-if="item.source.year" :datetime="String(item.source.year)">{{ item.source.year }}</time>
+          </span>
+          <strong>{{ item.to }}</strong>
+          <small>{{ item.from }}<span aria-hidden="true"> · </span>{{ item.studyType }}</small>
+          <span class="port" aria-hidden="true" />
+        </button>
+      </div>
     </div>
-    <figcaption class="map-legend" aria-label="关系类别图例">
-      <span v-for="kind in presentKinds" :key="kind" :class="kind">
-        <svg aria-hidden="true" viewBox="0 0 24 24"><path :d="icons[kind]" /></svg>{{ categoryNames[kind] }}
-      </span>
-    </figcaption>
   </figure>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { elementNames as names, relationKinds as categoryNames } from '~/utils/knowledgeTypes'
-import type { KnowledgeRelation } from '~/utils/knowledgeTypes'
+import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { elementNames as names, relationKinds as categoryNames, type KnowledgeRelation } from '~/utils/knowledgeTypes'
 
 const props = defineProps<{ paths: KnowledgeRelation[]; selectedId: string; focusMetal?: string }>()
 const emit = defineEmits<{ select: [id: string] }>()
-const frame = ref<HTMLElement | null>(null)
-const width = ref(680)
+const canvas = ref<HTMLElement | null>(null)
+const hub = ref<HTMLElement | null>(null)
+const compact = ref(false)
 const hoverId = ref('')
-let observer: ResizeObserver | undefined
-watch(frame, element => {
-  observer?.disconnect()
-  if (!element) return
-  const resize = () => { width.value = Math.max(1, element.clientWidth) }
-  resize()
-  observer = new ResizeObserver(resize)
-  observer.observe(element)
-}, { flush: 'post' })
-onBeforeUnmount(() => observer?.disconnect())
-
-type Kind = KnowledgeRelation['kind']
-const icons: Record<Kind, string> = {
-  health: 'M2 12h5l3-7 4 14 3-7h5',
-  mechanism: 'M8 6.2a2.7 2.7 0 1 1-5.4 0 2.7 2.7 0 1 1 5.4 0Zm13 4.5a2.7 2.7 0 1 1-5.4 0 2.7 2.7 0 1 1 5.4 0Zm-11.2 7.6a2.7 2.7 0 1 1-5.4 0 2.7 2.7 0 1 1 5.4 0ZM8 7l7.5 2.6M9.4 16.9l6.7-4.6',
-  control: 'M12 2.5c2.8 2 5.5 3 8.2 3.4v5.3c0 4.8-3.5 8.3-8.2 10.5-4.7-2.2-8.2-5.7-8.2-10.5V5.9c2.7-.4 5.4-1.4 8.2-3.4Zm-3.5 9.3 2.3 2.3 4.7-4.8',
-}
-const presentKinds = computed(() => (Object.keys(categoryNames) as Kind[]).filter(kind => props.paths.some(path => path.kind === kind)))
-const hub = computed(() => {
+const atomicNumbers: Record<string, number> = { Pb: 82, Cd: 48, Hg: 80, As: 33, Cr: 24, Ni: 28, Mn: 25, Se: 34 }
+const elements = computed(() => {
   const focus = props.focusMetal?.split(',').map(s => s.trim()).filter(Boolean)
-  const common = props.paths[0]?.metals.filter(m => props.paths.every(path => path.metals.includes(m))) || []
-  const metals = focus?.length ? focus : common
-  return metals.length
-    ? { name: metals.map(m => names[m] || m).join('与'), symbol: metals.join(' + ') }
-    : { name: '相关暴露', symbol: '金属' }
+  return focus?.length ? focus : [...new Set(props.paths.flatMap(p => p.metals))]
+})
+const elementLabel = computed(() => elements.value.map(symbol => names[symbol] || symbol).join('与'))
+const ordered = computed(() => (Object.keys(categoryNames) as KnowledgeRelation['kind'][])
+  .flatMap(kind => props.paths.filter(item => item.kind === kind)))
+
+const banks = computed(() => {
+  const items = ordered.value
+  // Keep whole categories on the same side when there is room to balance the two columns.
+  const cuts = items.map((_, i) => i).filter(i => i > 0 && items[i].kind !== items[i - 1].kind)
+  const balanced = [...cuts].sort((a, b) => Math.abs(items.length / 2 - a) - Math.abs(items.length / 2 - b))[0]
+  const split = balanced !== undefined && Math.abs(items.length / 2 - balanced) <= 1
+    ? balanced : Math.floor(items.length / 2)
+  return [{ side: 'west', items: items.slice(0, split) }, { side: 'east', items: items.slice(split) }].filter(bank => bank.items.length)
 })
 
-// Place related topics together. A single relation always owns one terminal and one wire.
-const ordered = computed(() => presentKinds.value.flatMap(kind => props.paths.filter(path => path.kind === kind)))
-const compact = computed(() => width.value < 490)
-const rowCount = computed(() => Math.ceil(ordered.value.length / 2))
-const height = computed(() => compact.value ? 99 + ordered.value.length * 64 : Math.max(224, 44 + rowCount.value * 82))
-const hubX = computed(() => compact.value ? 43 : width.value * (ordered.value.length === 1 ? .31 : .5))
-const hubY = computed(() => compact.value ? 46 : height.value * .5)
+interface Wire { id: string; kind: string; d: string }
+const wires = shallowRef<Wire[]>([])
+let observer: ResizeObserver | undefined
+let raf = 0
 
-function qualifier(item: KnowledgeRelation) {
-  const source = item.from.trim()
-  // Preserve forms, combined exposures and experimental context even with a single metal selected.
-  if (item.metals.length > 1 && !item.metals.every(m => source.includes(names[m] || m))) {
-    return item.metals.map(m => names[m] || m).join('＋') + (source ? ' · ' + source : '')
+// Measure the real labels. Chinese line wrapping, browser zoom and font changes can all move ports.
+function traceConnections() {
+  if (!canvas.value || !hub.value) return
+  const plate = canvas.value.getBoundingClientRect()
+  const narrow = plate.width < 558
+  if (narrow !== compact.value) {
+    compact.value = narrow
+    nextTick(scheduleTrace)
+    return
   }
-  return source === hub.value.name || source === hub.value.name + '暴露' ? '' : source
-}
-
-const nodes = computed(() => {
-  const cx = hubX.value, cy = hubY.value, w = width.value
-  const count = ordered.value.length
-  const leftCount = count === 1 ? 0 : rowCount.value
-  return ordered.value.map((item, index) => {
-    if (compact.value) {
-      const x = w < 310 ? 77 : 89, y = 110 + index * 64
-      const d = `M ${cx} ${cy + 24} C ${cx} ${y - 11} ${cx} ${y} ${x} ${y}`
-      return { item, side: 'right', y, left: x - 17, boxWidth: w - x + 9, d, caption: qualifier(item) }
+  const origin = hub.value.getBoundingClientRect()
+  const cx = origin.left + origin.width / 2 - plate.left
+  const cy = origin.top + origin.height / 2 - plate.top
+  const links: Wire[] = []
+  for (const leaf of canvas.value.querySelectorAll<HTMLElement>('[data-graph-node]')) {
+    const port = leaf.querySelector('.port')!.getBoundingClientRect()
+    const x = port.left + port.width / 2 - plate.left
+    const y = port.top + port.height / 2 - plate.top
+    let d: string
+    if (narrow) {
+      const rail = 24
+      const start = origin.bottom - plate.top
+      d = `M ${rail} ${start} V ${y - 10} Q ${rail} ${y} ${rail + 10} ${y} H ${x}`
+    } else {
+      const sign = x < cx ? -1 : 1
+      const startX = cx + sign * origin.width / 2
+      const spread = Math.abs(x - startX) * .48
+      d = `M ${startX} ${cy} C ${startX + sign * spread} ${cy}, ${x - sign * spread} ${y}, ${x} ${y}`
     }
-    const left = index < leftCount
-    const n = left ? leftCount : count - leftCount
-    const pos = left ? index : index - leftCount
-    const sector = pos - (n - 1) / 2
-    const y = cy + sector * 82 + (n === 1 && count > 2 ? -7 : 0)
-    const sign = left ? -1 : 1
-    const reach = Math.min(w * .215, 164) - Math.min(23, Math.abs(sector) * 12)
-    const x = cx + sign * reach
-    const startAngle = Math.atan2(y - cy, x - cx)
-    const startX = cx + Math.cos(startAngle) * 39
-    const startY = cy + Math.sin(startAngle) * 39
-    const endX = x - sign * 14
-    const d = `M ${startX} ${startY} C ${startX + sign * reach * .36} ${startY}, ${endX - sign * reach * .32} ${y}, ${endX} ${y}`
-    return { item, side: left ? 'left' : 'right', y, left: left ? 12 : x - 17,
-      boxWidth: left ? x + 17 - 12 : w - x + 17 - 12, d, caption: qualifier(item) }
-  })
-})
-const painted = computed(() => [
-  ...nodes.value.filter(n => n.item.id !== props.selectedId),
-  ...nodes.value.filter(n => n.item.id === props.selectedId),
-])
+    links.push({ id: leaf.dataset.graphNode!, kind: leaf.dataset.graphKind!, d })
+  }
+  wires.value = links
+}
+function scheduleTrace() {
+  if (raf) cancelAnimationFrame(raf)
+  raf = requestAnimationFrame(() => { raf = 0; traceConnections() })
+}
+watch(canvas, el => {
+  observer?.disconnect()
+  if (!el) return
+  observer = new ResizeObserver(scheduleTrace)
+  observer.observe(el)
+  scheduleTrace()
+}, { flush: 'post' })
+watch(() => props.paths, () => { if (canvas.value) scheduleTrace() }, { flush: 'post' })
+onBeforeUnmount(() => { observer?.disconnect(); if (raf) cancelAnimationFrame(raf) })
 </script>
 
 <style scoped>
-.metal-map { margin: 0; min-width: 0; overflow: hidden; border-radius: 18px; background: radial-gradient(ellipse at 49% 50%, #e9f4f3 0%, transparent 57%), linear-gradient(125deg,#f1f5fb,#f8faf8 62%,#faf7ef); color: #24465c; }
-.network-canvas { position: relative; isolation: isolate; width: 100%; }
-.branches { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.orbit { fill: none; stroke: #a2b9be; stroke-width: .9; stroke-dasharray: 2 7; opacity: .6; }
-.health { --ink: #23786e; --tint: #dceee8; --wire: #75a99e; }
-.mechanism { --ink: #9b5c2e; --tint: #f5e8d7; --wire: #c6a180; }
-.control { --ink: #62548a; --tint: #eae5f2; --wire: #a395b9; }
-.branch path { fill: none; stroke-linecap: round; }
-.branch .stroke { stroke: var(--wire); stroke-width: 1.55; transition: stroke .16s,stroke-width .16s; pointer-events: none; }
-.branch .stroke-glow { stroke: transparent; stroke-width: 7; pointer-events: none; }
-.branch.current .stroke-glow { stroke: var(--tint); }
-.branch.current .stroke, .branch.hovering .stroke { stroke: var(--ink); stroke-width: 2.8; }
-.branch .stroke-hit { stroke: transparent; stroke-width: 16; cursor: pointer; pointer-events: stroke; }
-.hub { position: absolute; z-index: 1; transform: translate(-50%,-50%); pointer-events: none; }
-.hub-disc { width: 80px; height: 80px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; box-sizing: border-box; background: radial-gradient(ellipse at 25% 16%,#568998,#2e6378 52%,#234c65); color: #fff; box-shadow: 0 0 0 6px #f4faf9b3,0 0 0 7px #c9dcdb,0 7px 19px #2d596827; }
-.hub-disc strong { font: 550 32px/1.1 Georgia, 'Times New Roman', serif; letter-spacing: -.045em; }
-.hub-disc span { font-weight: 550; font-size: 13px; line-height: 1.5; }
-.compound .hub-disc strong { font-size: 20px; }
-.leaf { position: absolute; display: flex; align-items: center; gap: 7px; min-height: 50px; box-sizing: border-box; transform: translateY(-50%); padding: 2px 0; text-align: start; border: 0; border-radius: 12px; background: transparent; color: #2b424b; cursor: pointer; font: inherit; }
-.leaf.left { flex-direction: row-reverse; text-align: end; }
-.leaf-sign { display: grid; flex: 0 0 34px; height: 34px; place-items: center; border-radius: 50%; color: var(--ink); background: var(--tint); border: 1px solid color-mix(in srgb,var(--ink) 25%,transparent); box-sizing: border-box; transition: transform .18s,background .18s; }
-.leaf-sign svg, .map-legend svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; }
-.mechanism .leaf-sign { border-radius: 11px 15px 11px 15px; }
-.control .leaf-sign { border-radius: 12px 12px 16px 16px; }
-.leaf.current .leaf-sign { color: #fff; background: var(--ink); border-color: var(--ink); box-shadow: 0 0 0 3px #ffffffbe,0 0 0 4px var(--wire); }
-.leaf:hover .leaf-sign, .leaf:focus-visible .leaf-sign { transform: scale(1.075); }
-.leaf:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
-.leaf-copy { min-width: 0; display: grid; gap: 3px; }
-.leaf-label, .leaf-caption { overflow-wrap: anywhere; }
-.leaf-label { font-size: 14px; line-height: 1.42; font-weight: 640; }
-.leaf.current .leaf-label { color: var(--ink); }
-.leaf-caption { font-size: 11px; line-height: 1.36; color: #536977; }
-.map-legend { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 7px 15px; padding: 8px 10px 13px; font-size: 11px; color: #526675; }
-.map-legend span { display: inline-flex; align-items: center; gap: 4px; }
-.map-legend svg { width: 13px; height: 13px; color: var(--ink); }
-.compact .hub-disc { width: 50px; height: 50px; box-shadow: 0 0 0 4px #f4faf9b3,0 0 0 5px #c9dcdb; }
-.compact .hub-disc strong { font-size: 24px; }
-.compound.compact .hub-disc strong { font-size: 14px; }
-.hub-caption { position: absolute; left: 66px; top: 50%; transform: translateY(-50%); white-space: nowrap; font-size: 17px; font-weight: 600; color: #315564; }
-.metal-map[data-layout=tree] .leaf { gap: 6px; }.metal-map[data-layout=tree] .leaf-caption { font-size: 11px; }
-@media (prefers-reduced-motion: reduce) { .leaf-sign, .branch .stroke { transition: none; } }
+.metal-map {
+  margin: 0; min-width: 0; color: #193c45; background-color: #f5f5ef;
+  background-image: radial-gradient(#a9b1a64f .72px,transparent .8px); background-size: 14px 14px;
+}
+.network-canvas {
+  position: relative; isolation: isolate; display: grid; align-items: center; box-sizing: border-box;
+  grid-template-columns: minmax(0,1fr) clamp(148px,23%,244px) minmax(0,1fr);
+  grid-template-areas: 'west hub east'; padding: clamp(18px,2.1vw,32px) clamp(12px,1.65vw,26px); min-height: 240px;
+}
+.connections { position:absolute; inset:0; width:100%; height:100%; z-index:0; overflow:visible; pointer-events:none; }
+.health { --ink:#236a68; --wire:#78a39c; --border:#b6cdc6; --tint:#eaf2eb; }
+.mechanism { --ink:#88552e; --wire:#bf9670; --border:#d8c5ab; --tint:#f7efe0; }
+.control { --ink:#4f628c; --wire:#93a0bd; --border:#c2cadd; --tint:#edf0f7; }
+.wire .ink { stroke:var(--wire); stroke-width:1.5; stroke-linecap:round; fill:none; }
+.wire.current .ink,.wire.hovering .ink { stroke:var(--ink); stroke-width:2.8; }
+.wire .hit { pointer-events:stroke; fill:none; stroke:transparent; stroke-width:15; cursor:pointer; }
+.specimen {
+  position:relative; grid-area:hub; justify-self:center; display:flex; gap:3px; align-items:center; pointer-events:none;
+  padding:3px; border:1px solid #1e4148; color:#f8f8ef; background:#f5f5ef; z-index:1;
+}
+.element-tile {
+  display:grid; align-content:space-between; box-sizing:border-box; width:76px; min-height:88px; padding:6px 8px;
+  background:#24464c; border-bottom:3px solid #9ebfae;
+}
+.element-tile small { font:550 10px/1.15 ui-monospace,monospace; color:#ccdad4; }
+.element-tile b { font-family:Cambria,Georgia,'Times New Roman',serif; font-size:34px; font-weight:550; line-height:1; letter-spacing:-.045em; }
+.element-tile span { color:#e1e9df; font-size:12px; line-height:1.15; }
+.paired .element-tile { width:49px; min-height:71px; padding:5px 7px; }.paired .element-tile b { font-size:25px; }
+.bank { position:relative; display:grid; gap:12px; z-index:1; min-width:0; pointer-events:none; }
+.bank.west { grid-area:west; }.bank.east { grid-area:east; }
+.leaf {
+  display:block; min-width:0; width:100%; box-sizing:border-box; position:relative; padding:9px 12px;
+  background:#fffefa; color:#213c43; border:1px solid var(--border); border-inline-start:3px solid var(--wire);
+  border-radius:3px 10px 10px 3px; text-align:start; font:inherit; cursor:pointer; pointer-events:auto;
+  transition:background .15s,box-shadow .15s,border-color .15s;
+}
+.leaf-meta { display:flex; align-items:center; gap:6px; color:var(--ink); font-size:11px; line-height:1.45; font-weight:650; }
+.leaf-meta i { box-sizing:border-box; display:block; width:7px; height:7px; border:1.5px solid currentColor; border-radius:50%; }
+.mechanism .leaf-meta i { border-radius:0; transform:rotate(45deg); }.control .leaf-meta i { border-radius:1px; background:currentColor; }
+.leaf-meta time { margin-inline-start:auto; color:#556968; font:500 11px/1.4 ui-monospace,monospace; }
+.leaf strong,.leaf small { display:block; overflow-wrap:anywhere; }
+.leaf strong { margin:3px 0; font-size:clamp(14px,1.1vw,17px); line-height:1.4; font-weight:660; }
+.leaf small { color:#576b6e; font-size:11px; line-height:1.5; }.leaf small span { padding-inline:1px; }
+.leaf .port { box-sizing:border-box; position:absolute; top:50%; width:8px; height:8px; border-radius:50%; border:1.5px solid var(--wire); background:#fffefa; transform:translateY(-50%); }
+.west .port { right:-5px; }.east .port { left:-6px; }
+.leaf:hover { background:var(--tint); border-color:var(--ink); }
+.leaf[aria-pressed=true] { color:white; background:var(--ink); border-color:var(--ink); box-shadow:0 2px 5px #193c4517; }
+.leaf[aria-pressed=true] :is(.leaf-meta,.leaf-meta time,.leaf-caption,small) { color:#fffffff0; }
+.leaf[aria-pressed=true] .port { background:var(--ink); border-color:#fff; }
+.leaf:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
+.network-canvas.single:not(.compact) { grid-template-areas:'hub east'; grid-template-columns:minmax(110px,36%) minmax(0,1fr); }
+.network-canvas.compact {
+  grid-template-areas:'hub hub' '. west' '. east'; grid-template-columns:26px minmax(0,1fr);
+  padding:14px 12px; gap:8px 3px; align-items:start; min-height:auto;
+}
+.compact .bank { gap:8px; }.compact .port { left:-6px; right:auto; }.compact .leaf { padding:7px 10px; }.compact .leaf strong { font-size:14px; }
+.compact .specimen { justify-self:start; }
+.compact .element-tile { width:auto; min-width:94px; min-height:32px; display:flex; align-items:baseline; gap:6px; padding:4px 8px; border:0; }
+.compact .element-tile b { font-size:22px; }.compact .element-tile small { align-self:flex-start; font-size:9px; }.compact .element-tile span { font-size:13px; }
+.compact .paired .element-tile { min-width:0; }
+@media(prefers-reduced-motion:reduce) { .leaf { transition:none; } }
 </style>
