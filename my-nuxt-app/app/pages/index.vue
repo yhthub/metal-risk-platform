@@ -189,12 +189,27 @@
         </div>
       </section>
 
-      <section id="experience-guide" class="experience-guide" aria-labelledby="experience-guide-title">
+      <section id="experience-guide" class="experience-guide" data-workflow-art aria-labelledby="experience-guide-title">
         <div class="guide-heading"><span>快速开始</span><h2 id="experience-guide-title">选择适合你的体验方式</h2></div>
         <div class="guide-options">
-          <NuxtLink to="/datainput"><strong>01 · 体验数据分析</strong><span>载入公开案例，查看单人或群体的数据与分析结果。</span><b>进入数据接入 →</b></NuxtLink>
-          <NuxtLink to="/data-cleaning"><strong>02 · 整理一份表格</strong><span>用合成案例体验清洗预览，并下载规范 CSV 文件。</span><b>体验数据清洗 →</b></NuxtLink>
-          <NuxtLink to="/agent"><strong>03 · 查询医学知识</strong><span>直接提出问题，阅读回答及其引用的资料。</span><b>开始知识问答 →</b></NuxtLink>
+          <NuxtLink to="/datainput" class="guide-card guide-analysis">
+            <img class="guide-art" :src="exposureIllustration" alt="" width="300" height="200" loading="lazy" decoding="async">
+            <strong>01 · 体验数据分析</strong>
+            <span>载入公开案例，查看单人或群体的数据与分析结果。</span>
+            <b>进入数据接入 →</b>
+          </NuxtLink>
+          <NuxtLink to="/data-cleaning" class="guide-card guide-cleaning">
+            <img class="guide-art" :src="cleaningIllustration" alt="" width="300" height="200" loading="lazy" decoding="async">
+            <strong>02 · 整理一份表格</strong>
+            <span>用合成案例体验清洗预览，并下载规范 CSV 文件。</span>
+            <b>体验数据清洗 →</b>
+          </NuxtLink>
+          <NuxtLink to="/agent" class="guide-card guide-medicine">
+            <img class="guide-art" :src="evidenceIllustration" alt="" width="300" height="200" loading="lazy" decoding="async">
+            <strong>03 · 查询医学知识</strong>
+            <span>直接提出问题，阅读回答及其引用的资料。</span>
+            <b>开始知识问答 →</b>
+          </NuxtLink>
         </div>
         <p id="experience-note" class="guide-note">公开体验请使用公开或合成示例。分析与方案仅供研究参考，不能替代专业诊疗。</p>
       </section>
@@ -255,6 +270,9 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { Warning, Monitor } from '@element-plus/icons-vue'
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from '~/utils/product'
+import exposureIllustration from '~/assets/illustrations/workflow/exposure-analysis.svg?no-inline'
+import cleaningIllustration from '~/assets/illustrations/workflow/table-cleaning.svg?no-inline'
+import evidenceIllustration from '~/assets/illustrations/workflow/medical-evidence.svg?no-inline'
 
 useHead({ title: PRODUCT_NAME })
 
@@ -533,14 +551,51 @@ $color-border: #E5E7EB;
 #capabilities, #experience-guide, #experience-note { scroll-margin-top: 96px; }
 .experience-guide { position: relative; margin: 56px 0 64px; padding: 32px; border: 1px solid #dfe9f2; border-radius: 18px; background: #ffffffed; }
 .guide-heading { margin-bottom: 22px; > span { font-size: 12px; color: #1f77b4; font-weight: 700; } h2 { margin: 7px 0 0; font-size: 23px; color: #243b53; } }
-.guide-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; > a { display: flex; flex-direction: column; gap: 12px; padding: 20px; border: 1px solid #e2eaf2; border-radius: 12px; text-decoration: none; color: #334155; background: #f8fbff; } > a:hover { border-color: #a6c9e7; background: #f1f7fd; } strong { font-size: 15px; } span { font-size: 13px; line-height: 1.8; color: #64748b; flex: 1; } b { font-size: 13px; color: #1f77b4; font-weight: 600; } }
+.guide-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.guide-card {
+  --guide-ink: #245e87;
+  --guide-paper: #eef5fa;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 8px;
+  overflow: hidden;
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #dce6ed;
+  border-radius: 12px;
+  text-decoration: none;
+
+  &.guide-cleaning { --guide-ink: #27645a; --guide-paper: #edf5f1; }
+  &.guide-medicine { --guide-ink: #514c81; --guide-paper: #f3f2f8; }
+  &:hover, &:focus-visible { border-color: var(--guide-ink); }
+  &:hover b, &:focus-visible b { text-decoration: underline; text-underline-offset: 3px; }
+  .guide-art {
+    display: block;
+    width: 100%;
+    height: clamp(122px, 12vw, 157px);
+    object-fit: contain;
+    background: var(--guide-paper);
+  }
+  strong, span, b { margin-inline: 18px; }
+  strong { margin-top: 6px; font-size: 16px; line-height: 1.5; color: #243b53; }
+  span { font-size: 13px; line-height: 1.75; color: #526476; }
+  b { margin-block: 4px 17px; font-size: 13px; line-height: 1.6; color: var(--guide-ink); font-weight: 650; }
+}
 .guide-note { color: #708196; font-size: 12px; line-height: 1.8; margin: 20px 0 0; }
 .research-system-home a:focus-visible, .research-system-home button:focus-visible { outline: 2px solid #4295d6; outline-offset: 4px; }
 @media (max-width: 720px) {
   .experience-guide { padding: 22px 16px; margin: 32px 0; }
   .guide-heading h2 { font-size: 19px; line-height: 1.6; }
   .guide-options { grid-template-columns: 1fr; gap: 12px; }
-  .guide-options > a { padding: 18px; }
+  .guide-card {
+    grid-template-columns: minmax(0, 1fr) clamp(76px, 26vw, 150px);
+    grid-template-rows: auto 1fr auto;
+    gap: 5px 0;
+    .guide-art { grid-column: 2; grid-row: 1 / 4; align-self: stretch; height: 100%; min-height: 0; }
+    strong, span, b { grid-column: 1; margin-inline: 14px 10px; }
+    strong { margin-top: 13px; font-size: 15px; }
+    b { margin-block: 3px 12px; }
+  }
 }
 @media screen and (max-width: 1200px) {
   .system-nav .nav-menu { gap: 16px; }
