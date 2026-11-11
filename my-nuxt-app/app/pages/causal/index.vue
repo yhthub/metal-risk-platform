@@ -34,8 +34,8 @@
         <section ref="explorer" class="explorer" aria-labelledby="graph-heading">
           <div class="graph-column">
             <header class="graph-head">
-              <div><h2 id="graph-heading">{{ focusName ? focusName + '的' : '' }}{{ view === 'graph' ? '关系图' : '资料清单' }}</h2>
-                <p>已收录 {{ visible.length }} 条关系<span v-if="visible.length">，点选即可查看依据</span>。</p></div>
+              <div class="graph-title"><h2 id="graph-heading">{{ focusName ? focusName + '的' : '' }}{{ view === 'graph' ? '关系图' : '资料清单' }}</h2>
+                <span>{{ visible.length }} 条关系</span></div>
               <div class="switch" role="group" aria-label="浏览方式">
                 <button data-view="graph" :aria-pressed="view === 'graph'" @click="view = 'graph'"><el-icon><Connection /></el-icon>图谱</button>
                 <button data-view="list" :aria-pressed="view === 'list'" @click="view = 'list'"><el-icon><List /></el-icon>清单</button>
@@ -236,11 +236,14 @@ button:focus-visible,select:focus-visible,summary:focus-visible,a:focus-visible 
 .jump-links { display:flex; align-items:center; gap:12px; margin-left:auto; }.jump-links button { display:inline-flex; align-items:center; gap:4px; padding:5px 0; background:none; color:#355f65; border:0; font-size:12px; }.jump-links button:hover { text-decoration:underline; text-underline-offset:3px; }
 .clear { font-size:12px; background:none; padding:4px 0; color:#27656d; border:0; text-decoration:underline; text-underline-offset:3px; }
 .explorer { display:grid; grid-template-columns:minmax(0,1.9fr) minmax(260px,.93fr); align-items:start; gap:clamp(12px,1.4vw,22px); }
-.graph-column { min-width:0; background:#fff; border:1px solid #cfdddb; border-radius:12px; overflow:hidden; }
-.graph-head { padding:clamp(14px,1.5vw,23px) clamp(14px,1.6vw,25px) 12px; }
-.graph-head h2 { margin:0; font-size:clamp(18px,1.65vw,24px); color:#25474c; line-height:1.4; }.graph-head p { margin-top:2px; font-size:12px; }
-.switch { display:inline-flex; gap:2px; flex:none; padding:3px; border:1px solid #e1e8e8; background:#f2f6f5; border-radius:16px; }.switch button { min-height:31px; border:0; border-radius:13px; padding:4px 8px; font-size:12px; color:#516b73; background:transparent; }.switch button[aria-pressed=true] { color:#225e64; background:#fff; box-shadow:0 1px 4px #29464920; }
-.graph-column :deep(.metal-map) { border-radius:0 0 11px 11px; }
+.graph-column { min-width:0; background:#fafafa; border:1px solid #d8dfe0; border-radius:18px; overflow:hidden; }
+.graph-head { align-items:center; padding:clamp(16px,1.6vw,24px) clamp(16px,1.8vw,28px) 8px; }
+.graph-title { display:flex; align-items:baseline; flex-wrap:wrap; gap:2px 12px; }
+.graph-head h2 { margin:0; font-size:clamp(19px,1.7vw,25px); font-weight:650; color:#202d2e; line-height:1.35; letter-spacing:-.035em; }
+.graph-title > span { color:#5d686c; font-size:12px; white-space:nowrap; }
+.switch { display:inline-flex; gap:2px; flex:none; padding:3px; background:#e9edec; border-radius:20px; }
+.switch button { min-height:31px; border:0; border-radius:17px; padding:4px 10px; font-size:12px; color:#526064; background:transparent; }
+.switch button[aria-pressed=true] { color:#fff; background:#344449; }
 .desktop-evidence { position:sticky; top:14px; min-width:0; }
 .mobile-preview { display:none; }.list-view { padding:0 clamp(14px,1.6vw,25px) 12px; }
 .list-view h3 { margin:13px 0 5px; color:#46696c; font-size:13px; }
