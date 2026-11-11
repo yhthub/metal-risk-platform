@@ -32,32 +32,32 @@
       <el-menu :default-active="defaultActive" class="custom-el-menu" :unique-opened="true" :collapse="compact" :collapse-transition="false">
         <div v-if="!compact" class="menu-group-title">数据管理</div>
         <el-sub-menu index="1" aria-label="数据接入">
-          <template #title><el-icon><Coin /></el-icon><span>数据接入</span></template>
+          <template #title><SidebarIcon name="intake" /><span>数据接入</span></template>
           <el-menu-item index="1-1" @click="goTo('/datainput')">单人录入与群体导入</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="2" aria-label="数据整理">
-          <template #title><el-icon><DataLine /></el-icon><span>数据整理</span></template>
+          <template #title><SidebarIcon name="organize" /><span>数据整理</span></template>
           <el-menu-item index="2-1" @click="goTo('/data-cleaning')">数据清洗与格式转换</el-menu-item>
         </el-sub-menu>
 
         <div v-if="!compact" class="menu-group-title">分析与干预</div>
         <el-sub-menu index="3" aria-label="风险分析">
-          <template #title><el-icon><TrendCharts /></el-icon><span>风险分析</span></template>
+          <template #title><SidebarIcon name="risk" /><span>风险分析</span></template>
           <el-menu-item index="3-1" @click="goTo('/risk?mode=individual')">单人风险分析</el-menu-item>
           <el-menu-item index="3-2" @click="goTo('/risk?mode=batch')">群体风险分析</el-menu-item>
         </el-sub-menu>
         
         <el-menu-item index="4" aria-label="因果知识推理" @click="goTo('/causal')">
-          <el-icon><Share /></el-icon><span>因果知识推理</span>
+          <SidebarIcon name="causal" /><template #title>因果知识推理</template>
         </el-menu-item>
         
         <el-menu-item index="5" aria-label="方案推荐" @click="goTo('/plan')">
-          <el-icon><DocumentChecked /></el-icon><span>方案推荐</span>
+          <SidebarIcon name="plan" /><template #title>方案推荐</template>
         </el-menu-item>
         
         <div v-if="!compact" class="menu-group-title">知识服务</div>
         <el-menu-item index="6" aria-label="医学知识问答" @click="goTo('/agent')">
-          <el-icon><ChatDotRound /></el-icon><span>医学知识问答</span>
+          <SidebarIcon name="qa" /><template #title>医学知识问答</template>
         </el-menu-item>
       </el-menu>
     </div>
@@ -67,9 +67,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, useId, watch } from 'vue'
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from '~/utils/product'
-import { 
-  Coin, DataLine, TrendCharts, Share, DocumentChecked, ChatDotRound, Menu, Close, Fold, Expand
-} from '@element-plus/icons-vue'
+import { Menu, Close, Fold, Expand } from '@element-plus/icons-vue'
 
 // 定义 props 接收父组件（各个页面）传来的激活项 index
 defineProps({
@@ -293,12 +291,19 @@ $border-light: #E2E8F0;
 .navigation-toggle:focus-visible, .mobile-brand:focus-visible { outline: 2px solid #4295d6; outline-offset: 3px; }
 .navigation-toggle .el-icon { font-size: 20px; }
 .sidebar .menu-container { min-height: 0; overscroll-behavior: contain; }
+.sidebar :deep([data-sidebar-icon]) { margin-inline-end: 10px; }
+.sidebar :deep(.el-menu-item.is-active),
+.sidebar :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
+  --nav-icon-ink: #fff;
+  --nav-icon-bg: #3f5d96;
+}
 .sidebar.is-collapsed { width: 72px !important; }
 .is-collapsed .brand-logo { justify-content: center; padding: 0; }
 .is-collapsed .brand-logo > svg, .is-collapsed .brand-text, .is-collapsed .menu-group-title { display: none; }
 .is-collapsed :deep(.el-menu--collapse) { width: 72px; }
-.is-collapsed :deep(.custom-el-menu > .el-menu-item), .is-collapsed :deep(.el-sub-menu__title) { width: 48px; margin: 6px 12px; padding: 0 12px !important; }
-.is-collapsed :deep(.el-menu-tooltip__trigger) { padding: 0 12px !important; }
+.is-collapsed :deep(.custom-el-menu > .el-menu-item), .is-collapsed :deep(.el-sub-menu__title) { width: 48px; margin: 6px 12px; padding: 0 !important; justify-content: center; }
+.is-collapsed :deep(.el-menu-tooltip__trigger) { padding: 0 !important; justify-content: center; }
+.is-collapsed :deep([data-sidebar-icon]) { margin-inline-end: 0; }
 .is-collapsed :deep(.el-sub-menu__icon-arrow) { display: none; }
 .mobile-navigation-bar { position: fixed; z-index: 1800; top: 0; left: 0; right: 0; height: calc(56px + env(safe-area-inset-top)); box-sizing: border-box; padding: env(safe-area-inset-top) 14px 0; display: flex; gap: 12px; align-items: center; background: #fffffffa; border-bottom: 1px solid #e2eaf3; }
 .mobile-brand { color: #243e5b; font-size: 14px; font-weight: 750; text-decoration: none; line-height: 1.4; }
