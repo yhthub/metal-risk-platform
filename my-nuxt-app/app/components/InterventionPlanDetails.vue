@@ -51,7 +51,10 @@
     </div>
 
     <div v-show="view === 'monitoring'" :id="uid + '-panel-monitoring'" class="work-view" role="tabpanel" :aria-labelledby="uid + '-tab-monitoring'">
-      <div class="view-lead"><h3>随访记录要求</h3><span>以下为待采集项目，尚未录入随访结果。</span></div>
+      <div class="monitoring-heading">
+        <img v-if="view === 'monitoring'" data-platform-art="follow-up" :src="followUpArt" alt="" width="69" height="46">
+        <div><h3>随访记录要求</h3><p>以下为待采集项目，尚未录入随访结果。</p></div>
+      </div>
       <div v-if="person.outcomes?.length" class="record-wrap">
         <table class="records">
           <caption class="sr-only">当前方案的随访指标、记录内容和资料来源</caption>
@@ -84,6 +87,7 @@
 import { planStepKey as stepKey, usePlanChecks } from '~/composables/usePlanChecks'
 import { computed, nextTick, ref, useId, watch } from 'vue'
 import { ArrowRight, Calendar, Clock, List, User } from '@element-plus/icons-vue'
+import followUpArt from '~/assets/illustrations/workflow/follow-up.svg?no-inline'
 
 type Measure = { title: string; tag?: string; type?: string; desc?: string; detail?: string; indicator?: string; period?: string; owner?: string }
 type PlanObject = { id: string; workflow?: Measure[]; outcomes?: { label: string; record?: string; source?: string }[] }
@@ -136,6 +140,10 @@ async function openStep(i: number) {
 .view-switch button:not([aria-selected="true"]):hover{background:#f9fbfd}
 .view-lead{display:flex;justify-content:space-between;align-items:baseline;gap:6px 16px;flex-wrap:wrap;margin:16px 0 11px}
 .view-lead h3{font-size:16px}
+.monitoring-heading{display:flex;align-items:center;gap:13px;margin:16px 0 12px}
+.monitoring-heading img{flex:none;display:block;width:clamp(54px,5vw,69px);height:auto}
+.monitoring-heading h3{margin:0;color:#192f48;font-size:16px;line-height:1.45}
+.monitoring-heading p{margin:2px 0 0;font-size:12px;line-height:1.7;color:var(--work-muted)}
 .view-lead>span,.empty{font-size:12px;line-height:1.7;color:var(--work-muted)}
 .step-list,.review-list{margin:0;padding:0;list-style:none}
 .step-list,.record-wrap,.review-list{background:#fff;border:1px solid var(--work-line);border-radius:13px}

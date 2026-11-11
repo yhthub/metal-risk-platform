@@ -1,6 +1,7 @@
 <template>
   <section class="dossier" data-evidence-dossier aria-labelledby="dossier-heading">
     <header class="dossier-heading">
+      <img class="index-art" data-platform-art="source-index" :src="sourceIndexArt" alt="" width="84" height="56" loading="lazy">
       <div><h2 id="dossier-heading">{{ name }}资料索引</h2>
         <p>对照研究对象与观察结果，再按具体工序核查防护措施。</p></div>
       <span class="source-count"><el-icon><Reading /></el-icon>{{ sources }} 份来源</span>
@@ -46,6 +47,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Aim, Operation, Reading, TopRight } from '@element-plus/icons-vue'
+import sourceIndexArt from '~/assets/illustrations/workflow/source-index.svg?no-inline'
 import type { FieldCheck, KnowledgeRelation, StudyComparison } from '~/utils/knowledgeTypes'
 
 const props = defineProps<{ paths: KnowledgeRelation[]; name: string }>()
@@ -57,7 +59,8 @@ const sources = computed(() => new Set(props.paths.map(p => p.source.url.split('
 <style scoped>
 .dossier { margin-top:clamp(24px,2.4vw,38px); color:#223e48; }
 .dossier-heading, .sheet-title { display:flex; align-items:center; justify-content:space-between; gap:12px; }
-.dossier-heading { margin-bottom:15px; }
+.dossier-heading { display:grid; grid-template-columns:auto minmax(0,1fr) auto; justify-content:stretch; margin-bottom:15px; }
+.index-art { display:block; width:84px; height:auto; }
 .dossier h2,.dossier h3,.dossier p { margin:0; }
 .dossier h2 { color:#1e4144; font-size:clamp(21px,1.9vw,28px); line-height:1.35; letter-spacing:-.035em; }
 .dossier-heading p { margin-top:4px; color:#52666c; font-size:13px; line-height:1.6; }
@@ -94,7 +97,8 @@ li + li { border-top:1px solid #e2e6e9; }.control-body { min-width:0; }
 @media(max-width:1100px) { .sheets { grid-template-columns:minmax(0,1.65fr) minmax(235px,.95fr); } tbody th,td,thead th { padding-inline:9px; } }
 @media(max-width:900px) { .sheets { grid-template-columns:minmax(0,1fr); } }
 @media(max-width:620px) {
- .dossier { margin-top:24px; }.dossier-heading { align-items:flex-start; }.source-count { padding-top:6px; }
+ .dossier { margin-top:24px; }.dossier-heading { grid-template-columns:minmax(0,1fr) auto; gap:5px 12px; }
+ .index-art { grid-column:2; grid-row:1 / 3; align-self:center; width:64px; }.source-count { grid-column:1; }
  .dossier-heading p { font-size:12px; }.sheets { gap:14px; }
  table,tbody,tr,tbody th,td { display:block; width:auto; } thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
  tbody tr { padding:12px 15px 13px; } tbody tr + tr { border-top:1px solid #dce5e2; }

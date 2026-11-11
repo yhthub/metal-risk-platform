@@ -234,7 +234,9 @@
                   </div>
 
                   <section class="group-demo-panel" aria-label="NHANES公开数据一键体验">
-                    <div class="group-demo-heading"><div><span class="group-demo-eyebrow">PUBLIC DATA · NHANES 2017–2018</span><h4>无需准备文件，体验真实公开数据</h4><p>{{ groupDemoInfo ? `${formatNumber(groupDemoInfo.rows)} 条真实成人记录 · 23 个规范字段 · 完整病例固定子集` : groupDemoLoading ? '正在核对服务器公开样本与来源说明…' : '公开样本尚未就绪，请检查后端服务。' }}</p></div><button type="button" class="btn-group-demo" :disabled="isAnalyzing || groupDemoRunning || !groupDemoInfo" @click="fillGroupDemo"><el-icon><DocumentChecked /></el-icon>{{ groupDemoRunning ? '正在载入并真实分析…' : '一键体验 NHANES 公开数据' }}</button></div>
+                    <div class="group-demo-heading">
+                      <img class="intake-art" :src="intakeIllustration" data-platform-art="data-intake" width="150" height="100" alt="" decoding="async">
+                      <div><span class="group-demo-eyebrow">PUBLIC DATA · NHANES 2017–2018</span><h4>无需准备文件，体验真实公开数据</h4><p>{{ groupDemoInfo ? `${formatNumber(groupDemoInfo.rows)} 条真实成人记录 · 23 个规范字段 · 完整病例固定子集` : groupDemoLoading ? '正在核对服务器公开样本与来源说明…' : '公开样本尚未就绪，请检查后端服务。' }}</p></div><button type="button" class="btn-group-demo" :disabled="isAnalyzing || groupDemoRunning || !groupDemoInfo" @click="fillGroupDemo"><el-icon><DocumentChecked /></el-icon>{{ groupDemoRunning ? '正在载入并真实分析…' : '一键体验 NHANES 公开数据' }}</button></div>
                     <p class="group-demo-boundary">不是模拟数据，也不是职业人群；仅用于体验未加权描述性统计与数据流程，不用于总体风险推断或诊断。</p>
                     <details v-if="groupDemoInfo" class="group-demo-details"><summary>查看公开来源与筛选局限</summary><p>从 {{ formatNumber(groupDemoInfo.eligible_records) }} 条符合演示完整性条件的公开记录中，按 SEQN 升序固定选取 {{ formatNumber(groupDemoInfo.rows) }} 条；保留原转存值，未新增本地插补或缩尾，发布值可能含官方检测限替代。</p><ul><li v-for="(note, index) in groupDemoInfo.limitations" :key="index">{{ note }}</li></ul><div class="group-demo-sources"><a v-for="source in groupDemoInfo.source_links" :key="source.url" :href="source.url" target="_blank" rel="noopener noreferrer">{{ source.label }} ↗</a></div></details>
                     <p v-if="groupDemoError" class="group-demo-error" role="alert">{{ groupDemoError }} <button v-if="!groupDemoInfo" type="button" :disabled="groupDemoLoading || isAnalyzing" @click="loadGroupDemo">重新核对公开样本</button></p>
@@ -562,6 +564,7 @@
 </template>
 
 <script setup>
+import intakeIllustration from '~/assets/illustrations/workflow/exposure-analysis.svg?no-inline'
 import { PRODUCT_SHORT_NAME } from '~/utils/product'
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -1631,7 +1634,30 @@ $color-danger: #F87171;
 }
 .hidden-file-input { display: none; }
 .group-demo-panel { margin-bottom: 20px; padding: 20px; border: 1px solid #cddff2; border-radius: 12px; background: linear-gradient(110deg, #f4f9ff, #fff); }
-.group-demo-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.group-demo-panel { container-type: inline-size; }
+.group-demo-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'figure copy action';
+  gap: 16px;
+  align-items: center;
+  > div { grid-area: copy; }
+  > button { grid-area: action; }
+}
+.intake-art {
+  grid-area: figure;
+  width: clamp(94px, 13cqw, 132px);
+  height: auto;
+  pointer-events: none;
+}
+@container (max-width: 580px) {
+  .group-demo-heading {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'copy figure' 'action action';
+    gap: 12px;
+  }
+  .intake-art { width: clamp(70px, 19cqw, 100px); align-self: center; }
+}
 .group-demo-eyebrow { color: #4c80aa; font-size: 11px; letter-spacing: .8px; font-weight: 700; }
 .group-demo-heading h4 { margin: 8px 0; color: #233f5b; font-size: 17px; }
 .group-demo-heading p, .group-demo-details p { margin: 0; color: #64748b; font-size: 13px; line-height: 1.8; }

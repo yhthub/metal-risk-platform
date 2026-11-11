@@ -33,7 +33,7 @@
       <div ref="messageListRef" class="conversation-scroll">
         <div class="conversation-content">
           <section v-if="!chatHistory.length" class="welcome-panel">
-            <div class="welcome-symbol" aria-hidden="true"><el-icon><Reading /></el-icon></div>
+            <img class="welcome-evidence-art" :src="evidenceIllustration" data-platform-art="medical-qa" width="180" height="120" alt="" decoding="async">
             <span class="welcome-eyebrow">医学知识助手</span>
             <h2>今天想了解什么？</h2>
             <p>从一个具体问题开始，获得清晰解答，并查看回答引用的资料。</p>
@@ -116,9 +116,10 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, ArrowRight, Collection, DocumentCopy, InfoFilled, Plus, Position, Reading, RefreshRight } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Collection, DocumentCopy, InfoFilled, Plus, Position, RefreshRight } from '@element-plus/icons-vue'
 import { plainAnswer, sourceLabel, sourceUrl, retrievalPresentation, chatAvailability, isGeneralKnowledgeAnswer, generalKnowledgeNotice, responseEvidence } from '~/utils/ragPresentation'
 import type { EvidenceCard, RagMessage } from '~/utils/ragPresentation'
+import evidenceIllustration from '~/assets/illustrations/workflow/medical-evidence.svg?no-inline'
 import { PRODUCT_SHORT_NAME } from '~/utils/product'
 
 useHead({ title: `医学知识问答 · ${PRODUCT_SHORT_NAME}` })
@@ -340,7 +341,10 @@ onMounted(refreshStatus)
 .conversation-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scroll-behavior: smooth; scrollbar-width: thin; scrollbar-color: #cfdae7 transparent; }
 .conversation-content { box-sizing: border-box; width: 100%; max-width: calc(var(--chat-width) + var(--chat-gutter) + var(--chat-gutter)); margin: 0 auto; padding: 24px var(--chat-gutter) 28px; }
 .welcome-panel { max-width: 780px; margin: min(6vh, 64px) auto 20px; text-align: center; }
-.welcome-symbol { display: flex; align-items: center; justify-content: center; width: 66px; height: 66px; margin: 0 auto 22px; color: #377fb8; background: linear-gradient(145deg,#e5f2ff,#eef5fc); border: 1px solid #dceafb; border-radius: 21px; font-size: 30px; box-shadow: 0 8px 26px #376c9e0b; }
+.welcome-evidence-art { display: block; width: clamp(136px, 14vw, 180px); height: auto; margin: 0 auto 10px; pointer-events: none; }
+@media (max-width: 600px), (max-height: 700px) {
+  .welcome-evidence-art { width: 92px; margin-bottom: 4px; }
+}
 .welcome-eyebrow { font-size: 12px; color: #7b9cb8; letter-spacing: .18em; }
 .welcome-panel h2 { margin: 13px 0 14px; color: #284766; font-size: 29px; font-weight: 600; letter-spacing: .04em; }
 .welcome-panel > p { margin: 0 auto; font-size: 14px; line-height: 1.8; color: #7b8da2; }
@@ -399,9 +403,6 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .page-header::after { content: ''; position: absolute; height: 1px; bottom: -1px; left: 0; right: 0; background: linear-gradient(90deg, #cee1f3, #d9ece9 55%, #e7edf4); pointer-events: none; }
 .page-heading h1::before { content: ''; display: inline-block; width: 4px; height: 19px; margin-right: 10px; border-radius: 3px; vertical-align: -1px; background: linear-gradient(#629cc8, #77b7ba); }
 .conversation-scroll { background-image: radial-gradient(ellipse 360px 250px at 84% 8%, #dff2ef66, transparent 78%), radial-gradient(ellipse 440px 280px at 14% 2%, #e4eefb80, transparent 80%); background-repeat: no-repeat; }
-.welcome-symbol { position: relative; background: linear-gradient(140deg, #e2efff, #edf8f6); border-color: #d5e7f0; box-shadow: 0 9px 28px #6e9fbb13, inset 0 1px 0 #ffffffc9; }
-.welcome-symbol::before { content: ''; position: absolute; inset: -9px; border: 1px solid #dce8f1; border-radius: 28px; transform: rotate(-12deg); pointer-events: none; }
-.welcome-symbol::after { content: ''; position: absolute; width: 5px; height: 5px; right: -16px; top: 5px; background: #98c7c3; border-radius: 50%; box-shadow: -84px 48px 0 -1px #a9c7e6, -70px -5px 0 -1px #b7d4df; pointer-events: none; }
 .welcome-eyebrow { display: inline-flex; align-items: center; gap: 12px; }
 .welcome-eyebrow::before, .welcome-eyebrow::after { content: ''; width: 22px; height: 1px; background: linear-gradient(90deg, transparent, #bdcfe0); }
 .welcome-eyebrow::after { transform: rotate(180deg); }
@@ -432,9 +433,9 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .send-actions .el-button:not(.is-disabled) { background: linear-gradient(110deg, #3484bc, #3e98ab); border-color: transparent; box-shadow: 0 3px 8px #4d8eac19; }
 @media (max-width: 1200px) { .page-header { padding: 18px 26px; } .header-actions { gap: 14px; } .conversation-content { padding-top: 24px; padding-bottom: 20px; } .quick-prompts { gap: 10px; } .quick-prompts button { padding: 17px 15px 30px; } }
 @media (max-width: 900px) { .welcome-panel { margin-top: 5vh; } }
-@media (max-width: 600px) { .system-layout { --chat-gutter: 14px; } .page-header { align-items: flex-start; gap: 12px; padding: 17px 18px; } .home-link { margin-bottom: 10px; font-size: 11px; } .page-heading h1 { font-size: 20px; } .page-heading p { max-width: 220px; font-size: 11px; margin-top: 7px; } .header-actions { flex-direction: column; align-items: flex-end; gap: 12px; } .service-status { font-size: 10px; gap: 5px; } .new-chat { height: 30px; font-size: 11px; padding: 0 10px; } .access-settings { padding: 7px 18px; } .access-key-row { flex-wrap: wrap; gap: 8px; } .access-key-row .el-input { width: calc(100% - 70px); } .conversation-content { padding: 18px var(--chat-gutter); } .welcome-panel { margin: 18px auto 6px; } .welcome-symbol { width: 52px; height: 52px; border-radius: 17px; font-size: 25px; margin-bottom: 16px; } .welcome-panel h2 { font-size: 24px; margin: 11px 0; } .welcome-panel > p { font-size: 12px; padding: 0 16px; } .quick-prompts { grid-template-columns: 1fr; gap: 9px; margin-top: 25px; } .quick-prompts button { min-height: auto; padding: 14px 34px 14px 16px; border-radius: 11px; } .prompt-label { margin-bottom: 4px; font-size: 10px; } .prompt-question { font-size: 12px; } .prompt-arrow { right: 15px; bottom: 19px; } .message-list { gap: 18px; } .message { gap: 9px; } .assistant-avatar, .user-avatar { --rag-avatar-size: 29px; --rag-avatar-radius: 10px; } .user-avatar { margin-top: 20px; } .assistant-heading { gap: 9px; margin-bottom: 14px; } .message-label { font-size: 11px; } .user .message-body { max-width: calc(100% - 38px); } .user-text { padding: 12px 15px; font-size: 13px; } .composer-area { padding: 7px var(--chat-gutter) max(10px, env(safe-area-inset-bottom)); } .composer { padding: 12px 13px 10px; border-radius: 13px; } .composer textarea { min-height: 47px; font-size: 16px; } .keyboard-hint { display: none; } .privacy-note { margin: 9px 5px 0; font-size: 9px; } .general-answer-notice, .answer-notice { font-size: 11px; } .reference-card { padding: 16px; } }
+@media (max-width: 600px) { .system-layout { --chat-gutter: 14px; } .page-header { align-items: flex-start; gap: 12px; padding: 17px 18px; } .home-link { margin-bottom: 10px; font-size: 11px; } .page-heading h1 { font-size: 20px; } .page-heading p { max-width: 220px; font-size: 11px; margin-top: 7px; } .header-actions { flex-direction: column; align-items: flex-end; gap: 12px; } .service-status { font-size: 10px; gap: 5px; } .new-chat { height: 30px; font-size: 11px; padding: 0 10px; } .access-settings { padding: 7px 18px; } .access-key-row { flex-wrap: wrap; gap: 8px; } .access-key-row .el-input { width: calc(100% - 70px); } .conversation-content { padding: 18px var(--chat-gutter); } .welcome-panel { margin: 18px auto 6px; } .welcome-panel h2 { font-size: 24px; margin: 11px 0; } .welcome-panel > p { font-size: 12px; padding: 0 16px; } .quick-prompts { grid-template-columns: 1fr; gap: 9px; margin-top: 25px; } .quick-prompts button { min-height: auto; padding: 14px 34px 14px 16px; border-radius: 11px; } .prompt-label { margin-bottom: 4px; font-size: 10px; } .prompt-question { font-size: 12px; } .prompt-arrow { right: 15px; bottom: 19px; } .message-list { gap: 18px; } .message { gap: 9px; } .assistant-avatar, .user-avatar { --rag-avatar-size: 29px; --rag-avatar-radius: 10px; } .user-avatar { margin-top: 20px; } .assistant-heading { gap: 9px; margin-bottom: 14px; } .message-label { font-size: 11px; } .user .message-body { max-width: calc(100% - 38px); } .user-text { padding: 12px 15px; font-size: 13px; } .composer-area { padding: 7px var(--chat-gutter) max(10px, env(safe-area-inset-bottom)); } .composer { padding: 12px 13px 10px; border-radius: 13px; } .composer textarea { min-height: 47px; font-size: 16px; } .keyboard-hint { display: none; } .privacy-note { margin: 9px 5px 0; font-size: 9px; } .general-answer-notice, .answer-notice { font-size: 11px; } .reference-card { padding: 16px; } }
 @media (prefers-reduced-motion: reduce) { .conversation-scroll { scroll-behavior: auto; } .quick-prompts button { transition: none; } .quick-prompts button:hover { transform: none; } }
-@media (max-width: 600px) { .page-heading h1::before { height: 16px; width: 3px; margin-right: 8px; } .conversation-scroll { background-size: 100% 380px; } .welcome-symbol::before { inset: -7px; border-radius: 23px; } .welcome-symbol::after { right: -12px; width: 4px; height: 4px; box-shadow: -67px 37px 0 -1px #a9c7e6; } .quick-prompts button { padding-left: 58px; } .prompt-heading { margin-bottom: 4px; } .prompt-label { margin-bottom: 0; } .prompt-icon { position: absolute; left: 15px; top: 19px; } .assistant .message-body { padding: 16px 16px 15px; border-radius: 15px; font-size: 14px; } .assistant .message-label { margin: 0; font-size: 12px; } .answer-actions { padding-top: 10px; margin-top: 15px; } }
+@media (max-width: 600px) { .page-heading h1::before { height: 16px; width: 3px; margin-right: 8px; } .conversation-scroll { background-size: 100% 380px; } .quick-prompts button { padding-left: 58px; } .prompt-heading { margin-bottom: 4px; } .prompt-label { margin-bottom: 0; } .prompt-icon { position: absolute; left: 15px; top: 19px; } .assistant .message-body { padding: 16px 16px 15px; border-radius: 15px; font-size: 14px; } .assistant .message-label { margin: 0; font-size: 12px; } .answer-actions { padding-top: 10px; margin-top: 15px; } }
 
 @media screen and (max-width: 1024px) {
   .page-header { padding: 16px 22px; }

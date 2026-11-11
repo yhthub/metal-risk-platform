@@ -95,7 +95,13 @@
           <p class="chart-note">{{ INTERVAL_NOTE }}</p>
           <div class="bottom-action-bar"><el-button type="success" size="large" plain :icon="Document" @click="goToReportPage" style="margin-right: 12px;">查看分析报告</el-button><el-button type="primary" size="large" class="final-run-btn" @click="goToPlan">进入方案推荐</el-button></div>
         </div>
-        <el-empty v-if="!isReasoning && !requestLogs.length && !cohortResult && !dashboard" description="请核对输入后运行：群体将完成整份文件全部对象预测，默认展示全群统计，而非逐人翻页。" />
+        <div v-if="!isReasoning && !requestLogs.length && !cohortResult && !dashboard" class="risk-ready">
+          <img data-platform-art="risk-assessment" :src="riskArt" alt="" width="126" height="84">
+          <div>
+            <h2>{{ mode === 'batch' ? '准备群体分析' : '准备单人分析' }}</h2>
+            <p>{{ mode === 'batch' ? '核对导入文件后，点击「运行全群体分析」查看群体统计与个人明细。' : '核对本次输入后，点击「运行单人分析」查看指标估计和各项输入对估计值的贡献。' }}</p>
+          </div>
+        </div>
       </div>
       <footer class="model-meta-footer"><div class="footer-container"><h4>预训练模型字典与说明 (Model Meta Information)</h4><div class="meta-grid"><div class="meta-item" v-for="model in availableModels" :key="model.id"><strong>{{ model.type }} <small>{{ model.disabled ? '原型 · 未接入' : '真实已训练' }}</small></strong><p>{{ model.disabled ? '保留独立功能原型，未在本页执行；不能作为本次结果依据。' : model.desc }}</p></div></div></div></footer>
     </main>
@@ -114,6 +120,7 @@
 
 <script setup lang="ts">
 import { PRODUCT_SHORT_NAME } from '~/utils/product'
+import riskArt from '~/assets/illustrations/workflow/risk-assessment.svg?no-inline'
 import { riskTargetOptions as targetOptions } from '~/utils/causalNavigation'
 import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { ArrowLeft, ArrowDown, Document, WarningFilled, Download } from '@element-plus/icons-vue'
@@ -599,6 +606,11 @@ $color-danger: #EF4444;
   .selector-actions { display: flex; align-items: center; gap: 16px; margin-left: auto; flex-wrap: wrap; }
   .run-btn { flex-shrink: 0; font-weight: 700; padding: 0 32px; }
 }
+
+.risk-ready { display:flex; align-items:center; justify-content:center; gap:clamp(14px,2.1vw,30px); padding:clamp(18px,3vw,36px) 16px; }
+.risk-ready img { display:block; flex:none; width:clamp(72px,9vw,126px); height:auto; }
+.risk-ready h2 { margin:0 0 4px; font-size:clamp(16px,1.3vw,19px); line-height:1.5; color:$text-main; }
+.risk-ready p { margin:0; max-width:36em; font-size:13px; line-height:1.7; color:$text-muted; }
 
 .gemini-thinking-container {
   background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; margin-bottom: 30px; overflow: hidden; transition: all 0.3s ease; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.02);

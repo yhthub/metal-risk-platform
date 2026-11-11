@@ -15,7 +15,9 @@
         </section>
 
         <section class="cleaning-demo-card" aria-label="数据清洗体验案例">
-          <div class="demo-copy"><span class="demo-label"><el-icon><MagicStick /></el-icon> 体验案例</span><h3>没有准备文件？先用示例试一遍</h3><p>12 行合成数据，包含多余空格、重复记录和空白行。体验整理字段、清洗记录，再将 Excel 转为 CSV。</p><div class="demo-tags"><span>XLSX → CSV</span><span>可查看前后变化</span><span>不含真实个人数据</span></div></div>
+          <div class="demo-copy">
+            <img class="cleaning-art" :src="cleaningIllustration" data-platform-art="data-cleaning" width="150" height="100" alt="" decoding="async">
+            <span class="demo-label"><el-icon><MagicStick /></el-icon> 体验案例</span><h3>没有准备文件？先用示例试一遍</h3><p>12 行合成数据，包含多余空格、重复记录和空白行。体验整理字段、清洗记录，再将 Excel 转为 CSV。</p><div class="demo-tags"><span>XLSX → CSV</span><span>可查看前后变化</span><span>不含真实个人数据</span></div></div>
           <div class="demo-actions"><button type="button" class="primary-button" :disabled="busy || loadingSchema || !schema" @click="requestDemo"><el-icon v-if="demoLoading" class="is-loading"><Loading /></el-icon><el-icon v-else><MagicStick /></el-icon>{{ demoLoading ? '正在载入示例…' : '载入清洗示例' }}</button><a class="secondary-button demo-download" :href="demoFileUrl" download="数据清洗体验_合成示例.xlsx"><el-icon><Download /></el-icon>下载案例文件</a></div>
           <div v-if="demoReplaceRequested" class="demo-replace" role="alert"><p>载入示例将替换当前选择和预览，原文件不会被修改。</p><div><button type="button" class="secondary-button" @click="demoReplaceRequested = false">保留当前文件</button><button type="button" class="primary-button" @click="loadDemo">替换为示例</button></div></div>
           <p v-if="demoError" class="demo-error" role="alert">{{ demoError }}</p>
@@ -98,6 +100,7 @@
 <script setup>
 import { computed, ref, reactive, watch, onMounted, nextTick } from 'vue'
 import { ArrowLeft, UploadFilled, DocumentChecked, MagicStick, Loading, Download } from '@element-plus/icons-vue'
+import cleaningIllustration from '~/assets/illustrations/workflow/table-cleaning.svg?no-inline'
 import { PRODUCT_SHORT_NAME } from '~/utils/product'
 
 useHead({ title: `数据清洗与格式转换 · ${PRODUCT_SHORT_NAME}` })
@@ -384,6 +387,7 @@ onMounted(loadSchema)
 <style scoped>
 .cleaning-demo-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px 28px; align-items: center; margin-bottom: 24px; padding: 24px; border: 1px solid #c8e0f3; border-radius: 16px; background: linear-gradient(120deg, #edf6ff, #f2fbf9); }
 .demo-label { display: inline-flex; align-items: center; gap: 6px; color: #2c7ab4; font-size: 12px; font-weight: 700; }
+.cleaning-art { float: right; width: clamp(74px, 21%, 148px); height: auto; margin: 0 0 6px 12px; pointer-events: none; }
 .demo-copy h3 { margin: 8px 0; font-size: 18px; color: #234665; line-height: 1.6; }
 .demo-copy p { margin: 0; color: #617b91; font-size: 13px; line-height: 1.9; }
 .demo-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }

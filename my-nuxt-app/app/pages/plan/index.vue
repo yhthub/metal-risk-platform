@@ -15,7 +15,10 @@
       <div class="page-container">
         <PipelineSteps :current="4" />
         <header class="plan-heading">
-          <div><h1>干预方案推荐</h1><p>基于预设职业档案，查看岗位防护、健康随访与交接安排。</p></div>
+          <div class="plan-intro">
+            <img class="plan-art" data-platform-art="intervention-plan" :src="interventionArt" alt="" width="108" height="72">
+            <div><h1>干预方案推荐</h1><p>基于预设职业档案，查看岗位防护、健康随访与交接安排。</p></div>
+          </div>
           <dl class="scope-counts" aria-label="方案库覆盖范围">
             <div><dt>预设方案</dt><dd>{{ interventionPlans.length }}</dd></div>
             <div><dt>措施安排</dt><dd>{{ totalSteps }}</dd></div>
@@ -111,6 +114,7 @@ import { ArrowLeft, CircleCheck, Collection, Document, FirstAidKit, Grid, List, 
 import { getInterventionPlan, interventionPlans, plansByLevel } from '~/utils/interventionPlans'
 import { causalPlanOrigin } from '~/utils/causalNavigation'
 import { PRODUCT_SHORT_NAME } from '~/utils/product'
+import interventionArt from '~/assets/illustrations/workflow/intervention-plan.svg?no-inline'
 
 useHead({ title: `方案推荐 · ${PRODUCT_SHORT_NAME}` })
 const router = useRouter()
@@ -171,6 +175,8 @@ function goToSection(id) {
 .header-caption { color: #8a9caf; font-size: 12px; }
 .page-container { flex: 1 0 auto; width: 100%; max-width: 1400px; margin: 0 auto; padding: 30px 36px 48px; min-width: 0; box-sizing: border-box; }
 .plan-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 20px; }
+.plan-intro { display: flex; align-items: center; gap: clamp(12px, 1.4vw, 22px); }
+.plan-art { display: block; flex: none; width: clamp(74px, 7.5vw, 108px); height: auto; }
 .plan-heading h1 { margin: 0; color: #172c46; font-size: 25px; font-weight: 750; }
 .plan-heading p { margin: 0; color: #536578; font-size: 12px; line-height: 1.6; }
 .scope-counts { display: flex; margin: 0; }
@@ -230,6 +236,7 @@ function goToSection(id) {
 @media (max-width: 760px) {
   .plan-workspace { display: block; }
   .plan-heading { margin-bottom: 12px; }
+  .plan-art { width: 68px; }
   .scope-counts { gap: 12px; }
   .scope-counts div { display: flex; align-items: baseline; gap: 4px; padding: 0; border: 0; }
   .scope-counts dd { font-size: 17px; }
