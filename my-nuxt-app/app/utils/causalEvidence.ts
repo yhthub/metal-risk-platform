@@ -113,9 +113,9 @@ export const pathways: CausalPathway[] = [
     to: '尿 β₂-微球蛋白持续升高',
     relation: '随访关联',
     kind: 'single',
-    summary: '日本一家镍镉电池厂的职业健康随访发现，较高的血镉与后续出现近端肾小管功能异常指标相关。',
+    summary: '对日本镍镉电池生产人员的职业健康随访发现，较高的血镉与后续出现近端肾小管功能异常指标相关。',
     observed: '研究纳入 238 名作业人员。结局要求尿 β₂-微球蛋白至少连续两次达到研究设定的标准，借此识别持续性变化。',
-    limits: '研究观察的是该工厂人群的肾小管指标。判断某位劳动者的肾功能还需要结合其他检查和临床评估。',
+    limits: '研究观察的是这些作业人员的肾小管指标。判断某位劳动者的肾功能还需要结合其他检查和临床评估。',
     sourceType: '职业人群随访',
     source: {
       title: 'Increased risk of proximal tubular dysfunction due to occupational cadmium exposure: a survival analysis study',

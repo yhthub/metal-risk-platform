@@ -1,48 +1,39 @@
 <template>
-  <section class="evidence-detail" aria-label="所选关系的证据">
-    <div class="detail-head">
-      <span class="source-type"><el-icon><Reading /></el-icon>{{ path.sourceType }}</span>
-      <span class="year">{{ path.source.year }}</span>
-    </div>
-    <h3>{{ path.title }}</h3>
-    <p class="finding">{{ path.observed }}</p>
-    <div class="interpretation">
-      <h4>如何理解</h4>
-      <p>{{ path.summary }}</p>
-      <h4>适用范围</h4>
-      <p>{{ path.limits }}</p>
-    </div>
-    <a class="source-link" :href="path.source.url" target="_blank" rel="noopener noreferrer">
-      <span><small>{{ path.source.issuer }} · {{ path.source.locator }}</small><strong>{{ path.source.title }}</strong></span>
-      <el-icon aria-label="在新窗口打开原文"><TopRight /></el-icon>
+  <article class="evidence" :class="path.kind" :data-evidence-id="path.id">
+    <header>
+      <span class="category"><i aria-hidden="true" />{{ relationKinds[path.kind] }}</span>
+      <span>{{ path.studyType }}</span>
+    </header>
+    <h3>{{ path.to }}</h3>
+    <p class="subject">{{ path.from }}</p>
+    <p class="finding">{{ path.finding }}</p>
+    <div class="boundary"><strong>适用范围</strong><p>{{ path.limit }}</p></div>
+    <details v-if="path.detail" :key="path.id"><summary>查看研究数据</summary><p>{{ path.detail }}</p></details>
+    <a :href="path.source.url" target="_blank" rel="noopener noreferrer" class="source-link">
+      <span class="source-caption"><el-icon><Reading /></el-icon>查看原文 <el-icon><TopRight /></el-icon></span>
+      <strong>{{ path.source.title }}</strong>
+      <small>{{ path.source.issuer }}<template v-if="path.source.year"> · {{ path.source.year }}</template><br>{{ path.source.locator }}</small>
     </a>
-  </section>
+  </article>
 </template>
-
 <script setup lang="ts">
 import { Reading, TopRight } from '@element-plus/icons-vue'
-import type { CausalPathway } from '~/utils/causalEvidence'
-defineProps<{ path: CausalPathway }>()
+import { relationKinds, type KnowledgeRelation } from '~/utils/knowledgeTypes'
+defineProps<{ path: KnowledgeRelation }>()
 </script>
-
 <style scoped>
-.evidence-detail { min-width: 0; padding: clamp(18px, 2vw, 28px); border: 1px solid #ccdfe3; border-top: 3px solid #2c817f; border-radius: 14px; color: #283d4b; background: linear-gradient(145deg,#f0f7f6 0%,#fff 49%); }
-.detail-head, .source-type { display: flex; align-items: center; }
-.detail-head { justify-content: space-between; gap: 10px; color: #41746e; }
-.source-type { gap: 7px; font-weight: 650; font-size: 12px; }
-.source-type .el-icon { font-size: 17px; }
-.year { font-size: 12px; font-variant-numeric: tabular-nums; color: #596c76; }
-h3 { font-size: clamp(17px,1.6vw,22px); color: #193846; line-height: 1.55; margin: 15px 0 9px; }
-.finding, .interpretation p { margin: 0; font-size: 14px; line-height: 1.85; }
-.finding { color: #314d56; }
-.interpretation { margin: 17px 0 18px; border-top: 1px solid #e1ecec; }
-.interpretation h4 { margin: 14px 0 3px; font-size: 13px; font-weight: 650; color: #36556a; }
-.interpretation p { color: #536772; }
-.source-link { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid #dce8e8; background: #f5f9f9; border-radius: 9px; color: #245f66; text-decoration: none; overflow-wrap: anywhere; }
-.source-link:hover { background: #eaf4f3; border-color: #98c8c2; }
-.source-link small, .source-link strong { display: block; }
-.source-link small { font-size: 11px; line-height: 1.55; color: #516e74; }
-.source-link strong { margin-top: 4px; font-size: 12px; line-height: 1.5; font-weight: 650; }
-.source-link .el-icon { flex: none; }
-@media (max-width: 760px) { .evidence-detail { padding: 15px; border-radius: 0 0 9px 9px; } }
+.evidence { --accent:#257a75; --tint:#eef7f4; min-width:0; overflow-wrap:anywhere; background:linear-gradient(145deg,var(--tint),#fff 66%); border:1px solid #dae5e4; border-radius:19px; padding:clamp(16px,2vw,26px); color:#283f4b; }
+.mechanism { --accent:#926333; --tint:#fbf4e9; }.control { --accent:#695685; --tint:#f5f1fa; }
+header { display:flex; flex-wrap:wrap; align-items:center; gap:6px 11px; font-size:12px; color:#536876; }
+.category { display:inline-flex; align-items:center; gap:6px; color:var(--accent); font-weight:650; }.category i { width:8px; height:8px; border-radius:50%; background:var(--accent); }
+h3 { margin:16px 0 4px; font-size:clamp(19px,1.8vw,25px); line-height:1.4; letter-spacing:-.025em; }
+.subject { margin:0; font-size:13px; color:#596d75; }
+.finding { margin:16px 0; font-size:15px; line-height:1.85; }
+.boundary { border-left:2px solid color-mix(in srgb, var(--accent) 46%, white); padding-left:11px; }
+.boundary strong { font-size:12px; color:var(--accent); }.boundary p, details p { margin:3px 0 0; color:#50636c; font-size:13px; line-height:1.75; }
+details { margin-top:12px; font-size:13px; }summary { cursor:pointer; color:#3c606d; }
+.source-link { display:block; margin-top:18px; padding-top:14px; border-top:1px solid #dbe4e5; text-decoration:none; color:#305568; }
+.source-caption { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:650; }
+.source-caption .el-icon:last-child { margin-left:auto; }.source-link strong,.source-link small { display:block; margin-top:5px; font-size:12px; line-height:1.55; }.source-link small { color:#5b707b; }
+.source-link:hover strong { text-decoration:underline; text-underline-offset:2px; }.source-link:focus-visible,summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 </style>

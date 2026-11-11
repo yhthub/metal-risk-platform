@@ -2,6 +2,7 @@ import { participantCode } from './riskPrediction'
 import type { DashboardResponse } from './riskDashboard'
 import type { CohortPredictionResponse } from './riskCohort'
 import { getInterventionPlan } from './interventionPlans'
+import { elementNames } from './knowledgeTypes'
 
 type Query = Record<string, unknown>
 type Mode = 'individual' | 'batch'
@@ -34,8 +35,8 @@ export function riskPathContext(query: Query, dashboard?: DashboardResponse | nu
   return { mode, target, person, current }
 }
 
-const metalLabels: Record<string, string> = { Pb: '铅', Cd: '镉', Hg: '汞', As: '砷', Cr: '铬', Ni: '镍' }
-const outcomeLabels: Record<string, string> = { renal: '肾脏指标', sbp: '血压', unsupported: '待补充的指标' }
+const metalLabels = elementNames
+const outcomeLabels: Record<string, string> = { all: '全部资料', renal: '肾脏指标', sbp: '收缩压', other: '其他健康指标', unsupported: '本次风险指标' }
 
 /** Keep the original path selection separate from a different plan the visitor subsequently opens. */
 export function causalPlanOrigin(query: Query) {

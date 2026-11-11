@@ -14,6 +14,8 @@ function load(name) {
   return exports
 }
 const { riskPathContext, causalPlanOrigin } = load('causalNavigation')
+const { knowledgeRelations } = load('knowledgeCatalog')
+const { elementNames } = load('knowledgeTypes')
 const single = { charts: { target: 'sbp' }, prediction: { person_id: 'SZ-105', results: [{ target: 'sbp' }] } }
 const batch = { complete: true, summary: [{ target: 'sbp' }] }
 
@@ -52,4 +54,24 @@ test('a new visitor or cohort browsing the catalogue does not acquire its first 
   assert.equal(hostile.back.person, undefined)
   assert.equal(hostile.back.edge, undefined)
   assert.equal(hostile.back.from, undefined)
+})
+
+test('each element has sourced findings, mechanisms and controls; original deep links still resolve', () => {
+  const { pathways, controlSources } = load('causalEvidence')
+  const ids = new Set(knowledgeRelations.map(row => row.id))
+  assert.equal(ids.size, knowledgeRelations.length)
+  for (const record of [...pathways, ...controlSources]) assert.ok(ids.has(record.id))
+  for (const [symbol, name] of Object.entries(elementNames)) {
+    const rows = knowledgeRelations.filter(r => r.metals.includes(symbol))
+    assert.deepEqual([...new Set(rows.map(r => r.kind))].sort(), ['control', 'health', 'mechanism'], name)
+    const link = causalPlanOrigin({ from: 'causal', metals: symbol, outcome: 'all', edge: rows[0].id })
+    assert.equal(link.back.metals, symbol)
+    assert.equal(link.back.edge, rows[0].id)
+  }
+  for (const r of knowledgeRelations) {
+    assert.ok(r.from && r.to && r.finding && r.limit && r.studyType, r.id)
+    assert.ok(r.source.title && r.source.issuer && r.source.locator, r.id)
+    assert.equal(new URL(r.source.url).protocol, 'https:', r.id)
+    assert.ok(r.metals.every(metal => Object.hasOwn(elementNames, metal)), r.id)
+  }
 })
