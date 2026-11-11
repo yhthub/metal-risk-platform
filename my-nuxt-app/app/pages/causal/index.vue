@@ -11,11 +11,11 @@
           <div><h1>职业暴露知识图谱</h1><p>选择暴露元素，查阅健康影响、作用机制与岗位防护的研究依据。</p></div>
           <button id="open-atlas" class="search-button" @click="openSearch"><el-icon><Search /></el-icon>查找资料</button>
         </header>
-        <nav class="elements" aria-label="选择暴露元素">
+        <nav class="elements" lang="zh-CN" aria-label="选择暴露元素">
           <button v-for="(name, code) in elementNames" :key="code" :data-metal="code" :aria-pressed="focus === code" @click="changeMetal(code)">
-            <small aria-hidden="true">{{ code }}</small><strong>{{ name }}</strong>
+            <span class="element-symbol" aria-hidden="true">{{ code }}</span><span>{{ name }}</span>
           </button>
-          <button class="joint-tab" data-metal="Pb,Cd" :aria-pressed="focus === 'Pb,Cd'" @click="changeMetal('Pb,Cd')"><el-icon><Connection /></el-icon><strong>铅镉联合</strong></button>
+          <button class="joint-tab" data-metal="Pb,Cd" :aria-pressed="focus === 'Pb,Cd'" @click="changeMetal('Pb,Cd')"><el-icon><Connection /></el-icon><span>铅镉联合</span></button>
         </nav>
         <div class="browse-context">
           <label class="person"><span>浏览对象</span><select id="causal-person" :value="risk.mode ? 'risk' : selectedPlan?.id || ''" @change="choosePerson(($event.target as HTMLSelectElement).value)">
@@ -226,10 +226,15 @@ button,select,input { font:inherit; }button,select { cursor:pointer; }
 button:focus-visible,select:focus-visible,summary:focus-visible,a:focus-visible { outline:2px solid #297d83; outline-offset:3px; }
 .search-button,.switch button,.mobile-preview,.clear,.empty-state button { display:inline-flex; align-items:center; justify-content:center; gap:6px; }
 .search-button { flex:none; padding:8px 14px; min-height:39px; border-radius:24px; border:1px solid #bdcfce; background:#ffffffc9; color:#375f65; font-size:13px; }.search-button:hover { background:#fff; border-color:#70a098; }
-.elements { display:flex; align-items:center; flex-wrap:wrap; gap:5px 8px; margin:24px 0 0; padding:6px 0 10px; border-bottom:1px solid #dce6e4; }
-.elements button { display:inline-flex; align-items:center; gap:8px; justify-content:center; border:1px solid transparent; border-radius:22px; padding:8px 12px; background:transparent; color:#425f66; min-height:39px; }
-.elements small { font-size:13px; font-family:ui-monospace,monospace; color:#617c87; }.elements strong { font-size:14px; font-weight:600; }
-.elements button:hover,.switch button:hover { background:#e5efed; }.elements button[aria-pressed=true] { background:#255d62; color:white; box-shadow:0 3px 9px #285d661b; }.elements button[aria-pressed=true] small { color:#d1ebe6; }
+.elements {
+  display:flex; align-items:center; flex-wrap:wrap; gap:5px 8px;
+  margin:24px 0 0; padding:6px 0 10px; border-bottom:1px solid #dce6e4;
+  font-family:"PingFang SC","Microsoft YaHei UI","Microsoft YaHei","Noto Sans CJK SC","Noto Sans SC",system-ui,sans-serif;
+  font-size:14px; line-height:20px; font-weight:500;
+}
+.elements button { display:inline-flex; align-items:center; gap:6px; justify-content:center; border:1px solid transparent; border-radius:22px; padding:8px 12px; background:transparent; color:#344f57; min-height:39px; white-space:nowrap; }
+.element-symbol { font-weight:400; color:#506a71; }
+.elements button:hover,.switch button:hover { background:#e5efed; }.elements button[aria-pressed=true] { background:#255d62; color:white; box-shadow:0 3px 9px #285d661b; }.elements button[aria-pressed=true] .element-symbol { color:#e0efef; }
 .elements .joint-tab { background:#eef1f7; color:#52627b; }.joint-tab .el-icon { font-size:16px; }
 .browse-context { justify-content:flex-start; flex-wrap:wrap; column-gap:16px; row-gap:5px; margin:10px 0 18px; font-size:12px; color:#5a6d75; }
 .person { display:flex; align-items:center; gap:7px; }.person select { max-width:min(215px,60vw); padding:5px 18px 5px 4px; border:0; background:transparent; color:#36535b; font-weight:600; }
@@ -261,7 +266,7 @@ button:focus-visible,select:focus-visible,summary:focus-visible,a:focus-visible 
 @media(max-width:760px) {
   .workspace { padding:20px 12px 48px; }.crumb { min-height:40px; padding-inline:13px; }
   .intro { align-items:flex-start; gap:7px; }.intro h1 { font-size:clamp(22px,5.9vw,32px); }.intro p { margin-top:6px; font-size:13px; }.search-button { padding:5px 9px; min-height:32px; font-size:12px; }
-  .elements { gap:2px 4px; margin-top:13px; padding:4px 0 8px; }.elements button { min-height:35px; padding:5px 8px; gap:5px; }.elements small { font-size:11px; }.elements strong { font-size:13px; }
+  .elements { gap:2px 4px; margin-top:13px; padding:4px 0 8px; }.elements button { min-height:36px; padding:7px 8px; gap:5px; }
   .browse-context { margin:6px 0 12px; }.explorer { display:block; }.desktop-evidence { display:none; }.graph-column { border-radius:16px; }
   .graph-head { padding:13px 10px 8px; }.graph-head p { font-size:11px; }.switch button { padding:4px 7px; }
   .mobile-preview { display:flex; width:100%; justify-content:space-between; padding:12px 15px; background:#eef6f2; color:#315e60; border:0; border-top:1px solid #dae8e3; font-size:13px; }
