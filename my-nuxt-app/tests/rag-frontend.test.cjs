@@ -15,7 +15,15 @@ const compileTs = source => {
 }
 const evaluate = (source, context = {}) => {
   const exports = {}
-  vm.runInNewContext(compileTs(source), { exports, URL, useHead: () => {}, ...context })
+  const loadModule = name => {
+    const asset = /^~\/(assets\/illustrations\/prompts\/[\w-]+\.svg)\?no-inline$/.exec(name)
+    if (asset) {
+      assert.ok(fs.existsSync(path.join(root, 'app', asset[1])), `Missing illustration: ${asset[1]}`)
+      return { default: asset[1] }
+    }
+    return context.require(name)
+  }
+  vm.runInNewContext(compileTs(source), { exports, URL, useHead: () => {}, ...context, require: loadModule })
   return exports
 }
 const helpers = evaluate(fs.readFileSync(path.join(root, 'app/utils/ragPresentation.ts'), 'utf8'))

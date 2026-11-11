@@ -38,18 +38,11 @@
             <h2>今天想了解什么？</h2>
             <p>从一个具体问题开始，获得清晰解答，并查看回答引用的资料。</p>
             <div class="quick-prompts">
-              <button v-for="(prompt, index) in quickPrompts" :key="prompt" :class="`prompt-card-${index}`" :disabled="isGenerating" @click="usePrompt(prompt)">
-                <span class="prompt-heading">
-                  <span class="prompt-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                      <path v-if="index === 0" d="M3 12h4l3-7 4 14 3-7h4" />
-                      <g v-else-if="index === 1"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8Z" /><path d="M14 3v5h5M9 12h6M9 16h4" /></g>
-                      <g v-else><path d="m9 7 6 3m-6 7 6-4" /><circle cx="6" cy="5.5" r="3" /><circle cx="18" cy="11.5" r="3" /><circle cx="6" cy="18.5" r="3" /></g>
-                    </svg>
-                  </span>
-                  <span class="prompt-label">{{ ['暴露与健康', '研究证据', '复合暴露'][index] }}</span>
-                </span>
-                <span class="prompt-question">{{ prompt }}</span><span class="prompt-arrow" aria-hidden="true">↗</span>
+              <button v-for="prompt in quickPrompts" :key="prompt.id" type="button" :class="prompt.id" :disabled="isGenerating" @click="usePrompt(prompt.question)">
+                <img class="prompt-art" :src="prompt.art" :data-prompt-art="prompt.id" alt="" width="76" height="60">
+                <span class="prompt-label">{{ prompt.label }}</span>
+                <span class="prompt-question">{{ prompt.question }}</span>
+                <span class="prompt-arrow" aria-hidden="true">↗</span>
               </button>
             </div>
           </section>
@@ -120,6 +113,9 @@ import { ArrowLeft, ArrowRight, Collection, DocumentCopy, InfoFilled, Plus, Posi
 import { plainAnswer, sourceLabel, sourceUrl, retrievalPresentation, chatAvailability, isGeneralKnowledgeAnswer, generalKnowledgeNotice, responseEvidence } from '~/utils/ragPresentation'
 import type { EvidenceCard, RagMessage } from '~/utils/ragPresentation'
 import evidenceIllustration from '~/assets/illustrations/workflow/medical-evidence.svg?no-inline'
+import bloodPressureArt from '~/assets/illustrations/prompts/blood-pressure.svg?no-inline'
+import kidneyStudyArt from '~/assets/illustrations/prompts/kidney-study.svg?no-inline'
+import mixedMetalsArt from '~/assets/illustrations/prompts/mixed-metals.svg?no-inline'
 import { PRODUCT_SHORT_NAME } from '~/utils/product'
 
 useHead({ title: `医学知识问答 · ${PRODUCT_SHORT_NAME}` })
@@ -144,7 +140,11 @@ const activeDrawerMsg = ref<VisitorMessage | null>(null)
 const selectedCitation = ref('')
 let nextMessageId = 0
 
-const quickPrompts = ['铅暴露与高血压', '镉暴露与肾损伤', '砷与镉复合暴露']
+const quickPrompts = [
+  { id: 'blood-pressure', label: '暴露与健康', question: '铅暴露与高血压', art: bloodPressureArt },
+  { id: 'kidney-study', label: '研究证据', question: '镉暴露与肾损伤', art: kidneyStudyArt },
+  { id: 'mixed-metals', label: '复合暴露', question: '砷与镉复合暴露', art: mixedMetalsArt },
+]
 const modelReady = computed(() => runtimeStatus.value?.model?.ready === true && localModels.value.some(model => model.name === currentModel.value && model.ready))
 const retrievalState = computed(() => retrievalPresentation(runtimeStatus.value?.retrieval))
 const serviceAvailable = computed(() => chatAvailability(runtimeStatus.value, modelReady.value, retrievalState.value.ready))
@@ -349,11 +349,33 @@ onMounted(refreshStatus)
 .welcome-panel h2 { margin: 13px 0 14px; color: #284766; font-size: 29px; font-weight: 600; letter-spacing: .04em; }
 .welcome-panel > p { margin: 0 auto; font-size: 14px; line-height: 1.8; color: #7b8da2; text-wrap: balance; }
 .quick-prompts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; margin-top: 36px; text-align: left; }
-.quick-prompts button { position: relative; min-height: 150px; padding: 20px 20px 32px; border: 1px solid #e1e9f2; border-radius: 14px; background: #fff; color: #445d76; font: inherit; text-align: left; cursor: pointer; transition: border-color .18s, transform .18s, box-shadow .18s; }
-.quick-prompts button:hover { transform: translateY(-2px); border-color: #a8c9e4; box-shadow: 0 8px 22px #315c8410; }
-.prompt-label { display: block; margin-bottom: 13px; font-size: 11px; letter-spacing: .08em; color: #8aa0b6; }
-.prompt-question { font-size: 13px; line-height: 1.9; }
-.prompt-arrow { position: absolute; right: 18px; bottom: 12px; color: #93b1c9; font-size: 17px; }
+.quick-prompts button {
+  --prompt-color: #44749a;
+  --prompt-tint: #edf5ff;
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  grid-template-areas: 'art label label' 'question question arrow';
+  align-items: center;
+  align-content: space-between;
+  gap: 12px;
+  min-height: 138px;
+  padding: 17px 18px;
+  border: 1px solid #dbe6ed;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #fff 52%, var(--prompt-tint));
+  color: #284763;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .18s, transform .18s, box-shadow .18s;
+}
+.quick-prompts .kidney-study { --prompt-color: #37776e; --prompt-tint: #eef7f4; }
+.quick-prompts .mixed-metals { --prompt-color: #56699e; --prompt-tint: #f1f2fa; }
+.quick-prompts button:hover { transform: translateY(-2px); border-color: var(--prompt-color); box-shadow: 0 8px 22px #315c8410; }
+.prompt-art { grid-area: art; display: block; width: clamp(58px,5.6vw,76px); height: 60px; object-fit: contain; object-position: left center; }
+.prompt-label { grid-area: label; color: var(--prompt-color); font-size: 12px; line-height: 1.5; font-weight: 550; }
+.prompt-question { grid-area: question; font-size: 15px; line-height: 1.5; font-weight: 600; text-wrap: balance; }
+.prompt-arrow { grid-area: arrow; justify-self: end; color: var(--prompt-color); font-size: 17px; line-height: 1; }
 .message-list { display: flex; flex-direction: column; gap: 22px; padding: 0 0 4px; }
 .message { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
 .assistant-heading { display: flex; align-items: center; gap: 11px; margin-bottom: 18px; }
@@ -406,16 +428,6 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .welcome-eyebrow { display: inline-flex; align-items: center; gap: 12px; }
 .welcome-eyebrow::before, .welcome-eyebrow::after { content: ''; width: 22px; height: 1px; background: linear-gradient(90deg, transparent, #bdcfe0); }
 .welcome-eyebrow::after { transform: rotate(180deg); }
-.quick-prompts button { --prompt-color: #5b8ebc; --prompt-tint: #edf5ff; --prompt-border: #dce9f7; overflow: hidden; background: linear-gradient(135deg, #fff 62%, var(--prompt-tint)); box-shadow: 0 3px 12px #44678804; }
-.quick-prompts .prompt-card-1 { --prompt-color: #579a98; --prompt-tint: #eff9f6; --prompt-border: #dceee8; }
-.quick-prompts .prompt-card-2 { --prompt-color: #788fbd; --prompt-tint: #f0f4fc; --prompt-border: #e1e8f5; }
-.quick-prompts button::before { content: ''; position: absolute; left: 20px; right: 50%; top: 0; height: 2px; background: linear-gradient(90deg, var(--prompt-border), transparent); pointer-events: none; }
-.quick-prompts button:hover { border-color: var(--prompt-color); box-shadow: 0 8px 22px #315c8410; }
-.prompt-heading { display: flex; align-items: center; gap: 9px; margin-bottom: 15px; }
-.prompt-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 9px; border: 1px solid var(--prompt-border); color: var(--prompt-color); background: var(--prompt-tint); flex-shrink: 0; }
-.prompt-icon svg { width: 17px; height: 17px; }
-.prompt-label { margin-bottom: 0; color: var(--prompt-color); }
-.prompt-arrow { color: var(--prompt-color); }
 .assistant .message-body { padding: 22px 28px 20px; font-size: 15px; border: 1px solid #e0e9f2; border-radius: 18px; background: linear-gradient(145deg, #fff, #fcfdff); box-shadow: 0 4px 18px #2c5c8205; }
 .assistant .message-body.pending-body {
   flex: 0 1 auto;
@@ -431,11 +443,11 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
 .composer { position: relative; border-color: #d5e4f0; box-shadow: 0 5px 24px #3e668d0b; }
 .composer::before { content: ''; position: absolute; left: 18px; right: 18px; top: 0; height: 1px; background: linear-gradient(90deg, transparent, #a7c8e3, #b5dcd4, transparent); pointer-events: none; }
 .send-actions .el-button:not(.is-disabled) { background: linear-gradient(110deg, #3484bc, #3e98ab); border-color: transparent; box-shadow: 0 3px 8px #4d8eac19; }
-@media (max-width: 1200px) { .page-header { padding: 18px 26px; } .header-actions { gap: 14px; } .conversation-content { padding-top: 24px; padding-bottom: 20px; } .quick-prompts { gap: 10px; } .quick-prompts button { padding: 17px 15px 30px; } }
+@media (max-width: 1200px) { .page-header { padding: 18px 26px; } .header-actions { gap: 14px; } .conversation-content { padding-top: 24px; padding-bottom: 20px; } .quick-prompts { gap: 10px; } .quick-prompts button { padding: 15px; } }
 @media (max-width: 900px) { .welcome-panel { margin-top: 5vh; } }
-@media (max-width: 600px) { .system-layout { --chat-gutter: 14px; } .page-header { align-items: flex-start; gap: 12px; padding: 17px 18px; } .home-link { margin-bottom: 10px; font-size: 11px; } .page-heading h1 { font-size: 20px; } .page-heading p { max-width: 220px; font-size: 11px; margin-top: 7px; } .header-actions { flex-direction: column; align-items: flex-end; gap: 12px; } .service-status { font-size: 10px; gap: 5px; } .new-chat { height: 30px; font-size: 11px; padding: 0 10px; } .access-settings { padding: 7px 18px; } .access-key-row { flex-wrap: wrap; gap: 8px; } .access-key-row .el-input { width: calc(100% - 70px); } .conversation-content { padding: 18px var(--chat-gutter); } .welcome-panel { margin: 18px auto 6px; } .welcome-panel h2 { font-size: 24px; margin: 11px 0; } .welcome-panel > p { font-size: 12px; padding: 0 16px; } .quick-prompts { grid-template-columns: 1fr; gap: 9px; margin-top: 25px; } .quick-prompts button { min-height: auto; padding: 14px 34px 14px 16px; border-radius: 11px; } .prompt-label { margin-bottom: 4px; font-size: 10px; } .prompt-question { font-size: 12px; } .prompt-arrow { right: 15px; bottom: 19px; } .message-list { gap: 18px; } .message { gap: 9px; } .assistant-avatar, .user-avatar { --rag-avatar-size: 29px; --rag-avatar-radius: 10px; } .user-avatar { margin-top: 20px; } .assistant-heading { gap: 9px; margin-bottom: 14px; } .message-label { font-size: 11px; } .user .message-body { max-width: calc(100% - 38px); } .user-text { padding: 12px 15px; font-size: 13px; } .composer-area { padding: 7px var(--chat-gutter) max(10px, env(safe-area-inset-bottom)); } .composer { padding: 12px 13px 10px; border-radius: 13px; } .composer textarea { min-height: 47px; font-size: 16px; } .keyboard-hint { display: none; } .privacy-note { margin: 9px 5px 0; font-size: 9px; } .general-answer-notice, .answer-notice { font-size: 11px; } .reference-card { padding: 16px; } }
+@media (max-width: 600px) { .system-layout { --chat-gutter: 14px; } .page-header { align-items: flex-start; gap: 12px; padding: 17px 18px; } .home-link { margin-bottom: 10px; font-size: 11px; } .page-heading h1 { font-size: 20px; } .page-heading p { max-width: 220px; font-size: 11px; margin-top: 7px; } .header-actions { flex-direction: column; align-items: flex-end; gap: 12px; } .service-status { font-size: 10px; gap: 5px; } .new-chat { height: 30px; font-size: 11px; padding: 0 10px; } .access-settings { padding: 7px 18px; } .access-key-row { flex-wrap: wrap; gap: 8px; } .access-key-row .el-input { width: calc(100% - 70px); } .conversation-content { padding: 18px var(--chat-gutter); } .welcome-panel { margin: 18px auto 6px; } .welcome-panel h2 { font-size: 24px; margin: 11px 0; } .welcome-panel > p { font-size: 12px; padding: 0 16px; } .quick-prompts { grid-template-columns: 1fr; gap: 9px; margin-top: 25px; } .message-list { gap: 18px; } .message { gap: 9px; } .assistant-avatar, .user-avatar { --rag-avatar-size: 29px; --rag-avatar-radius: 10px; } .user-avatar { margin-top: 20px; } .assistant-heading { gap: 9px; margin-bottom: 14px; } .message-label { font-size: 11px; } .user .message-body { max-width: calc(100% - 38px); } .user-text { padding: 12px 15px; font-size: 13px; } .composer-area { padding: 7px var(--chat-gutter) max(10px, env(safe-area-inset-bottom)); } .composer { padding: 12px 13px 10px; border-radius: 13px; } .composer textarea { min-height: 47px; font-size: 16px; } .keyboard-hint { display: none; } .privacy-note { margin: 9px 5px 0; font-size: 9px; } .general-answer-notice, .answer-notice { font-size: 11px; } .reference-card { padding: 16px; } }
 @media (prefers-reduced-motion: reduce) { .conversation-scroll { scroll-behavior: auto; } .quick-prompts button { transition: none; } .quick-prompts button:hover { transform: none; } }
-@media (max-width: 600px) { .page-heading h1::before { height: 16px; width: 3px; margin-right: 8px; } .conversation-scroll { background-size: 100% 380px; } .quick-prompts button { padding-left: 58px; } .prompt-heading { margin-bottom: 4px; } .prompt-label { margin-bottom: 0; } .prompt-icon { position: absolute; left: 15px; top: 19px; } .assistant .message-body { padding: 16px 16px 15px; border-radius: 15px; font-size: 14px; } .assistant .message-label { margin: 0; font-size: 12px; } .answer-actions { padding-top: 10px; margin-top: 15px; } }
+@media (max-width: 600px) { .page-heading h1::before { height: 16px; width: 3px; margin-right: 8px; } .conversation-scroll { background-size: 100% 380px; } .assistant .message-body { padding: 16px 16px 15px; border-radius: 15px; font-size: 14px; } .assistant .message-label { margin: 0; font-size: 12px; } .answer-actions { padding-top: 10px; margin-top: 15px; } }
 
 @media screen and (max-width: 1024px) {
   .page-header { padding: 16px 22px; }
@@ -450,6 +462,17 @@ button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px soli
   .home-link { margin-bottom: 6px; }
   .header-actions { flex-shrink: 0; gap: 6px; }
   .quick-prompts { grid-template-columns: 1fr; }
+  .quick-prompts button {
+    grid-template-areas: 'art label arrow' 'art question arrow';
+    align-content: center;
+    gap: 3px 14px;
+    min-height: 78px;
+    padding: 11px 16px;
+    border-radius: 12px;
+  }
+  .prompt-art { width: 58px; height: 50px; }
+  .prompt-label { align-self: end; font-size: 11px; }
+  .prompt-question { align-self: start; font-size: 14px; }
   .service-status { min-height: 32px; }
   .composer-area { flex-shrink: 0; }
   .answer-actions { flex-wrap: wrap; }
