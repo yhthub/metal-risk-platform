@@ -8,8 +8,8 @@
       </header>
       <div class="causal-workspace">
         <header class="workspace-title">
-          <div><h1>暴露路径与干预依据</h1><p>比较单一与联合暴露的研究结果，沿所选关系查看原文和岗位核查事项。</p></div>
-          <button id="open-atlas" class="quiet-action" @click="atlasOpen = true"><el-icon><Connection /></el-icon>路径总览</button>
+          <div><h1>暴露路径与干预依据</h1><p>从金属暴露出发，查看相关健康指标、原始研究与岗位防护依据。</p></div>
+          <button id="open-atlas" class="quiet-action" @click="atlasOpen = true"><el-icon><Reading /></el-icon>全部研究关系</button>
         </header>
         <section class="filters" aria-label="浏览条件">
           <div class="field person-field">
@@ -37,17 +37,46 @@
           <span v-else-if="selectedPlan">对象 {{ selectedPlan.id }} · {{ selectedPlan.dept }} · 档案记录的暴露因素 {{ selectedPlan.factors }}。</span>
         </p>
 
-        <div class="study-grid">
-          <section class="relations" aria-labelledby="relations-title">
-            <header class="panel-head"><div><h2 id="relations-title">暴露与健康指标</h2><p>选择一条关系查看研究发现和适用范围。</p></div><span class="count">{{ filtered.length }} 条关系</span></header>
-            <div v-if="!filtered.length" class="empty-state" role="status">
-              <el-icon><Reading /></el-icon>
-              <h3>{{ metals.length || uncoveredProfile ? '当前条件暂无收录关系' : '请选择至少一种暴露因素' }}</h3>
-              <p v-if="uncoveredProfile">该对象档案记录的暴露因素为 {{ selectedPlan?.factors }}，当前尚未收录相应研究。可通过路径总览浏览其他暴露因素。</p>
-              <p v-else>{{ metals.length ? '可更换指标、调整金属，或查看已收录的全部路径。' : '选择一种金属阅读单项研究，选择多种可同时查看匹配的联合研究。' }}</p>
-              <button v-if="metals.length || uncoveredProfile" class="text-action" @click="atlasOpen = true">浏览已收录路径 <span aria-hidden="true">→</span></button>
+        <section class="study-section" aria-labelledby="relations-title">
+          <header class="view-header">
+            <div>
+              <h2 id="relations-title">{{ view === 'graph' ? '暴露知识图谱' : '暴露与健康指标' }}</h2>
+              <p>{{ filtered.length }} 条研究关系 <span aria-hidden="true">·</span> {{ sourceCount }} 篇文献</p>
             </div>
-            <template v-else>
+            <div class="view-switch" role="group" aria-label="选择浏览方式">
+              <button data-view="graph" :aria-pressed="view === 'graph'" @click="view = 'graph'"><el-icon><Connection /></el-icon>图谱</button>
+              <button data-view="list" :aria-pressed="view === 'list'" @click="view = 'list'"><el-icon><List /></el-icon>列表</button>
+            </div>
+          </header>
+          <div v-if="!filtered.length" class="empty-state" role="status">
+            <el-icon><Reading /></el-icon>
+            <h3>{{ metals.length || uncoveredProfile ? '当前条件暂无收录关系' : '请选择至少一种暴露因素' }}</h3>
+            <p v-if="uncoveredProfile">该对象档案记录的暴露因素为 {{ selectedPlan?.factors }}，当前尚未收录相应研究。可浏览其他暴露因素。</p>
+            <p v-else>{{ metals.length ? '可更换指标、调整金属，或查看已收录的全部关系。' : '选择一种金属查看单项研究，多选可查看匹配的联合研究。' }}</p>
+            <button v-if="metals.length || uncoveredProfile" class="text-action" @click="atlasOpen = true">浏览已收录关系 <span aria-hidden="true">→</span></button>
+          </div>
+          <template v-else-if="view === 'graph' && activePath">
+            <p class="graph-hint">点选节点或连线，查看对应研究。</p>
+            <CausalPathwayGraph :paths="filtered" :selected-id="activePath.id" @select="selectPath" />
+            <section class="graph-evidence" aria-label="所选关系的研究依据">
+              <div class="evidence-top">
+                <span class="evidence-icon" aria-hidden="true"><el-icon><Reading /></el-icon></span>
+                <div class="evidence-name" aria-live="polite" aria-atomic="true">
+                  <p>所选研究 <span>·</span> {{ activePath.sourceType }} <span>·</span> {{ activePath.source.year }}</p>
+                  <h3>{{ activePath.title }}</h3>
+                </div>
+                <a :href="activePath.source.url" target="_blank" rel="noopener noreferrer">研究原文 <el-icon><TopRight /></el-icon></a>
+              </div>
+              <details class="evidence-notes">
+                <summary>研究结果与适用范围 <el-icon aria-hidden="true"><ArrowDown /></el-icon></summary>
+                <p>{{ activePath.summary }}</p><p>{{ activePath.observed }}</p>
+                <p><strong>适用范围</strong>　{{ activePath.limits }}</p>
+                <p class="source-location">{{ activePath.source.issuer }} · {{ activePath.source.locator }}</p>
+              </details>
+            </section>
+          </template>
+          <div v-else class="study-grid">
+            <div class="relations">
               <section v-for="group in groups" :key="group.id" class="path-group">
                 <h3><i :class="group.id" aria-hidden="true" />{{ group.title }}<span>{{ group.items.length }}</span></h3>
                 <template v-for="path in group.items" :key="path.id">
@@ -63,14 +92,13 @@
                   <div v-if="activePath?.id === path.id" class="mobile-detail"><CausalEvidenceDetail :path="path" /></div>
                 </template>
               </section>
-              <p v-if="comparisonNote" class="comparison-note">{{ comparisonNote }}</p>
-            </template>
-          </section>
-          <aside class="desktop-detail" aria-label="关系详情">
-            <CausalEvidenceDetail v-if="activePath" :path="activePath" />
-            <div v-else class="no-evidence"><el-icon><Document /></el-icon><p>选中已收录的关系后，可在这里阅读原文依据。</p></div>
-          </aside>
-        </div>
+            </div>
+            <aside class="desktop-detail" aria-label="关系详情">
+              <CausalEvidenceDetail v-if="activePath" :path="activePath" />
+            </aside>
+          </div>
+          <p v-if="filtered.length && comparisonNote" class="comparison-note">{{ comparisonNote }}</p>
+        </section>
 
         <section class="application" aria-labelledby="actions-title">
           <header class="panel-head">
@@ -103,7 +131,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { ArrowLeft, ArrowRight, Connection, Document, Finished, InfoFilled, Reading, TopRight } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowLeft, ArrowRight, Connection, Finished, InfoFilled, List, Reading, TopRight } from '@element-plus/icons-vue'
 import { controlSources, metalNames, outcomeNames, pathways, selectPathways } from '~/utils/causalEvidence'
 import type { CausalMetal, CausalOutcome, CausalPathway } from '~/utils/causalEvidence'
 import { riskPathContext } from '~/utils/causalNavigation'
@@ -116,6 +144,7 @@ const route = useRoute()
 const router = useRouter()
 const state = usePredictionState()
 const atlasOpen = ref(false)
+const view = useState<'graph' | 'list'>('causal-reading-view', () => 'graph')
 const metalOptions: CausalMetal[] = ['Pb', 'Cd', 'Hg']
 const risk = computed(() => riskPathContext(route.query, state.dashboard.value, state.cohortResult.value))
 const riskBack = computed(() => risk.value.mode ? { path: '/risk', query: { mode: risk.value.mode } } : '/risk')
@@ -149,6 +178,7 @@ const metals = computed<CausalMetal[]>(() => {
 const uncoveredProfile = computed(() => !risk.value.mode && selectedPlan.value && !route.query.metals &&
   !planMetals(selectedPlan.value.factors).length)
 const filtered = computed(() => selectPathways(metals.value, outcome.value))
+const sourceCount = computed(() => new Set(filtered.value.map(p => p.source.url)).size)
 const activePath = computed(() => filtered.value.find(p => p.id === route.query.edge)
   || filtered.value.find(p => p.kind === 'joint') || filtered.value[0])
 const groups = computed(() => [
@@ -238,13 +268,36 @@ button { cursor: pointer; }
 .pills button[aria-pressed=true] { background: #254b6b; border-color: #254b6b; color: #fff; }
 .pills button:hover { box-shadow: inset 0 0 0 1px #7b99aa; }
 .context-note { margin: 10px 0 0; display: flex; align-items: baseline; gap: 7px; font-size: 12px; line-height: 1.7; color: #4e6678; }.context-note .el-icon { flex: none; }
-.study-grid { display: grid; grid-template-columns: minmax(0,1.22fr) minmax(0,1fr); align-items: start; gap: 16px; margin: 18px 0; }
-.relations, .application { min-width: 0; background: #fff; border: 1px solid #dce5ed; border-radius: 14px; }
-.relations, .application { padding: clamp(16px,1.9vw,25px); }
+.study-section, .application { min-width: 0; background: #fff; border: 1px solid #dce5ed; border-radius: 14px; padding: clamp(16px,1.9vw,25px); }
+.study-section { margin: 18px 0; }
+.view-header, .evidence-top { display: flex; align-items: center; gap: 12px; }
+.view-header { justify-content: space-between; flex-wrap: wrap; margin-bottom: 16px; }
+.view-header h2 { margin: 0; font-size: clamp(18px,1.6vw,22px); font-weight: 670; color: #203e53; line-height: 1.4; }
+.view-header p, .evidence-name p { margin: 4px 0 0; color: #5f7384; font-size: 12px; line-height: 1.55; }
+.view-header p span, .evidence-name p span { margin: 0 3px; color: #8b9da7; }
+.graph-hint { margin: -5px 0 9px; color: #526e7e; font-size: 12px; line-height: 1.6; }
+.view-switch { display: inline-flex; padding: 3px; border: 1px solid #dce5ec; background: #f2f5f8; border-radius: 9px; }
+.view-switch button { display: flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #576c7d; font-size: 13px; }
+.view-switch button[aria-pressed=true] { background: #fff; color: #235476; border-color: #d3dfe6; box-shadow: 0 1px 3px #29496312; font-weight: 650; }
+.graph-evidence { margin-top: 12px; padding: 13px 16px 0; border: 1px solid #d6e4e5; border-radius: 10px; background: #f5faf9; }
+.evidence-name { flex: 1; min-width: 0; }
+.evidence-name p { margin: 0; color: #456c70; }
+.evidence-name h3 { margin: 3px 0 0; font-size: 16px; line-height: 1.55; color: #203f4b; }
+.evidence-icon { display: grid; place-items: center; width: 35px; height: 35px; flex: none; border-radius: 9px; background: #e0f0ee; color: #286d68; font-size: 18px; }
+.evidence-top a { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; flex: none; color: #22626e; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+.evidence-notes { margin-top: 10px; border-top: 1px solid #dce8e7; color: #485f6b; font-size: 13px; line-height: 1.8; }
+.evidence-notes summary { display: flex; align-items: center; justify-content: space-between; min-height: 38px; cursor: pointer; color: #345e68; list-style: none; }
+.evidence-notes summary::-webkit-details-marker { display: none; }
+.evidence-notes[open] summary .el-icon { transform: rotate(180deg); }
+.evidence-notes p { margin: 0 0 8px; }
+.evidence-notes .source-location { font-size: 12px; color: #596f7b; margin: 10px 0 14px; }
+.study-grid { display: grid; grid-template-columns: minmax(0,1.22fr) minmax(0,1fr); align-items: start; gap: 20px; }
+.relations { min-width: 0; }
 .panel-head { align-items: flex-start; }
 .panel-head h2 { margin: 0; font-size: clamp(17px,1.6vw,21px); font-weight: 670; line-height: 1.5; color: #203e53; }
-.panel-head p { font-size: 12px; margin-top: 2px; }.count { flex: none; margin-top: 5px; font-size: 12px; color: #596f81; }
+.panel-head p { font-size: 12px; margin-top: 2px; }
 .path-group { margin-top: 19px; }
+.path-group:first-child { margin-top: 0; }
 .path-group > h3 { display: flex; align-items: center; gap: 7px; margin: 0 0 7px; color: #4a6274; font-size: 12px; font-weight: 650; }
 .path-group h3 i { width: 8px; height: 8px; border: 2px solid #6f95b7; border-radius: 2px; box-sizing: border-box; }
 .path-group h3 i.joint { background: #399b91; border-color: #399b91; }.path-group h3 i.mechanism { border-color: #ac8358; border-radius: 100%; }
@@ -259,10 +312,9 @@ button { cursor: pointer; }
 .row-meta > span:last-child { white-space: nowrap; }.row-meta > span:last-child span { margin-left: 5px; font-size: 14px; }
 .comparison-note { margin: 14px 0 0; padding: 9px 12px; border-radius: 7px; background: #f3f6f9; color: #586b79; font-size: 12px; line-height: 1.7; }
 .desktop-detail { min-width: 0; position: sticky; top: 14px; }.mobile-detail { display: none; }
-.empty-state, .no-evidence { padding: 35px 18px; text-align: center; border-radius: 9px; }
-.empty-state { margin-top: 16px; border: 1px dashed #c9d8e3; }.empty-state > .el-icon, .no-evidence > .el-icon { font-size: 23px; color: #6c8ca3; }
-.empty-state h3 { margin: 9px 0 4px; font-size: 15px; }.empty-state p, .no-evidence p, .control-empty { margin: 5px 0; color: #637787; font-size: 13px; line-height: 1.75; }
-.no-evidence { background: #edf2f5; }.text-action { margin-top: 8px; padding: 5px; border: 0; color: #27697a; background: none; font-size: 13px; }
+.empty-state { padding: 35px 18px; text-align: center; border-radius: 9px; border: 1px dashed #c9d8e3; }.empty-state > .el-icon { font-size: 23px; color: #6c8ca3; }
+.empty-state h3 { margin: 9px 0 4px; font-size: 15px; }.empty-state p, .control-empty { margin: 5px 0; color: #637787; font-size: 13px; line-height: 1.75; }
+.text-action { margin-top: 8px; padding: 5px; border: 0; color: #27697a; background: none; font-size: 13px; }
 .application .panel-head { align-items: center; }.primary-action { flex: none; min-height: 38px; padding: 0 14px; background: #235875; color: #fff; border-radius: 8px; font-size: 13px; }.primary-action:hover { background: #174259; }
 .control-list { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(280px,100%),1fr)); gap: 14px 24px; margin-top: 15px; border-top: 1px solid #e3ebef; padding-top: 15px; }
 .control-item { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
@@ -277,9 +329,11 @@ button { cursor: pointer; }
   .causal-workspace { padding: 18px 12px 38px; }.causal-nav { min-height: 40px; padding-inline: 14px; font-size: 12px; }
   .workspace-title { flex-wrap: wrap; align-items: flex-start; margin-bottom: 13px; gap: 7px; }.workspace-title > div { flex: 1 1 230px; }.workspace-title p { font-size: 12px; }
   .filters { gap: 12px 16px; padding: 12px; }.person-field { flex: 1 1 100%; }.person-field select { max-width: 100%; }
-  .study-grid { display: block; margin: 12px 0; }.desktop-detail { display: none; }.mobile-detail { display: block; }
+  .study-section { margin: 12px 0; padding: 13px 10px; }.view-header { gap: 8px; margin-bottom: 10px; }
+  .study-grid { display: block; }.desktop-detail { display: none; }.mobile-detail { display: block; }
+  .graph-evidence { padding: 10px 11px 0; }.evidence-icon { display: none; }.evidence-name h3 { font-size: 14px; }
   .path-row.selected { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }.path-flow { gap: 8px; font-size: 13px; }
   .application .panel-head { align-items: flex-start; flex-wrap: wrap; }.panel-head p { font-size: 12px; }
 }
-@media (max-width: 380px) { .workspace-title > div { flex: 1 1 100%; }.quiet-action { min-height: 32px; }.relations,.application { padding: 13px; } }
+@media (max-width: 380px) { .workspace-title > div { flex: 1 1 100%; }.quiet-action { min-height: 32px; }.application { padding: 13px; } }
 </style>
