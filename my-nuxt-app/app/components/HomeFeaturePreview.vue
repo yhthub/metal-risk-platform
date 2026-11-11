@@ -3,8 +3,8 @@
     <template v-if="kind === 'risk'">
       <header class="preview-head"><h3><el-icon><DataAnalysis /></el-icon>收缩压估计</h3><span>NHANES 2017–2018 公开样本</span></header>
       <div class="risk-stats">
-        <div><span>示例对象 020</span><p><b>{{ estimate.toFixed(2) }}</b> mmHg</p></div>
-        <div><span>按估计值从高到低</span><p><strong>第 5 位</strong> / 20 人</p></div>
+        <div><span>示例对象 020</span><p><b>{{ estimate.toFixed(2) }}</b><span>mmHg</span></p></div>
+        <div><span>组内降序排名</span><p><strong>第 5 位</strong><span>/ 20 人</span></p></div>
       </div>
       <figure class="distribution">
         <figcaption><strong>20 人的估计值分布</strong><span><i></i>对象所在区间</span></figcaption>
@@ -43,8 +43,9 @@
           <p class="answer">一项美国成人调查显示，血镉较高的人群中，肾脏过滤能力偏低更为常见。</p>
         </div>
       </div>
-      <a class="paper" href="https://pubmed.ncbi.nlm.nih.gov/19700501/" target="_blank" rel="noopener noreferrer">
-        <el-icon><Reading /></el-icon>研究原文 · American Journal of Epidemiology，2009 <span aria-hidden="true">↗</span>
+      <a class="paper" href="https://pubmed.ncbi.nlm.nih.gov/19700501/" target="_blank" rel="noopener noreferrer"
+        title="Blood Cadmium and Lead and Chronic Kidney Disease in US Adults: A Joint Analysis">
+        <el-icon><Reading /></el-icon>查看研究原文 · PubMed，2009 <span aria-hidden="true">↗</span>
       </a>
       <div class="plan-excerpt">
         <div class="subhead"><strong>二级预防方案</strong><span>预设档案 · SZ-105</span></div>
@@ -97,7 +98,8 @@ const contributions = [{ name: '年龄', value: 5.84495 }, { name: '全血铅', 
 .risk-stats { display:grid; grid-template-columns:1.1fr 1fr; align-items:center; gap:12px; }
 .risk-stats > div + div { border-inline-start:1px solid #c8d9e7; padding-inline-start:16px; }
 .risk-stats span { color:#435c70; font-size:12px; }
-.risk-stats p { margin-top:3px; font-size:12px; color:#4b6274; }
+.risk-stats p { display:flex; align-items:baseline; flex-wrap:wrap; gap:1px 5px; margin-top:3px; font-size:12px; color:#4b6274; }
+.risk-stats p > * { white-space:nowrap; }
 .risk-stats b { font-size:clamp(25px,2.5vw,34px); letter-spacing:-.045em; line-height:1.2; color:var(--ink); }
 .risk-stats strong { font-size:19px; color:#2f556e; }
 .distribution figcaption strong,.subhead strong { font-size:14px; color:#304957; }
@@ -123,7 +125,7 @@ const contributions = [{ name: '年龄', value: 5.84495 }, { name: '全血铅', 
 .preview .unit-note { margin-top:8px; }
 .conversation { display:grid; grid-template-columns:auto minmax(0,1fr); gap:12px; align-items:start; margin:14px 0 6px; }
 .conversation img { width:clamp(42px,5vw,68px); height:auto; }
-.preview .question { margin-bottom:6px; padding:6px 10px; width:fit-content; max-width:100%; border-radius:9px 9px 9px 2px; background:var(--tint); color:#384c77; font-size:14px; font-weight:600; }
+.preview .question { margin-bottom:6px; padding:6px 10px; width:fit-content; max-width:100%; border-radius:9px 9px 9px 2px; background:var(--tint); color:#384c77; font-size:14px; font-weight:600; text-wrap:balance; }
 .paper,.plan-excerpt a { display:inline-flex; align-items:baseline; gap:5px; width:fit-content; color:#355e87; font-size:12px; line-height:1.65; text-decoration:underline; text-underline-offset:3px; }
 .paper { display:inline; overflow-wrap:anywhere; }.paper .el-icon { margin-right:4px; vertical-align:-1px; }
 .preview a:focus-visible { outline:2px solid #387ac2; outline-offset:2px; }

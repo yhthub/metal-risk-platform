@@ -377,7 +377,7 @@ $color-border: #E5E7EB;
 .showcase-card { display:grid; grid-template-columns:minmax(0,1.22fr) minmax(0,1fr); grid-template-areas:"preview copy"; align-items:center; gap:clamp(34px,5vw,76px); }
 .showcase-card > [data-feature-preview] { grid-area:preview; }
 .text-content { grid-area:copy; min-width:0; }
-.text-content h2 { margin:0 0 14px; color:$text-main; font-size:clamp(1.55rem,2.4vw,2rem); font-weight:700; line-height:1.35; letter-spacing:-.025em; }
+.text-content h2 { margin:0 0 14px; color:$text-main; font-size:clamp(1.55rem,2.4vw,2rem); font-weight:700; line-height:1.35; letter-spacing:-.025em; text-wrap:balance; }
 .text-content p { margin:0; color:$color-text-muted; font-size:clamp(1rem,1.3vw,1.12rem); line-height:1.8; }
 
 .system-footer { background: #FFFFFF; border-top: 1px solid rgba(0,0,0,0.05); padding: 80px 0 30px; margin-top: 80px; position: relative; z-index: 10; display: flex; justify-content: center; }
