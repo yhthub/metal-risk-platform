@@ -29,7 +29,7 @@
     </div>
 
     <div class="menu-container">
-      <el-menu :default-active="defaultActive" class="custom-el-menu" :unique-opened="true" :collapse="compact" :collapse-transition="false">
+      <el-menu ref="menu" :default-active="props.defaultActive" class="custom-el-menu" :unique-opened="true" :collapse="compact" :collapse-transition="false">
         <div v-if="!compact" class="menu-group-title">数据管理</div>
         <el-sub-menu index="1" aria-label="数据接入">
           <template #title><SidebarIcon name="intake" /><span>数据接入</span></template>
@@ -68,9 +68,10 @@
 import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, useId, watch } from 'vue'
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from '~/utils/product'
 import { Menu, Close, Fold, Expand } from '@element-plus/icons-vue'
+import type { MenuInstance } from 'element-plus'
 
 // 定义 props 接收父组件（各个页面）传来的激活项 index
-defineProps({
+const props = defineProps({
   defaultActive: {
     type: String,
     required: true,
@@ -84,6 +85,7 @@ const collapsed = useState<boolean>('navigation:collapsed', () => false)
 const isMobile = ref(import.meta.client && window.matchMedia('(max-width: 1024px)').matches)
 const mobileOpen = ref(false)
 const compact = computed(() => !isMobile.value && collapsed.value)
+const menu = ref<MenuInstance | null>(null)
 const sidebarElement = ref<HTMLElement | null>(null)
 const mobileTrigger = ref<HTMLButtonElement | null>(null)
 const collapseTrigger = ref<HTMLButtonElement | null>(null)
@@ -150,7 +152,11 @@ const deactivate = () => {
   document.removeEventListener('keydown', handleKey)
 }
 onMounted(activate)
-onActivated(activate)
+onActivated(() => {
+  activate()
+  // A cached page keeps the item that was clicked to leave it.
+  menu.value?.updateActiveIndex(props.defaultActive)
+})
 onDeactivated(deactivate)
 onUnmounted(deactivate)
 
