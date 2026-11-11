@@ -10,7 +10,7 @@
     <div class="boundary"><strong>适用范围</strong><p>{{ path.limit }}</p></div>
     <details v-if="path.detail" :key="path.id"><summary>查看研究数据</summary><p>{{ path.detail }}</p></details>
     <a :href="path.source.url" target="_blank" rel="noopener noreferrer" class="source-link">
-      <span class="source-caption"><el-icon><Reading /></el-icon>查看原文 <el-icon><TopRight /></el-icon></span>
+      <span class="source-caption"><el-icon><Reading /></el-icon>{{ path.source.url.startsWith('https://pubmed.ncbi.nlm.nih.gov/') ? '查看论文摘要与出处' : '查看来源' }} <el-icon><TopRight /></el-icon></span>
       <strong>{{ path.source.title }}</strong>
       <small>{{ path.source.issuer }}<template v-if="path.source.year"> · {{ path.source.year }}</template><br>{{ path.source.locator }}</small>
     </a>
