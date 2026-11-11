@@ -189,7 +189,7 @@
         </div>
       </section>
 
-      <section id="experience-guide" class="experience-guide" data-workflow-art aria-labelledby="experience-guide-title">
+      <section id="experience-guide" ref="experienceGuide" class="experience-guide" data-workflow-art aria-labelledby="experience-guide-title">
         <div class="guide-heading"><span>快速开始</span><h2 id="experience-guide-title">选择适合你的体验方式</h2></div>
         <div class="guide-options">
           <NuxtLink to="/datainput" class="guide-card guide-analysis">
@@ -278,6 +278,7 @@ useHead({ title: PRODUCT_NAME })
 
 const isScrolled = ref(false)
 const waveDots = ref([])
+const experienceGuide = ref(null)
 
 // ✨ 跳转到数据录入控制台
 const goToWorkspace = async () => {
@@ -333,6 +334,9 @@ onMounted(() => {
     })
   }, { threshold: 0.15, rootMargin: '0px 0px -20px 0px' })
   document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el))
+  if (window.location.hash === '#experience-guide') {
+    requestAnimationFrame(() => experienceGuide.value?.scrollIntoView({ block: 'start', behavior: 'instant' }))
+  }
 })
 
 onUnmounted(() => window.removeEventListener('scroll', handleScroll))
