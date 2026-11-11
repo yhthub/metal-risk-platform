@@ -4,7 +4,11 @@
       <header class="section-heading">
         <div><h2>岗位与预防层级分布</h2><p>选择表中的人数，可查看对应的干预对象。</p></div>
         <label class="metal-select">暴露因素
-          <select v-model="metal"><option value="">全部因素</option><option v-for="symbol in metals" :key="symbol" :value="symbol">{{ metalName(symbol) }}</option></select>
+          <select v-model="metal">
+            <option value="">全部因素</option>
+            <option v-if="pathFilter.includes(',')" :value="pathFilter">{{ filterLabel(pathFilter) }}（所选组合）</option>
+            <option v-for="symbol in metals" :key="symbol" :value="symbol">{{ metalName(symbol) }}</option>
+          </select>
         </label>
       </header>
       <table class="matrix">
@@ -21,7 +25,7 @@
 
     <section class="directory" aria-label="筛选后的方案目录">
       <header class="section-heading">
-        <div><h2>方案目录</h2><p class="filter-status" role="status">{{ dept || '全部岗位' }} · {{ level ? levelLabels[level] : '全部层级' }} · {{ metal ? metalName(metal) : '全部因素' }}，共 {{ visiblePlans.length }} 人</p></div>
+        <div><h2>方案目录</h2><p class="filter-status" role="status">{{ dept || '全部岗位' }} · {{ level ? levelLabels[level] : '全部层级' }} · {{ metal ? filterLabel(metal) : '全部因素' }}，共 {{ visiblePlans.length }} 人</p></div>
         <button v-if="hasFilter" type="button" class="reset" @click="resetFilters">清除筛选</button>
       </header>
       <template v-if="visiblePlans.length">
@@ -39,22 +43,32 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { interventionPlans, type PreventionLevel } from '~/utils/interventionPlans'
 
 const emit = defineEmits<{ select: [personId: string] }>()
+const props = defineProps<{ pathMetals?: string[] }>()
 const levels = [{ key: 'level1', label: '一级预防' }, { key: 'level2', label: '二级预防' }] as const
 const levelLabels: Record<PreventionLevel, string> = { level1: '一级预防', level2: '二级预防' }
 const metalLabels: Record<string, string> = { Pb: '铅', As: '砷', Cd: '镉', Hg: '汞', Cr: '铬', Ni: '镍' }
 const metalName = (code: string) => metalLabels[code] ? `${metalLabels[code]}（${code}）` : code
 const factorCodes = (factors: string) => factors.split(/[,，、]/).map(code => code.trim()).filter(Boolean)
+const filterLabel = (filter: string) => factorCodes(filter).map(metalName).join(' + ')
 const departments = [...new Set(interventionPlans.map(plan => plan.dept))]
 const metals = [...new Set(interventionPlans.flatMap(plan => factorCodes(plan.factors)))]
 const dept = ref('')
 const level = ref<PreventionLevel | ''>('')
 const metal = ref('')
+const pathFilter = computed(() => (props.pathMetals || []).join(','))
+watch(pathFilter, value => {
+  metal.value = value
+  selectScope('', '')
+}, { immediate: true })
 const hasFilter = computed(() => Boolean(dept.value || level.value || metal.value))
-const byMetal = computed(() => interventionPlans.filter(plan => !metal.value || factorCodes(plan.factors).includes(metal.value)))
+const byMetal = computed(() => {
+  const required = factorCodes(metal.value)
+  return interventionPlans.filter(plan => required.every(code => factorCodes(plan.factors).includes(code)))
+})
 const matrixRows = computed(() => departments.map(department => {
   const plans = byMetal.value.filter(plan => plan.dept === department)
   return { dept: department, counts: countByLevel(plans), total: plans.length }

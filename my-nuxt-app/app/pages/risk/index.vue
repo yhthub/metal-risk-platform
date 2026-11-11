@@ -31,10 +31,13 @@
         <p v-if="mode === 'batch'" class="demo-preset-note">两种演示复用同一批 NHANES 公开数据与真实模型：普通演示预设 80 分，预警案例预设 75 分，可在结果中调整。演示阈值不是临床界值，绿色不表示无健康风险。</p>
         <section v-if="!isReasoning && (mode === 'batch' ? !!cohortResult : reasoningComplete)" class="result-next-step" aria-label="分析完成后的下一步">
           <div class="result-next-step-copy">
-            <h3>分析已完成，继续查看方案推荐</h3>
-            <p>可按预防层级查看系统预设的干预对象、实施措施和方案报告。</p>
+            <h3>风险分析已完成</h3>
+            <p>可查看当前指标的暴露路径与文献依据，或继续查看干预方案。</p>
           </div>
-          <el-button type="primary" size="large" @click="goToPlan">进入方案推荐 <span aria-hidden="true">→</span></el-button>
+          <div class="result-links">
+            <el-button plain size="large" @click="goToCausal">查看暴露路径与依据</el-button>
+            <el-button type="primary" size="large" @click="goToPlan">进入方案推荐 <span aria-hidden="true">→</span></el-button>
+          </div>
         </section>
         <el-alert class="scope-alert" type="info" :closable="false" title="测试版 · 当次指标估计，不是发病概率或临床诊断" :description="PREDICTION_SCOPE_NOTE" show-icon />
         <el-alert v-if="serviceError || predictionError" class="scope-alert" type="error" :closable="false" :title="serviceError || predictionError" show-icon />
@@ -111,6 +114,7 @@
 
 <script setup lang="ts">
 import { PRODUCT_SHORT_NAME } from '~/utils/product'
+import { riskTargetOptions as targetOptions } from '~/utils/causalNavigation'
 import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { ArrowLeft, ArrowDown, Document, WarningFilled, Download } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
@@ -178,14 +182,6 @@ const availableCount = computed(() => dashboard.value?.prediction.results.filter
 const selectedPersonCode = computed(() => dashboard.value?.prediction.person_id || draft.value.person.id || '本次对象')
 const hasSource = computed(() => mode.value === 'batch' ? !!batchIntake.value?.file_id : Object.entries(draft.value.person).some(([field, value]) => field !== 'id' && value !== null && value !== '' && value !== false))
 const sourceName = computed(() => mode.value === 'batch' ? (batchIntake.value?.file_id ? '群体批次 · ' + batchIntake.value.file_id : '尚未导入群体文件') : hasSource.value ? '单人：' + (draft.value.person.id || '本次录入对象') : '尚未载入单人数据')
-const targetOptions = [
-  { value: 'sbp', label: '收缩压 / mmHg' }, { value: 'dbp', label: '舒张压 / mmHg' },
-  { value: 'serum_creatinine_mg_dl', label: '血清肌酐 / mg/dL' }, { value: 'bun_mg_dl', label: '血尿素氮 / mg/dL' },
-  { value: 'uric_acid_mg_dl', label: '尿酸 / mg/dL' }, { value: 'uacr_mg_g', label: '尿白蛋白肌酐比 / mg/g' },
-  { value: 'hba1c_percent', label: '糖化血红蛋白 / %' }, { value: 'total_cholesterol_mg_dl', label: '总胆固醇 / mg/dL' },
-  { value: 'hdl_cholesterol_mg_dl', label: '高密度脂蛋白胆固醇 / mg/dL' }, { value: 'alt_u_l', label: 'ALT / U/L' },
-  { value: 'ast_u_l', label: 'AST / U/L' }, { value: 'ggt_u_l', label: 'GGT / U/L' }
-]
 const rankOption = computed(() => dashboard.value ? buildRankOption(dashboard.value.prediction, selectedTarget.value) : null)
 const importanceOption = computed(() => charts.value ? buildImportanceOption(charts.value) : null)
 const doseOption = computed(() => charts.value ? buildDoseOption(charts.value) : null)
@@ -196,6 +192,7 @@ const selectedTargetReason = computed(() => { const outcome = selectedOutcome(da
 const unitsFor = (key: MetalKey) => [...new Set(['ug/L', 'ug/dL', 'ng/mL', draft.value.measurements[key].unit].filter(Boolean))]
 const goToDatainput = async () => { await router.push('/datainput') }
 const goToPlan = async () => { await router.push({ path: '/plan', query: { view: 'coverage', from: 'risk', mode: mode.value } }) }
+const goToCausal = () => router.push({ path: '/causal', query: { from: 'risk', mode: mode.value, target: selectedTarget.value } })
 const goToReportPage = async () => { if (dashboard.value || cohortResult.value) await router.push({ path: '/risk/report', query: { mode: mode.value } }) }
 const downloadCohortCsv = (content: string, label: string) => {
   if (typeof document === 'undefined') return
@@ -843,9 +840,10 @@ $color-danger: #EF4444;
 .result-next-step-copy { min-width: 0; }
 .result-next-step h3 { margin: 0 0 7px; color: #1E3A5F; font-size: 16px; line-height: 1.6; }
 .result-next-step p { margin: 0; color: #64748B; font-size: 12px; line-height: 1.7; }
-.result-next-step > .el-button { flex-shrink: 0; min-height: 44px; }
+.result-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.result-links .el-button { min-height: 44px; margin: 0; }
 @media screen and (max-width: 600px) {
   .result-next-step { flex-direction: column; align-items: stretch; gap: 14px; padding: 16px; }
-  .result-next-step > .el-button { width: 100%; margin: 0; }
+  .result-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); }
 }
 </style>

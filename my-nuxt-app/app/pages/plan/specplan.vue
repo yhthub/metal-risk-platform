@@ -148,6 +148,7 @@ import { ArrowLeft, Document, Printer } from '@element-plus/icons-vue'
 import { PRODUCT_SHORT_NAME } from '~/utils/product'
 import { planStepKey, usePlanChecks } from '~/composables/usePlanChecks'
 import { getInterventionPlan } from '~/utils/interventionPlans'
+import { causalPlanOrigin } from '~/utils/causalNavigation'
 
 const router = useRouter()
 const route = useRoute()
@@ -155,7 +156,10 @@ const route = useRoute()
 const { isReviewed } = usePlanChecks()
 const goBack = () => {
   const query = person.value ? { person: person.value.id } : {}
-  if (route.query.from === 'risk' && ['individual', 'batch'].includes(route.query.mode)) {
+  const causal = causalPlanOrigin(route.query)
+  if (causal) {
+    Object.assign(query, causal.origin)
+  } else if (route.query.from === 'risk' && ['individual', 'batch'].includes(route.query.mode)) {
     Object.assign(query, { from: 'risk', mode: route.query.mode })
   }
   return router.push({ path: '/plan', query })
@@ -169,8 +173,10 @@ const getTagType = (type) => {
   return 'success'
 }
 
-const personId = computed(() => route.query.person == null ? 'SZ-284' : (typeof route.query.person === 'string' ? route.query.person : ''))
-const person = computed(() => getInterventionPlan(personId.value))
+const person = computed(() => {
+  if (route.query.person == null && route.query.from !== 'causal') return getInterventionPlan('SZ-284')
+  return getInterventionPlan(route.query.person)
+})
 useHead(() => ({
   title: `${person.value ? person.value.id + ' · ' : ''}干预方案报告 · ${PRODUCT_SHORT_NAME}`,
 }))

@@ -26,11 +26,15 @@
           <span>本次{{ handover === 'batch' ? '群体' : '单人' }}风险分析已完成，可结合分析报告查阅下方预设方案。</span>
           <NuxtLink :to="{ path: '/risk/report', query: { mode: handover } }">查看本次分析报告 →</NuxtLink>
         </div>
+        <div v-if="causalOrigin" class="handover">
+          <span>当前查阅路径 · {{ causalOrigin.label }}</span>
+          <NuxtLink :to="{ path: '/causal', query: causalOrigin.back }">返回路径与依据 →</NuxtLink>
+        </div>
         <nav class="workspace-views" aria-label="选择方案视图">
           <NuxtLink :to="{ path: '/plan', query: { ...originQuery, person: selectedPerson.id } }" :aria-current="coverage ? 'false' : 'page'"><el-icon><Document /></el-icon>个人干预方案</NuxtLink>
           <NuxtLink :to="{ path: '/plan', query: { ...originQuery, view: 'coverage' } }" :aria-current="coverage ? 'page' : 'false'"><el-icon><Grid /></el-icon>群体方案总览</NuxtLink>
         </nav>
-        <KeepAlive><InterventionCoverage v-if="coverage" @select="selectPerson" /></KeepAlive>
+        <KeepAlive><InterventionCoverage v-if="coverage" :path-metals="causalOrigin?.metals" @select="selectPerson" /></KeepAlive>
         <div v-if="!coverage" class="plan-workspace">
           <aside class="person-picker" aria-label="选择干预对象">
             <h2>干预对象</h2>
@@ -105,12 +109,14 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ArrowLeft, CircleCheck, Collection, Document, FirstAidKit, Grid, List, Reading, Sunny } from '@element-plus/icons-vue'
 import { getInterventionPlan, interventionPlans, plansByLevel } from '~/utils/interventionPlans'
+import { causalPlanOrigin } from '~/utils/causalNavigation'
 import { PRODUCT_SHORT_NAME } from '~/utils/product'
 
 useHead({ title: `方案推荐 · ${PRODUCT_SHORT_NAME}` })
 const router = useRouter()
 const route = useRoute()
-const coverage = computed(() => route.query.view === 'coverage')
+const causalOrigin = computed(() => causalPlanOrigin(route.query))
+const coverage = computed(() => route.query.view === 'coverage' || Boolean(causalOrigin.value && !getInterventionPlan(route.query.person)))
 const totalSteps = interventionPlans.reduce((sum, plan) => sum + plan.workflow.length, 0)
 const metalCount = new Set(interventionPlans.flatMap(plan => plan.factors.split(',').map(f => f.trim()))).size
 const { lastResult, dashboard, cohortResult } = usePredictionState()
@@ -120,7 +126,7 @@ const handover = computed(() => {
   if (route.query.mode === 'individual' && (lastResult.value || dashboard.value?.prediction)) return 'individual'
   return null
 })
-const originQuery = computed(() => handover.value ? { from: 'risk', mode: handover.value } : {})
+const originQuery = computed(() => causalOrigin.value?.origin || (handover.value ? { from: 'risk', mode: handover.value } : {}))
 const selectedLevel = ref('level2')
 const lastPerson = reactive({ level2: plansByLevel.level2[0].id, level1: plansByLevel.level1[0].id })
 const currentPersons = computed(() => plansByLevel[selectedLevel.value])
