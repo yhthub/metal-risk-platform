@@ -92,101 +92,15 @@
         </svg>
       </div>
 
-      <section id="capabilities" class="capability-blocks showcase-list" aria-label="功能概览">
-        <div class="showcase-card animate-on-scroll">
-          <div class="media-container interactive-card"
-               @mousemove="(e) => handleMouseMove(e, 0)"
-               @mouseleave="handleMouseLeave(0)">
-            <div class="mock-ui-clean float-anim">
-              <div class="alert-badge pulse-red">
-                <el-icon><Warning /></el-icon> 展示示意
-              </div>
-              <div class="data-row interactive-row">
-                <span class="label-text">Target: <strong>Pb</strong></span>
-                <span class="danger-text">1.24 μg/L &uarr;</span>
-              </div>
-              <div class="data-row interactive-row">
-                <span class="label-text">Target: <strong>Cd</strong></span>
-                <span class="warning-text">0.89 μg/L &uarr;</span>
-              </div>
-            </div>
-          </div>
-          
+      <section id="capabilities" ref="capabilities" class="showcase-list" aria-label="功能概览">
+        <article v-for="feature in features" :key="feature.id" class="showcase-card animate-on-scroll"
+          :data-feature="feature.id" :aria-labelledby="'feature-' + feature.id">
           <div class="text-content">
-            <h4>从单人到群体的风险分析</h4>
-            <p>录入个人信息或导入群体数据，查看健康指标估计、群体分布和相对排序。结合输入质量与结果说明，理解不同对象的指标特征。</p>
+            <h2 :id="'feature-' + feature.id">{{ feature.title }}</h2>
+            <p>{{ feature.description }}</p>
           </div>
-        </div>
-
-        <div class="showcase-card animate-on-scroll">
-          <div class="media-container interactive-card flex-col-card"
-               @mousemove="(e) => handleMouseMove(e, 1)"
-               @mouseleave="handleMouseLeave(1)">
-            <div class="chart-header-dark">
-              <span class="chart-title">模型响应曲线 · 展示示意</span>
-              <div class="chart-legend">
-                <span class="legend-item"><i style="background: #3B82F6"></i> 模型预测</span>
-                <span class="legend-item"><i style="background: #A855F7"></i> 观测基线</span>
-              </div>
-            </div>
-            <div class="chart-body">
-              <svg class="line-chart" viewBox="0 0 400 200" overflow="visible">
-                <defs>
-                  <linearGradient id="areaBlue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.15" />
-                    <stop offset="100%" stop-color="#3B82F6" stop-opacity="0" />
-                  </linearGradient>
-                </defs>
-                <line x1="40" y1="20" x2="40" y2="170" stroke="#E5E7EB" stroke-width="1.5"/>
-                <line x1="40" y1="170" x2="380" y2="170" stroke="#E5E7EB" stroke-width="1.5"/>
-                <path class="anim-dash" d="M40,150 Q120,130 200,90 T380,50" fill="none" stroke="#A855F7" stroke-width="3" stroke-linecap="round"/>
-                <path class="anim-dash-solid" d="M40,160 Q130,160 210,70 T380,30" fill="none" stroke="#3B82F6" stroke-width="3" stroke-linecap="round"/>
-                <path class="anim-fade-in" d="M40,170 L40,160 Q130,160 210,70 T380,30 L380,170 Z" fill="url(#areaBlue)"/>
-              </svg>
-            </div>
-          </div>
-          <div class="text-content">
-            <h4>清晰的数据整理与模型解释</h4>
-            <p>通过字段映射、清洗预览和格式转换整理原始表格；分析后查看模型贡献与输入响应，让数据处理过程和结果依据更透明。</p>
-          </div>
-        </div>
-
-        <div class="showcase-card animate-on-scroll">
-          <div class="media-container interactive-card causal-grid"
-               @mousemove="(e) => handleMouseMove(e, 2)"
-               @mouseleave="handleMouseLeave(2)">
-            <div class="causal-header">
-              <span class="title">暴露与干预知识关联 · 展示示意</span>
-            </div>
-            <div class="causal-layer-labels">
-              <span>暴露层</span><span>分子层</span><span>疾病层</span><span>干预层</span>
-            </div>
-            <div class="causal-graph-area">
-              <svg class="graph-edges" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <defs>
-                  <marker id="arrowBlue" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-                    <polygon points="0 0, 8 4, 0 8" fill="#3B82F6" />
-                  </marker>
-                </defs>
-                <path d="M 12.5 30 C 25 30, 25 70, 37.5 70" stroke="#E5E7EB" stroke-width="1.5" fill="none" />
-                <path d="M 37.5 70 C 50 70, 50 50, 62.5 50" stroke="#E5E7EB" stroke-width="1.5" fill="none" />
-                <path d="M 12.5 70 C 25 70, 25 30, 37.5 30" stroke="#3B82F6" stroke-width="3" fill="none" class="flow-path-anim"/>
-                <path d="M 37.5 30 C 50 30, 50 50, 62.5 50" stroke="#3B82F6" stroke-width="3" fill="none" class="flow-path-anim" style="animation-delay: 0.5s"/>
-                <path d="M 62.5 50 L 87.5 50" stroke="#3B82F6" stroke-width="3" fill="none" marker-end="url(#arrowBlue)" class="flow-path-anim" style="animation-delay: 1s"/>
-              </svg>
-              <div class="mock-node-rect node-inactive" style="left: 12.5%; top: 30%;">Pb</div>
-              <div class="mock-node-rect node-active" style="left: 12.5%; top: 70%;">Hg</div>
-              <div class="mock-node-rect node-active" style="left: 37.5%; top: 30%;">BM-1</div>
-              <div class="mock-node-rect node-inactive" style="left: 37.5%; top: 70%;">BM-2</div>
-              <div class="mock-node-rect node-active" style="left: 62.5%; top: 50%;">靶器官</div>
-              <div class="mock-node-rect node-action" style="left: 87.5%; top: 50%;">推荐方案</div>
-            </div>
-          </div>
-          <div class="text-content">
-            <h4>医学知识问答与干预方案推荐</h4>
-            <p>查阅职业暴露与健康相关的医学资料，了解暴露因素之间的关联。进入方案推荐后，可按预防层级查看干预措施、随访安排和方案报告。</p>
-          </div>
-        </div>
+          <HomeFeaturePreview :kind="feature.id" />
+        </article>
       </section>
 
       <section id="experience-guide" ref="experienceGuide" class="experience-guide" data-workflow-art aria-labelledby="experience-guide-title">
@@ -268,7 +182,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { Warning, Monitor } from '@element-plus/icons-vue'
+import { Monitor } from '@element-plus/icons-vue'
 import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from '~/utils/product'
 import exposureIllustration from '~/assets/illustrations/workflow/exposure-analysis.svg?no-inline'
 import cleaningIllustration from '~/assets/illustrations/workflow/table-cleaning.svg?no-inline'
@@ -279,6 +193,12 @@ useHead({ title: PRODUCT_NAME })
 const isScrolled = ref(false)
 const waveDots = ref([])
 const experienceGuide = ref(null)
+const capabilities = ref(null)
+const features = [
+  { id: 'risk', title: '从单人到群体的风险分析', description: '录入个人信息或导入群体数据，查看健康指标估计、群体分布和相对排序。结合输入质量与结果说明，理解不同对象的指标特征。' },
+  { id: 'cleaning', title: '清晰的数据整理与模型解释', description: '通过字段映射、清洗预览和格式转换整理原始表格。分析完成后，可查看各项输入对模型估计值的贡献，以及改变输入时的模型响应。' },
+  { id: 'knowledge', title: '医学知识问答与干预方案推荐', description: '围绕职业暴露与健康提出问题，查看回答及相关研究。进入方案推荐后，可按预防层级查阅岗位防护措施、随访安排和方案报告。' },
+]
 
 // ✨ 跳转到数据录入控制台
 const goToWorkspace = async () => {
@@ -287,31 +207,6 @@ const goToWorkspace = async () => {
 
 const handleScroll = () => {
   isScrolled.value = window.scrollY > 20
-}
-
-const handleMouseMove = (e, index) => {
-  const cards = document.querySelectorAll('.interactive-card')
-  if (!cards[index]) return
-  const card = cards[index]
-  const rect = card.getBoundingClientRect()
-  const x = e.clientX - rect.left
-  const y = e.clientY - rect.top
-  const glowColor = 'rgba(59, 130, 246, 0.06)'
-  card.style.setProperty('--mouse-x', `${x}px`)
-  card.style.setProperty('--mouse-y', `${y}px`)
-  card.style.setProperty('--glow-color', glowColor)
-  const centerX = rect.width / 2
-  const centerY = rect.height / 2
-  const rotateX = ((y - centerY) / centerY) * -2 
-  const rotateY = ((x - centerX) / centerX) * 2
-  card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateY(-2px)`
-}
-
-const handleMouseLeave = (index) => {
-  const cards = document.querySelectorAll('.interactive-card')
-  if (cards[index]) {
-    cards[index].style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) translateY(0)'
-  }
 }
 
 const generateWaveDots = () => {
@@ -334,8 +229,9 @@ onMounted(() => {
     })
   }, { threshold: 0.15, rootMargin: '0px 0px -20px 0px' })
   document.querySelectorAll('.animate-on-scroll').forEach(el => observer.observe(el))
-  if (window.location.hash === '#experience-guide') {
-    requestAnimationFrame(() => experienceGuide.value?.scrollIntoView({ block: 'start', behavior: 'instant' }))
+  const section = { '#experience-guide': experienceGuide, '#capabilities': capabilities }[window.location.hash]
+  if (section) {
+    requestAnimationFrame(() => section.value?.scrollIntoView({ block: 'start', behavior: 'instant' }))
   }
 })
 
@@ -477,62 +373,12 @@ $color-border: #E5E7EB;
 }
 @keyframes wavePulse { 0% { transform: translateY(0); opacity: 0.3; } 100% { transform: translateY(-15px); opacity: 1; } }
 
-.showcase-list { display: flex; flex-direction: column; gap: 120px; }
-.showcase-card { display: flex; flex-direction: row; align-items: center; gap: 80px; }
-.text-content { flex: 1; padding: 0 20px; h4 { font-size: 2rem; font-weight: 700; color: $text-main; margin-bottom: 20px; letter-spacing: -0.5px; line-height: 1.3; } p { font-size: 1.15rem; color: $color-text-muted; line-height: 1.8; strong { color: $text-main; font-weight: 700; } } }
-.media-container { flex: 1.2; perspective: 1000px; height: 420px; display: flex; justify-content: center; align-items: center; }
-
-.interactive-card {
-  background-color: #ffffff; border-radius: 16px; padding: 30px; width: 100%; height: 100%;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08); border: 1px solid #F3F4F6;
-  transition: transform 0.1s linear, box-shadow 0.2s ease-out;
-  position: relative; overflow: hidden; display: flex; justify-content: center; align-items: center;
-  &::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle 300px at var(--mouse-x, 50%) var(--mouse-y, 50%), var(--glow-color, rgba(255,255,255,0.1)), transparent 50%); pointer-events: none; z-index: 0; opacity: 0; transition: opacity 0.3s; }
-  &:hover { box-shadow: 0 25px 40px -10px rgba(0, 0, 0, 0.12); z-index: 10; }
-  &:hover::before { opacity: 1; }
-  > * { position: relative; z-index: 1; }
-  &.flex-col-card { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; padding: 40px 30px; }
-  &.causal-grid { display: block; }
-}
-
-.mock-ui-clean {
-  background: #ffffff; padding: 35px 40px; border-radius: 20px; border: 1px solid #E5E7EB; width: 75%; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.08);
-  .alert-badge { display: inline-flex; align-items: center; gap: 8px; background: #FEF2F2; color: #EF4444; border: 1px solid #FCA5A5; padding: 8px 18px; border-radius: 30px; font-size: 1.05rem; margin-bottom: 25px; font-weight: 600; }
-  .pulse-red { animation: pulseRed 2s infinite; }
-  .interactive-row { display: flex; justify-content: space-between; font-size: 1.15rem; padding: 14px 10px; border-bottom: 1px solid #F3F4F6; transition: all 0.3s ease; cursor: pointer; border-radius: 8px; .label-text { color: #4B5563; } &:hover { background: #F9FAFB; transform: translateX(8px); border-bottom-color: transparent; } }
-  .danger-text { color: #EF4444; font-weight: 700; }
-}
-.float-anim { animation: floatingCard 6s ease-in-out infinite alternate; }
-@keyframes floatingCard { 0% { transform: translateY(0); } 100% { transform: translateY(-15px); } }
-@keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.2); } 70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
-
-.chart-header-dark { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: #1F2937; font-weight: 600; font-size: 1.05rem; .chart-legend { display: flex; gap: 16px; font-size: 0.85rem; color: #6B7280; .legend-item { display: flex; align-items: center; gap: 6px; } i { width: 14px; height: 4px; border-radius: 2px; } } }
-.chart-body { width: 100%; flex: 1; display: flex; align-items: center; position: relative; min-height: 180px; }
-.line-chart { 
-  width: 100%; height: 100%; overflow: visible; 
-  display: block !important; max-height: none !important; max-width: none !important; /* ✨ 防挤压 */
-}
-.anim-dash { stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: drawLine 3s ease-out forwards; }
-.anim-fade-in { opacity: 0; animation: fadeIn 2s ease-out forwards; animation-delay: 1.5s; }
-@keyframes drawLine { to { stroke-dashoffset: 0; } }
-@keyframes fadeIn { to { opacity: 1; } }
-
-.causal-header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid rgba(0,0,0,0.05); .title { font-size: 1.1rem; font-weight: 700; color: $text-main; } }
-.causal-layer-labels { display: flex; justify-content: space-between; padding: 0 5%; span { font-size: 0.85rem; color: $color-text-muted; font-weight: 500; width: 25%; text-align: center;} }
-.causal-graph-area {
-  position: relative; width: 100%; height: 240px; margin-top: 10px;
-  .graph-edges { 
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; 
-    display: block !important; max-height: none !important; max-width: none !important; /* ✨ 防挤压 */
-  }
-  .flow-path-anim { stroke-dasharray: 8 6; animation: pathFlow 1.5s linear infinite; }
-  @keyframes pathFlow { to { stroke-dashoffset: -14; } }
-  .mock-node-rect { position: absolute; transform: translate(-50%, -50%); padding: 8px 18px; border-radius: 8px; font-weight: 500; font-size: 0.95rem; background: #fff; z-index: 2; display: flex; justify-content: center; align-items: center; transition: all 0.3s ease; cursor: pointer; &:hover { transform: translate(-50%, -50%) scale(1.1); z-index: 10; } }
-  .node-inactive { border: 1px solid #D1D5DB; color: #9CA3AF; }
-  .node-active { border: 2px solid #3B82F6; color: #3B82F6; font-weight: 600; box-shadow: 0 4px 12px rgba(59,130,246,0.15); }
-  .node-action { border: 2px solid #22C55E; color: #22C55E; font-weight: 600; border-radius: 20px; box-shadow: 0 0 20px rgba(34,197,94,0.3); animation: pulseGreen 2s infinite; }
-  @keyframes pulseGreen { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.4); } 70% { box-shadow: 0 0 0 10px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
-}
+.showcase-list { display:grid; gap:clamp(56px,7vw,100px); }
+.showcase-card { display:grid; grid-template-columns:minmax(0,1.22fr) minmax(0,1fr); grid-template-areas:"preview copy"; align-items:center; gap:clamp(34px,5vw,76px); }
+.showcase-card > [data-feature-preview] { grid-area:preview; }
+.text-content { grid-area:copy; min-width:0; }
+.text-content h2 { margin:0 0 14px; color:$text-main; font-size:clamp(1.55rem,2.4vw,2rem); font-weight:700; line-height:1.35; letter-spacing:-.025em; }
+.text-content p { margin:0; color:$color-text-muted; font-size:clamp(1rem,1.3vw,1.12rem); line-height:1.8; }
 
 .system-footer { background: #FFFFFF; border-top: 1px solid rgba(0,0,0,0.05); padding: 80px 0 30px; margin-top: 80px; position: relative; z-index: 10; display: flex; justify-content: center; }
 .footer-wrapper { width: 100%; max-width: 1200px; padding: 0 24px; }
@@ -542,10 +388,9 @@ $color-border: #E5E7EB;
 .footer-bottom { padding-top: 30px; border-top: 1px solid rgba(0,0,0,0.05); .bottom-legal { display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; color: $color-text-muted; .legal-links { display: flex; gap: 24px; a { color: $color-text-muted; text-decoration: none; transition: color 0.2s; &:hover{ color: #1f77b4; } } } } }
 
 @media (max-width: 992px) {
-  .showcase-card { flex-direction: column; gap: 40px; text-align: center; }
+  .showcase-card { grid-template-columns:minmax(0,1fr); grid-template-areas:"copy" "preview"; gap:18px; max-width:680px; width:100%; margin:auto; }
   .system-nav .nav-menu { display: none; }
   .hero-section .title { font-size: 2.5rem; }
-  .causal-graph-interactive { transform: scale(0.8); }
   .footer-content { flex-direction: column; gap: 40px; }
   .footer-links-grid { flex-wrap: wrap; gap: 40px; .link-column { min-width: 140px; } }
   .footer-bottom .bottom-legal { flex-direction: column; gap: 16px; align-items: flex-start; }
@@ -608,7 +453,6 @@ $color-border: #E5E7EB;
 }
 @media screen and (max-width: 992px) {
   .showcase-card > * { min-width: 0; width: 100%; box-sizing: border-box; }
-  .media-container { flex: none; }
   .footer-brand, .footer-links-grid { min-width: 0; }
   .system-nav .nav-wrapper { gap: 16px; }
 }
@@ -634,20 +478,8 @@ $color-border: #E5E7EB;
   .showcase-list { gap: 50px; }
   .showcase-card { gap: 24px; text-align: left; }
   .text-content { padding: 0 4px; }
-  .text-content h4 { font-size: 22px; line-height: 1.55; margin-bottom: 12px; }
+  .text-content h2 { font-size: 22px; line-height: 1.45; margin-bottom: 8px; }
   .text-content p { font-size: 14px; line-height: 1.9; }
-  .interactive-card, .interactive-card.flex-col-card { padding: 20px 16px; height: 300px; }
-  .mock-ui-clean { width: 90%; padding: 24px 16px; border-radius: 14px; }
-  .mock-ui-clean .alert-badge { font-size: 12px; padding: 7px 10px; }
-  .mock-ui-clean .interactive-row { font-size: 13px; padding: 14px 4px; }
-  .chart-header-dark { flex-direction: column; align-items: flex-start; gap: 12px; font-size: 13px; margin-bottom: 10px; }
-  .chart-header-dark .chart-legend { font-size: 11px; }
-  .causal-header { margin-bottom: 12px; padding-bottom: 12px; }
-  .causal-header .title { font-size: 13px; }
-  .causal-layer-labels { padding: 0; }
-  .causal-layer-labels span { font-size: 10px; }
-  .causal-graph-area { height: 190px; }
-  .causal-graph-area .mock-node-rect { padding: 6px; font-size: 10px; white-space: nowrap; }
   .system-footer { padding: 36px 0 24px; margin-top: 20px; }
   .footer-wrapper { padding: 0 20px; }
   .footer-content { gap: 30px; margin-bottom: 30px; }
@@ -663,6 +495,6 @@ $color-border: #E5E7EB;
 }
 @media (prefers-reduced-motion: reduce) {
   .animate-on-scroll { opacity: 1; transform: none; transition: none; }
-  .particle, .wave-dot, .float-anim, .pulse-red, .flow-path-anim, .node-action { animation: none !important; }
+  .particle, .wave-dot { animation: none !important; }
 }
 </style>
