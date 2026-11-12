@@ -142,13 +142,15 @@ const activate = () => {
   try { collapsed.value = localStorage.getItem('zhiwei-sidebar-collapsed') === 'true' } catch { /* Keep session preference. */ }
   media = window.matchMedia('(max-width: 1024px)')
   syncViewport()
-  media.addEventListener('change', syncViewport)
+  if (typeof media.addEventListener === 'function') media.addEventListener('change', syncViewport)
+  else media.addListener(syncViewport)
   document.addEventListener('keydown', handleKey)
 }
 const deactivate = () => {
   active = false
   closeMobile(false)
-  media?.removeEventListener('change', syncViewport)
+  if (typeof media?.removeEventListener === 'function') media.removeEventListener('change', syncViewport)
+  else media?.removeListener(syncViewport)
   document.removeEventListener('keydown', handleKey)
 }
 onMounted(activate)

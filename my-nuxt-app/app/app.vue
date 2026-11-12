@@ -1,5 +1,5 @@
 <template>
-  <div class="application-root">
+  <div class="application-root" :class="{ 'workspace-shell': pageMounted && route.path !== '/' }">
     <!-- 公开演示直接挂载；私有模式完成预检后才启动各页面请求。 -->
     <NuxtPage v-if="pageMounted" :keepalive="{}" />
     <main v-else class="access-bootstrap" aria-live="polite">
@@ -51,6 +51,7 @@ import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { verifySystemAccessResult } from '~/utils/systemAccess'
 
 const { setApiKey, getApiInfo, onAccessRequired } = useApi()
+const route = useRoute()
 const publicDemoSetting = useRuntimeConfig().public.publicDemo
 // 不使用 Boolean(value)：环境配置中的字符串 "false" 不应开启公开模式。
 const publicDemo = String(publicDemoSetting) === 'true'

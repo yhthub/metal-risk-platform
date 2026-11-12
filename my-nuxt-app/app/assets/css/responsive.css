@@ -8,7 +8,7 @@ body { margin: 0; }
 .application-root .workspace-heading .divider { color: #d4dee9; }
 .application-root .workspace-heading .page-title-top { color: #233b53; font-size: 16px; font-weight: 700; }
 @media (min-width: 1025px) {
-  .application-root .system-layout .page-container:has(> .workflow-steps) { max-width: 1400px; padding: 32px 40px 64px; }
+  .application-root .system-layout .page-container.workflow-page-container { max-width: 1400px; padding: 32px 40px 64px; }
 }
 @media (max-width: 600px) {
   .application-root .workspace-heading { gap: 9px; }
@@ -20,9 +20,9 @@ body { margin: 0; }
 .el-overlay .el-dialog { max-width: calc(100vw - 24px); }
 .el-overlay .el-drawer { max-width: 100vw; }
 @media screen {
-  .application-root:has(> .system-layout) { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
-  .application-root > .system-layout { flex: 1 1 0; min-height: 0; height: auto; }
-  .application-root:has(> .system-layout) > .public-demo-note { flex-shrink: 0; }
+  .application-root.workspace-shell { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+  .application-root.workspace-shell > .system-layout { flex: 1 1 0; min-height: 0; height: auto; }
+  .application-root.workspace-shell > .public-demo-note { flex-shrink: 0; }
   .application-root .system-layout > .main-content { height: 100%; }
 }
 @media screen and (max-width: 1024px) {
@@ -43,6 +43,7 @@ body { margin: 0; }
   .application-root input:not([type='checkbox']):not([type='radio']),
   .application-root textarea,
   .el-overlay input:not([type='checkbox']):not([type='radio']) { font-size: 16px; }
+  .application-root.workspace-shell .system-layout select { font-size: 16px; }
   .application-root .el-tabs__item { min-height: 44px; }
   .application-root .el-pagination { max-width: 100%; flex-wrap: wrap; gap: 6px; white-space: normal; }
   .el-overlay .el-dialog { padding: 18px; margin-top: 8vh; }
@@ -59,8 +60,8 @@ body { margin: 0; }
 }
 
 @media (min-width: 601px) and (max-width: 1024px) {
-  .application-root .system-layout .page-container:has(> .workflow-steps) { padding: 24px 22px 48px; }
+  .application-root .system-layout .page-container.workflow-page-container { padding: 24px 22px 48px; }
 }
 @media (max-width: 600px) {
-  .application-root .system-layout .page-container:has(> .workflow-steps) { padding: 20px 14px 36px; }
+  .application-root .system-layout .page-container.workflow-page-container { padding: 20px 14px 36px; }
 }

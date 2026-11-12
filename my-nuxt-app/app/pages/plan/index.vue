@@ -12,7 +12,7 @@
         </div>
       </header>
 
-      <div class="page-container">
+      <div class="page-container workflow-page-container">
         <PipelineSteps :current="4" />
         <header class="plan-heading">
           <div class="plan-intro">

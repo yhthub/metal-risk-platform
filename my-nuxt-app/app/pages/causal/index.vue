@@ -215,7 +215,7 @@ async function openResult(path: KnowledgeRelation) {
 
 <style scoped>
 .causal-layout { height:100dvh; width:100%; display:flex; overflow:hidden; background:#f6f9fa; color:#203a44; }
-.main-content { min-width:0; flex:1; overflow:auto; background:radial-gradient(ellipse 65% 490px at 94% 5%,#e8f3ef 0%,#eef5f238 63%,transparent 96%),linear-gradient(120deg,#f8fafc,#f7f9f8 60%,#f5f7fa); }
+.main-content { position:relative; min-width:0; flex:1; overflow:auto; background:radial-gradient(ellipse 65% 490px at 94% 5%,#e8f3ef 0%,#eef5f238 63%,transparent 96%),linear-gradient(120deg,#f8fafc,#f7f9f8 60%,#f5f7fa); }
 .crumb { min-height:49px; padding:0 clamp(16px,3vw,42px); display:flex; align-items:center; gap:14px; background:#fff; border-bottom:1px solid #e2e9ec; font-size:13px; }
 .crumb a,.continue-row a { display:inline-flex; align-items:center; gap:5px; color:#46676d; text-decoration:none; }.crumb > span { color:#9dadb3; }
 .workspace { box-sizing:border-box; max-width:1750px; margin:auto; padding:clamp(20px,2.15vw,38px) clamp(16px,2.5vw,42px) 58px; }

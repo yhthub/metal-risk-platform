@@ -8,7 +8,7 @@
           <div class="ep-right-zone"><el-tag :type="serviceStatus?.ready ? 'success' : 'info'" effect="plain">{{ serviceStatus?.ready ? '分析服务可用' : '分析服务未就绪' }}</el-tag><div class="user-profile"><div class="avatar">Dr.</div><span>职业卫生评估员</span></div></div>
         </div>
       </header>
-      <div class="page-container">
+      <div class="page-container workflow-page-container">
         <PipelineSteps :current="3" />
         <div class="data-source-banner">
           <div class="ds-left"><span class="ds-label">当前评估对象 / 数据来源：</span><div class="file-chips"><el-tag size="large" effect="plain" round class="custom-tag" :closable="hasSource" @close="handleFileRemove"><el-icon><Document /></el-icon>{{ sourceName }}</el-tag></div></div>
@@ -204,7 +204,12 @@ const goToReportPage = async () => { if (dashboard.value || cohortResult.value) 
 const downloadCohortCsv = (content: string, label: string) => {
   if (typeof document === 'undefined') return
   const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }))
-  const anchor = document.createElement('a'); anchor.href = url; anchor.download = 'NHANES_cohort_' + label + '_' + new Date().toISOString().slice(0, 10) + '.csv'; anchor.click()
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = 'NHANES_cohort_' + label + '_' + new Date().toISOString().slice(0, 10) + '.csv'
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 const downloadCohortSummary = () => { if (cohortResult.value) downloadCohortCsv(cohortSummaryCsv(cohortResult.value), 'summary') }

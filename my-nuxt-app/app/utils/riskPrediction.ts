@@ -115,6 +115,11 @@ export function downloadPrediction(content: string, format: 'csv' | 'json', file
   if (typeof document === 'undefined') return
   const url = URL.createObjectURL(new Blob([content], { type: format === 'csv' ? 'text/csv;charset=utf-8' : 'application/json;charset=utf-8' }))
   const safePrefix = filenamePrefix.replace(/[^A-Za-z0-9_.-]+/g, '_') || 'NHANES_prediction'
-  const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${safePrefix}_${new Date().toISOString().slice(0, 10)}.${format}`; anchor.click()
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `${safePrefix}_${new Date().toISOString().slice(0, 10)}.${format}`
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

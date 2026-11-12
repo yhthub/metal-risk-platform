@@ -70,6 +70,7 @@ const componentFor = (getApiInfo, publicDemo = false) => {
       throw new Error(`Unexpected import ${name}`)
     },
     useRuntimeConfig: () => ({ public: { publicDemo } }),
+    useRoute: () => ({ path: '/' }),
     useApi: () => ({
       getApiInfo,
       setApiKey: key => keys.push(key),

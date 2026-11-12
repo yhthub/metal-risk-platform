@@ -45,7 +45,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onActivated, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { Check } from '@element-plus/icons-vue'
 import { elementNames, relationKinds as categories, type KnowledgeRelation } from '~/utils/knowledgeTypes'
 
@@ -117,15 +117,25 @@ function scheduleTrace() {
   if (frame) cancelAnimationFrame(frame)
   frame = requestAnimationFrame(() => { frame = 0; trace() })
 }
-watch(canvas, el => {
+function stopObserving() {
   observer?.disconnect()
+  observer = undefined
+  window.removeEventListener('resize', scheduleTrace)
+  if (frame) { cancelAnimationFrame(frame); frame = 0 }
+}
+watch(canvas, el => {
+  stopObserving()
   if (!el) return
-  observer = new ResizeObserver(scheduleTrace)
-  observer.observe(el)
+  if (typeof ResizeObserver !== 'undefined') {
+    observer = new ResizeObserver(scheduleTrace)
+    observer.observe(el)
+  }
+  window.addEventListener('resize', scheduleTrace)
   scheduleTrace()
 }, { flush: 'post' })
 watch(() => props.paths, () => { if (canvas.value) scheduleTrace() }, { flush: 'post' })
-onBeforeUnmount(() => { observer?.disconnect(); if (frame) cancelAnimationFrame(frame) })
+onActivated(() => { if (canvas.value) void nextTick(scheduleTrace) })
+onBeforeUnmount(stopObserving)
 </script>
 
 <style scoped>

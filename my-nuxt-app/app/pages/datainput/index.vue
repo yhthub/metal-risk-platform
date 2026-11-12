@@ -26,7 +26,7 @@
         </div>
       </header>
 
-      <div class="page-container">
+      <div class="page-container workflow-page-container">
         <PipelineSteps :current="currentStep" :completed="currentStep > 1 ? currentStep - 1 : 0" />
 
         <div class="input-dashboard">
@@ -566,7 +566,7 @@
 <script setup>
 import intakeIllustration from '~/assets/illustrations/workflow/exposure-analysis.svg?no-inline'
 import { PRODUCT_SHORT_NAME } from '~/utils/product'
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onActivated, onDeactivated, onBeforeUnmount, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { renderBatchAnalysisCharts } from '~/composables/useBatchAnalysisCharts'
 import { buildIndividualProfile, parseMeasurement } from '~/utils/individualProfile'
@@ -718,8 +718,11 @@ const downloadBatchTemplate = () => {
   const link = document.createElement('a')
   link.href = url
   link.download = `group_${selectedOutcomeId.value}_columns.csv`
+  document.body.appendChild(link)
   link.click()
-  URL.revokeObjectURL(url)
+  link.remove()
+  // Let the browser start reading the blob before releasing its URL.
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 watch(selectedOutcomeId, loadBatchFormat)
 const fileInputRef = ref(null)
@@ -1446,16 +1449,32 @@ onMounted(() => {
   loadOutcomeConfigs()
   loadBatchFormat()
   loadGroupDemo()
-  window.addEventListener('resize', handleResize)
+  resumeCharts()
 })
 
+let chartsActive = false
 const handleResize = () => {
-  batchCharts.forEach(chart => chart.resize())
-  singleCharts.forEach(chart => chart.resize())
+  if (!chartsActive) return
+  for (const chart of [...batchCharts, ...singleCharts]) {
+    const element = chart.getDom()
+    if (element?.isConnected && element.clientWidth > 0 && element.clientHeight > 0) chart.resize()
+  }
 }
+function resumeCharts() {
+  if (chartsActive) return
+  chartsActive = true
+  window.addEventListener('resize', handleResize)
+  void nextTick(handleResize)
+}
+function pauseCharts() {
+  chartsActive = false
+  window.removeEventListener('resize', handleResize)
+}
+onActivated(resumeCharts)
+onDeactivated(pauseCharts)
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleResize)
+  pauseCharts()
   batchCharts.forEach(chart => chart.dispose())
   singleCharts.forEach(chart => chart.dispose())
 })
